@@ -1,0 +1,101 @@
+.mcal {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+}
+.mcal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+.mcal-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+}
+.mcal-nav {
+  display: flex;
+  gap: 4px;
+}
+.mcal-nav button {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast);
+}
+.mcal-nav button:hover {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+}
+.mcal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.mcal-dow {
+  text-align: center;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--weight-semibold);
+  padding: 4px 0;
+}
+.mcal-cell {
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  position: relative;
+  gap: 2px;
+  transition: background var(--transition-fast);
+  cursor: default;
+}
+.mcal-cell:hover { background: var(--color-bg-subtle); }
+.mcal-cell-out { color: var(--color-text-muted); opacity: 0.55; }
+.mcal-cell-today {
+  background: var(--color-info-light);
+  color: var(--color-brand-primary);
+  font-weight: var(--weight-semibold);
+  outline: 2px solid var(--color-brand-secondary);
+  outline-offset: -2px;
+}
+.mcal-cell-num { font-size: var(--text-sm); }
+.mcal-cell-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+.mcal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: var(--space-4);
+  margin-top: var(--space-4);
+  border-top: 1px solid var(--color-border-default);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.mcal-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.mcal-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}

@@ -1,0 +1,64 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: capitalize;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.badge-icon { display: inline-flex; }
+.badge-icon svg { width: 12px; height: 12px; }
+
+/* --- SOFT (default) --- */
+.badge-soft.badge-default {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+}
+.badge-soft.badge-success {
+  background: var(--color-success-light);
+  color: #22543d;
+}
+.badge-soft.badge-warning {
+  background: var(--color-warning-light);
+  color: #744210;
+}
+.badge-soft.badge-danger {
+  background: var(--color-danger-light);
+  color: #822727;
+}
+.badge-soft.badge-info {
+  background: var(--color-info-light);
+  color: #2c5282;
+}
+.badge-soft.badge-casual {
+  background: var(--color-leave-casual-light);
+  color: var(--color-leave-casual);
+}
+.badge-soft.badge-sick {
+  background: var(--color-leave-sick-light);
+  color: var(--color-leave-sick);
+}
+.badge-soft.badge-replacement {
+  background: var(--color-leave-replacement-light);
+  color: var(--color-leave-replacement);
+}
+.badge-soft.badge-holiday {
+  background: var(--color-leave-holiday-light);
+  color: var(--color-leave-holiday);
+}
+
+/* --- SOLID --- */
+.badge-solid.badge-success { background: var(--color-success); color: white; }
+.badge-solid.badge-warning { background: var(--color-warning); color: white; }
+.badge-solid.badge-danger  { background: var(--color-danger); color: white; }
+.badge-solid.badge-info    { background: var(--color-info); color: white; }
+.badge-solid.badge-casual  { background: var(--color-leave-casual); color: white; }
+.badge-solid.badge-sick    { background: var(--color-leave-sick); color: white; }
+.badge-solid.badge-replacement { background: var(--color-leave-replacement); color: white; }
+.badge-solid.badge-holiday { background: var(--color-leave-holiday); color: white; }

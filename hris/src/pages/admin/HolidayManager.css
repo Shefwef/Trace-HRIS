@@ -1,0 +1,109 @@
+.hmgr {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.hmgr-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.hmgr-head h1 { font-size: var(--text-3xl); letter-spacing: -0.02em; }
+.hmgr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.hmgr-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 20px;
+  padding: var(--space-5);
+  align-items: center;
+}
+.hmgr-card-date {
+  width: 68px;
+  padding: 10px 0;
+  background: linear-gradient(135deg, var(--color-info-light), var(--color-leave-holiday-light));
+  border: 1px solid rgba(44, 82, 130, 0.15);
+  border-radius: var(--radius-md);
+  text-align: center;
+  color: var(--color-brand-primary);
+}
+.hmgr-card-day {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+.hmgr-card-month {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--weight-semibold);
+  margin-top: 4px;
+}
+.hmgr-card-year {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+.hmgr-card-body { min-width: 0; }
+.hmgr-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.hmgr-card-title h4 { font-size: var(--text-lg); font-weight: var(--weight-semibold); margin: 0; }
+.hmgr-card-desc {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+.hmgr-card-meta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-top: 8px;
+}
+.hmgr-card-sent {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-success);
+  font-weight: var(--weight-semibold);
+}
+.hmgr-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.hmgr-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.hmgr-preview {
+  padding: 16px;
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-default);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  margin: 0;
+}
+@media (max-width: 720px) {
+  .hmgr-card {
+    grid-template-columns: 1fr;
+  }
+}

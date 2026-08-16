@@ -1,0 +1,165 @@
+.lrd {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.lrd-emp {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  background: linear-gradient(135deg, var(--color-bg-subtle), transparent 90%);
+  border-radius: var(--radius-lg);
+}
+.lrd-emp-name {
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-lg);
+  color: var(--color-text-primary);
+}
+.lrd-emp-role {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+.lrd-emp-id {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+.lrd-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lrd-section-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+}
+.lrd-period {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+}
+.lrd-period-item { flex: 1; min-width: 100px; }
+.lrd-period-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+}
+.lrd-period-value {
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  margin-top: 4px;
+}
+.lrd-period-arrow {
+  font-size: var(--text-lg);
+  color: var(--color-text-muted);
+}
+.lrd-balances {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.lrd-balance {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lrd-balance span {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.lrd-balance strong {
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-xl);
+  color: var(--color-text-primary);
+}
+.lrd-balance-after {
+  background: var(--color-success-light);
+  border: 1px solid rgba(56, 161, 105, 0.2);
+}
+.lrd-balance-after strong { color: var(--color-success); }
+.lrd-balance-warn { background: var(--color-danger-light); border-color: rgba(229, 62, 62, 0.2); }
+.lrd-balance-warn strong { color: var(--color-danger); }
+
+.lrd-reason {
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  font-weight: var(--weight-medium);
+}
+.lrd-desc {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  padding: 10px 12px;
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-md);
+  line-height: 1.55;
+}
+.lrd-attach {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  color: var(--color-brand-secondary);
+  font-weight: var(--weight-semibold);
+}
+.lrd-channels {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.lrd-channels span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--color-info-light);
+  color: var(--color-brand-primary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  border-radius: var(--radius-full);
+}
+.lrd-actions {
+  padding: 16px 24px;
+  border-top: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  display: flex;
+  gap: 12px;
+}
+.lrd-reject {
+  min-width: 120px;
+}
+.lrd-decided {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+}
+.lrd-decided-approved { background: var(--color-success-light); color: var(--color-success); }
+.lrd-decided-rejected { background: var(--color-danger-light); color: var(--color-danger); }
+.lrd-decided-title {
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+}
+.lrd-decided-note {
+  margin-top: 6px;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  font-style: italic;
+}

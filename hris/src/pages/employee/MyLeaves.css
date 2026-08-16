@@ -1,0 +1,166 @@
+.myleaves {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.myleaves-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.myleaves-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-border-default);
+  overflow-x: auto;
+}
+.myleaves-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--weight-medium);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color var(--transition-fast), border var(--transition-fast);
+  white-space: nowrap;
+}
+.myleaves-tab:hover { color: var(--color-text-primary); }
+.myleaves-tab-active {
+  color: var(--color-brand-primary);
+  border-color: var(--color-brand-primary);
+  font-weight: var(--weight-semibold);
+}
+.myleaves-tab-count {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: var(--weight-semibold);
+}
+.myleaves-tab-active .myleaves-tab-count {
+  background: var(--color-info-light);
+  color: var(--color-brand-primary);
+}
+
+.myleaves-table {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.myleaves-thead, .myleaves-row {
+  display: grid;
+  grid-template-columns: 60px 1.6fr 100px 100px 100px 100px 90px;
+  gap: 12px;
+  padding: 14px 20px;
+  align-items: center;
+}
+.myleaves-thead {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  background: var(--color-bg-subtle);
+  border-bottom: 1px solid var(--color-border-default);
+}
+.myleaves-row {
+  border-bottom: 1px solid var(--color-border-default);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  text-align: left;
+  background: none;
+  transition: background var(--transition-fast);
+}
+.myleaves-row:last-child { border-bottom: none; }
+.myleaves-row:hover { background: var(--color-bg-subtle); }
+.myleaves-period {
+  color: var(--color-text-secondary);
+}
+.myleaves-period strong {
+  color: var(--color-text-primary);
+  font-weight: var(--weight-semibold);
+}
+.myleaves-period em {
+  color: var(--color-text-muted);
+  font-style: normal;
+  font-size: var(--text-xs);
+}
+.myleaves-cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  transition: background var(--transition-fast);
+}
+.myleaves-cancel:hover { background: var(--color-danger-light); }
+
+@media (max-width: 900px) {
+  .myleaves-thead { display: none; }
+  .myleaves-row {
+    grid-template-columns: 1fr 1fr;
+    row-gap: 8px;
+    align-items: start;
+    padding: 14px;
+  }
+}
+
+.myleaves-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.myleaves-detail-row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 14px;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--color-border-default);
+}
+.myleaves-detail-row:last-child { border-bottom: none; padding-bottom: 0; }
+.myleaves-detail-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: var(--weight-semibold);
+}
+.myleaves-attach {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-brand-secondary);
+  font-weight: var(--weight-semibold);
+}
+.myleaves-detail-note {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-brand-secondary);
+}
+.myleaves-detail-note strong {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+.myleaves-detail-note p {
+  margin: 4px 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}

@@ -1,0 +1,49 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+.field-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-secondary);
+}
+.field-required {
+  color: var(--color-danger);
+  margin-left: 2px;
+}
+.field-msg {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.field-msg-error {
+  color: var(--color-danger);
+}
+
+.input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  transition: border var(--transition-fast), box-shadow var(--transition-fast);
+}
+.input::placeholder { color: var(--color-text-muted); }
+.input:focus {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.15);
+}
+.textarea {
+  resize: vertical;
+  min-height: 96px;
+  font-family: inherit;
+  line-height: var(--leading-normal);
+}
+
+.field-error .input {
+  border-color: var(--color-danger);
+}

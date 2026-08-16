@@ -1,0 +1,141 @@
+.atw {
+  background: linear-gradient(135deg, #2c5282 0%, #3182ce 100%);
+  color: white;
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-shadow: 0 12px 32px rgba(44, 82, 130, 0.28);
+  position: relative;
+  overflow: hidden;
+}
+.atw::before {
+  content: '';
+  position: absolute;
+  right: -60px;
+  top: -60px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+.atw::after {
+  content: '';
+  position: absolute;
+  right: -20px;
+  bottom: -80px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+}
+.atw > * { position: relative; z-index: 1; }
+.atw-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.atw-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  color: rgba(255, 255, 255, 0.85);
+}
+.atw-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.12);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.atw-status-idle { color: rgba(255,255,255,0.7); }
+.atw-status-done { background: rgba(56,161,105,0.35); color: white; }
+.atw-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #48BB78;
+  box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.7);
+  animation: pulse 1.6s infinite;
+}
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.7); }
+  70%  { box-shadow: 0 0 0 10px rgba(72, 187, 120, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0); }
+}
+.atw-timer {
+  font-family: var(--font-mono);
+  font-size: 56px;
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: white;
+}
+.atw-timer-paused { opacity: 0.55; }
+.atw-break {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: rgba(255, 255, 255, 0.9);
+  align-self: flex-start;
+}
+.atw-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: var(--text-sm);
+  color: rgba(255, 255, 255, 0.85);
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.08);
+  border-radius: var(--radius-md);
+}
+.atw-summary strong { color: white; font-weight: var(--weight-semibold); }
+.atw-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.atw-actions .btn {
+  background: white;
+  color: var(--color-brand-primary);
+}
+.atw-actions .btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--color-brand-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+}
+.atw-actions .btn-danger {
+  background: rgba(229, 62, 62, 0.95);
+  color: white;
+}
+.atw-actions .btn-danger:hover:not(:disabled) {
+  background: #c53030;
+  color: white;
+}
+.atw-actions .btn-success {
+  background: var(--color-success);
+  color: white;
+}
+.atw-actions .btn-success:hover:not(:disabled) {
+  background: #2f855a;
+  color: white;
+}
+.atw-actions .btn-secondary {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border-color: rgba(255,255,255,0.25);
+}
+.atw-actions .btn-secondary:hover:not(:disabled) {
+  background: rgba(255,255,255,0.25);
+  color: white;
+}
