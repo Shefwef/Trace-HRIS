@@ -39,13 +39,16 @@
 
 .calpg-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
   background: var(--color-bg-surface);
   padding: var(--space-4);
   border-radius: var(--radius-xl);
   border: 1px solid var(--color-border-default);
   box-shadow: var(--shadow-sm);
+}
+@media (max-width: 720px) {
+  .calpg-grid { padding: var(--space-3); gap: 3px; }
 }
 .calpg-dow {
   padding: 6px;
@@ -55,6 +58,11 @@
   letter-spacing: 0.06em;
   color: var(--color-text-muted);
   font-weight: var(--weight-semibold);
+}
+.calpg-dow-short { display: none; }
+@media (max-width: 480px) {
+  .calpg-dow-full { display: none; }
+  .calpg-dow-short { display: inline; }
 }
 .calpg-cell {
   min-height: 88px;
@@ -66,6 +74,12 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
+}
+@media (max-width: 720px) {
+  .calpg-cell { min-height: 56px; padding: 6px 4px; gap: 3px; }
+  .calpg-cell-body { display: none; }
+  .calpg-cell-head { justify-content: center; font-size: var(--text-xs); }
 }
 .calpg-cell:hover { background: var(--color-bg-subtle); }
 .calpg-cell-out {
@@ -122,6 +136,13 @@
 
 .calpg-upcoming {
   padding: var(--space-5);
+}
+@media (max-width: 640px) {
+  .calpg-upcoming li {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    text-align: left;
+  }
 }
 .calpg-upcoming h3 {
   font-size: var(--text-base);

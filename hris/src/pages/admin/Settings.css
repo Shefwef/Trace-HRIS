@@ -1,5 +1,6 @@
 .stg { display: flex; flex-direction: column; gap: var(--space-6); }
 .stg-head h1 { font-size: var(--text-3xl); letter-spacing: -0.02em; }
+@media (max-width: 640px) { .stg-head h1 { font-size: var(--text-2xl); } }
 .stg-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

@@ -9,13 +9,35 @@
   position: sticky;
   top: 0;
   z-index: 30;
+  gap: var(--space-3);
 }
-.topbar-left { display: flex; flex-direction: column; }
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.topbar-left-text { display: flex; flex-direction: column; min-width: 0; }
+.topbar-hamburger {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast);
+  flex-shrink: 0;
+}
+.topbar-hamburger:hover { background: var(--color-bg-subtle); color: var(--color-text-primary); }
 .topbar-greet {
   font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: var(--weight-semibold);
   color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .topbar-greet strong { color: var(--color-brand-primary); font-weight: var(--weight-bold); }
 .topbar-date {
@@ -23,10 +45,12 @@
   color: var(--color-text-muted);
   margin-top: 2px;
 }
+.topbar-date-short { display: none; }
 .topbar-right {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  flex-shrink: 0;
 }
 
 .topbar-btn {
@@ -108,6 +132,7 @@
   border: 1px solid var(--color-border-default);
   padding: var(--space-2);
   z-index: 40;
+  max-width: calc(100vw - 32px);
 }
 .topbar-menu-wide { min-width: 320px; }
 .topbar-menu-notif { min-width: 360px; }
@@ -250,8 +275,27 @@
   flex-shrink: 0;
 }
 
-@media (max-width: 720px) {
+/* Breakpoints */
+@media (max-width: 900px) {
   .topbar { padding: 0 var(--space-4); height: 64px; }
-  .hide-sm { display: none; }
+  .topbar-hamburger { display: inline-flex; }
   .topbar-menu-notif { min-width: 300px; }
+}
+@media (max-width: 640px) {
+  .topbar { gap: 4px; }
+  .hide-sm { display: none; }
+  .topbar-greet { font-size: var(--text-base); }
+  .topbar-date-full { display: none; }
+  .topbar-date-short { display: block; }
+  .topbar-btn-outline { padding: 8px; }
+  .topbar-user-info { display: none; }
+  .topbar-userbtn { padding: 2px; }
+  .topbar-icon-btn { width: 36px; height: 36px; }
+  .topbar-hamburger { width: 36px; height: 36px; }
+  .topbar-right { gap: 4px; }
+  .topbar-menu-notif { min-width: 280px; }
+  .topbar-menu-wide { min-width: 280px; }
+}
+@media (max-width: 400px) {
+  .hide-xs { display: none; }
 }

@@ -4,6 +4,7 @@
   gap: var(--space-5);
 }
 .empg-head h1 { font-size: var(--text-3xl); letter-spacing: -0.02em; }
+@media (max-width: 640px) { .empg-head h1 { font-size: var(--text-2xl); } }
 .empg-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

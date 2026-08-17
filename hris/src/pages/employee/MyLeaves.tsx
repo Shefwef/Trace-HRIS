@@ -121,19 +121,23 @@ export function MyLeaves() {
                 exit={{ opacity: 0 }}
                 layout
               >
-                <span>
+                <span data-label="Type">
                   <Badge variant={leaveVariant[r.leaveType]}>{leaveTypeShort(r.leaveType)}</Badge>
                 </span>
-                <span className="myleaves-period">
+                <span className="myleaves-period" data-label="Period">
                   <strong>{fmtDate(r.startDate)}</strong>
                   {r.startDate !== r.endDate && <> – <strong>{fmtDate(r.endDate)}</strong></>}
                   {r.isHalfDay && <em> · {r.halfDaySlot === 'MORNING' ? 'morning' : 'afternoon'} half</em>}
                 </span>
-                <span className="mono">{r.durationDays} {r.durationDays === 1 ? 'day' : 'days'}</span>
-                <span><Badge variant={statusVariant[r.status]}>{r.status.toLowerCase()}</Badge></span>
-                <span className="muted">{fmtRelative(r.createdAt)}</span>
-                <span className="muted">{r.reviewedAt ? fmtRelative(r.reviewedAt) : '—'}</span>
-                <span>
+                <span className="mono" data-label="Duration">
+                  {r.durationDays} {r.durationDays === 1 ? 'day' : 'days'}
+                </span>
+                <span data-label="Status">
+                  <Badge variant={statusVariant[r.status]}>{r.status.toLowerCase()}</Badge>
+                </span>
+                <span className="muted" data-label="Applied">{fmtRelative(r.createdAt)}</span>
+                <span className="muted" data-label="Decided">{r.reviewedAt ? fmtRelative(r.reviewedAt) : '—'}</span>
+                <span data-label="Actions">
                   {r.status === 'PENDING' ? (
                     <button
                       className="myleaves-cancel"

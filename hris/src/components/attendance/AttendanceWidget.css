@@ -10,6 +10,12 @@
   position: relative;
   overflow: hidden;
 }
+@media (max-width: 640px) {
+  .atw { padding: var(--space-5); border-radius: var(--radius-lg); }
+}
+@media (max-width: 480px) {
+  .atw-actions .btn { flex: 1; min-width: 0; padding-left: 10px; padding-right: 10px; }
+}
 .atw::before {
   content: '';
   position: absolute;
@@ -73,7 +79,7 @@
 }
 .atw-timer {
   font-family: var(--font-mono);
-  font-size: 56px;
+  font-size: clamp(40px, 9vw, 56px);
   font-weight: var(--weight-bold);
   letter-spacing: -0.02em;
   line-height: 1;

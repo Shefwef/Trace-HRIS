@@ -15,6 +15,11 @@
   letter-spacing: -0.02em;
   max-width: 640px;
 }
+@media (max-width: 640px) {
+  .edash-hero h1 { font-size: var(--text-2xl); }
+  .edash-hero .btn { width: 100%; }
+  .edash-hero { flex-direction: column; align-items: stretch; }
+}
 .edash-hero-sub {
   color: var(--color-text-muted);
   margin-top: 6px;
@@ -80,6 +85,17 @@
   padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--color-border-default);
   transition: background var(--transition-fast);
+}
+@media (max-width: 480px) {
+  .edash-activity li {
+    grid-template-columns: 40px 1fr;
+    gap: var(--space-3);
+    padding: var(--space-4);
+  }
+  .edash-activity li > :last-child {
+    grid-column: 2 / -1;
+    justify-self: start;
+  }
 }
 .edash-activity li:last-child { border-bottom: none; }
 .edash-activity li:hover { background: var(--color-bg-subtle); }

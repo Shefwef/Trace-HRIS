@@ -10,6 +10,12 @@
   flex-wrap: wrap;
   gap: 12px;
 }
+.myleaves-head h1 { font-size: var(--text-3xl); letter-spacing: -0.02em; }
+@media (max-width: 640px) {
+  .myleaves-head h1 { font-size: var(--text-2xl); }
+  .myleaves-head { flex-direction: column; align-items: stretch; }
+  .myleaves-head .btn { width: 100%; }
+}
 .myleaves-tabs {
   display: flex;
   gap: 4px;
@@ -110,9 +116,36 @@
   .myleaves-thead { display: none; }
   .myleaves-row {
     grid-template-columns: 1fr 1fr;
-    row-gap: 8px;
+    row-gap: 12px;
     align-items: start;
-    padding: 14px;
+    padding: 16px 18px;
+    border-radius: var(--radius-md);
+  }
+  .myleaves-row > span {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
+  }
+  .myleaves-row > span::before {
+    content: attr(data-label);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: var(--weight-semibold);
+    color: var(--color-text-muted);
+  }
+  .myleaves-row > span[data-label="Period"] {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 480px) {
+  .myleaves-row {
+    grid-template-columns: 1fr;
+  }
+  .myleaves-row > span[data-label="Period"] {
+    grid-column: auto;
   }
 }
 

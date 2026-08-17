@@ -4,6 +4,10 @@
   gap: var(--space-6);
 }
 .anpg-head h1 { font-size: var(--text-3xl); letter-spacing: -0.02em; }
+@media (max-width: 640px) {
+  .anpg-head h1 { font-size: var(--text-2xl); }
+  .anpg-donut { grid-template-columns: 1fr; }
+}
 .anpg-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

@@ -113,13 +113,13 @@ export function AttendancePage() {
           </div>
           {attendance.map((a) => (
             <div key={a.id} className="atpg-row">
-              <span>{fmtDate(a.date, 'EEE, d MMM')}</span>
-              <span className="mono">{a.clockInTime ? fmtTime(a.clockInTime) : '—'}</span>
-              <span className="mono">{a.clockOutTime ? fmtTime(a.clockOutTime) : '—'}</span>
-              <span className="mono">{a.totalBreakMinutes ? fmtDuration(a.totalBreakMinutes) : '—'}</span>
-              <span className="mono">{a.totalWorkedMinutes ? fmtDuration(a.totalWorkedMinutes) : '—'}</span>
-              <span className="mono">{a.overtimeMinutes ? fmtDuration(a.overtimeMinutes) : '—'}</span>
-              <span><StatusDot status={a.status} /></span>
+              <span data-label="Date">{fmtDate(a.date, 'EEE, d MMM')}</span>
+              <span className="mono" data-label="Clock in">{a.clockInTime ? fmtTime(a.clockInTime) : '—'}</span>
+              <span className="mono" data-label="Clock out">{a.clockOutTime ? fmtTime(a.clockOutTime) : '—'}</span>
+              <span className="mono" data-label="Break">{a.totalBreakMinutes ? fmtDuration(a.totalBreakMinutes) : '—'}</span>
+              <span className="mono" data-label="Worked">{a.totalWorkedMinutes ? fmtDuration(a.totalWorkedMinutes) : '—'}</span>
+              <span className="mono" data-label="Overtime">{a.overtimeMinutes ? fmtDuration(a.overtimeMinutes) : '—'}</span>
+              <span data-label="Status"><StatusDot status={a.status} /></span>
             </div>
           ))}
         </div>

@@ -133,19 +133,19 @@ export function LeaveRequestsPage() {
                   exit={{ opacity: 0 }}
                   layout
                 >
-                  <span className="lreq-emp">
+                  <span className="lreq-emp" data-label="Employee">
                     <Avatar initials={emp.initials} color={emp.avatarColor} size="sm" />
                     <span>
                       <strong>{emp.fullName}</strong>
                       <em>{emp.department}</em>
                     </span>
                   </span>
-                  <span><Badge variant={leaveVariant[r.leaveType]}>{leaveTypeShort(r.leaveType)}</Badge></span>
-                  <span>{fmtDate(r.startDate, 'd MMM')} – {fmtDate(r.endDate, 'd MMM')}</span>
-                  <span className="mono">{r.durationDays}d</span>
-                  <span className="lreq-reason">{r.reason}</span>
-                  <span className="muted">{fmtRelative(r.createdAt)}</span>
-                  <span><Badge variant={statusVariant[r.status]}>{r.status.toLowerCase()}</Badge></span>
+                  <span data-label="Type"><Badge variant={leaveVariant[r.leaveType]}>{leaveTypeShort(r.leaveType)}</Badge></span>
+                  <span data-label="Period">{fmtDate(r.startDate, 'd MMM')} – {fmtDate(r.endDate, 'd MMM')}</span>
+                  <span className="mono" data-label="Days">{r.durationDays}d</span>
+                  <span className="lreq-reason" data-label="Reason">{r.reason}</span>
+                  <span className="muted" data-label="Applied">{fmtRelative(r.createdAt)}</span>
+                  <span data-label="Status"><Badge variant={statusVariant[r.status]}>{r.status.toLowerCase()}</Badge></span>
                 </motion.button>
               );
             })}

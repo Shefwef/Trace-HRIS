@@ -55,7 +55,10 @@ export function CalendarPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-          <div key={d} className="calpg-dow">{d}</div>
+          <div key={d} className="calpg-dow">
+            <span className="calpg-dow-full">{d}</span>
+            <span className="calpg-dow-short">{d[0]}</span>
+          </div>
         ))}
         {days.map((d) => {
           const iso = d.toISOString().slice(0, 10);

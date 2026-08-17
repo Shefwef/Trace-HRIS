@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Bell, ChevronDown, LogOut, UserCog, Users2 } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, UserCog, Users2, Menu } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useCurrentUser, useStore } from '../../lib/store';
 import { Avatar } from '../ui/Avatar';
 import { fmtRelative, cx } from '../../lib/utils';
 import { CheckCircle2, XCircle, Clock as ClockIcon, Star, CalendarDays, Bell as BellIcon, Info } from 'lucide-react';
+import { useMobileNav } from './navContext';
 import './Topbar.css';
 
 const NOTIF_ICONS: Record<string, React.ReactNode> = {
@@ -31,6 +32,7 @@ export function Topbar() {
   );
   const markRead = useStore((s) => s.markNotificationRead);
   const markAllRead = useStore((s) => s.markAllRead);
+  const openMobileNav = useMobileNav((s) => s.open);
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
@@ -61,13 +63,27 @@ export function Topbar() {
     year: 'numeric',
   });
 
+  const shortDate = new Date().toLocaleDateString(undefined, {
+    weekday: 'short', day: 'numeric', month: 'short',
+  });
+
   return (
     <header className="topbar">
       <div className="topbar-left">
-        <div className="topbar-greet">
-          Hello, <strong>{user.fullName.split(' ')[0]}</strong>
+        <button
+          className="topbar-hamburger"
+          onClick={openMobileNav}
+          aria-label="Open menu"
+        >
+          <Menu size={20} />
+        </button>
+        <div className="topbar-left-text">
+          <div className="topbar-greet">
+            Hello, <strong>{user.fullName.split(' ')[0]}</strong>
+          </div>
+          <div className="topbar-date topbar-date-full">{today}</div>
+          <div className="topbar-date topbar-date-short">{shortDate}</div>
         </div>
-        <div className="topbar-date">{today}</div>
       </div>
 
       <div className="topbar-right">
@@ -76,10 +92,11 @@ export function Topbar() {
           <button
             className="topbar-btn topbar-btn-outline"
             onClick={() => setSwitcherOpen((v) => !v)}
+            aria-label="Switch demo user"
           >
             <Users2 size={16} />
             <span className="hide-sm">Demo: switch user</span>
-            <ChevronDown size={14} />
+            <ChevronDown size={14} className="hide-xs" />
           </button>
           <AnimatePresence>
             {switcherOpen && (

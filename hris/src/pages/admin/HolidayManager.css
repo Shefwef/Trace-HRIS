@@ -11,6 +11,11 @@
   gap: 12px;
 }
 .hmgr-head h1 { font-size: var(--text-3xl); letter-spacing: -0.02em; }
+@media (max-width: 640px) {
+  .hmgr-head h1 { font-size: var(--text-2xl); }
+  .hmgr-head { flex-direction: column; align-items: stretch; }
+  .hmgr-head .btn { width: 100%; }
+}
 .hmgr-list {
   display: flex;
   flex-direction: column;
@@ -104,6 +109,23 @@
 }
 @media (max-width: 720px) {
   .hmgr-card {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
   }
+  .hmgr-card-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    border-top: 1px dashed var(--color-border-default);
+    padding-top: 12px;
+  }
+}
+@media (max-width: 420px) {
+  .hmgr-card { grid-template-columns: 1fr; }
+  .hmgr-card-date {
+    flex-direction: row;
+    width: fit-content;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .hmgr-card-year { display: none; }
 }

@@ -16,6 +16,9 @@
   width: 100%;
   margin: 0 auto;
 }
-@media (max-width: 720px) {
-  .shell-content { padding: var(--space-4); }
+@media (max-width: 900px) {
+  .shell-content { padding: var(--space-5); }
+}
+@media (max-width: 640px) {
+  .shell-content { padding: var(--space-4) var(--space-3); }
 }

@@ -1,4 +1,6 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Home,
   ClipboardList,
@@ -12,8 +14,10 @@ import {
   Settings,
   Cog,
   ScrollText,
+  X,
 } from 'lucide-react';
 import { useCurrentUser } from '../../lib/store';
+import { useMobileNav } from './navContext';
 import { cx } from '../../lib/utils';
 import './Sidebar.css';
 
@@ -41,12 +45,25 @@ const superNav = [
 
 export function Sidebar() {
   const user = useCurrentUser();
+  const mobileOpen = useMobileNav((s) => s.mobileOpen);
+  const closeMobile = useMobileNav((s) => s.close);
+  const location = useLocation();
+
+  useEffect(() => {
+    closeMobile();
+  }, [location.pathname, closeMobile]);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileOpen]);
+
   if (!user) return null;
 
   const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
 
-  return (
-    <aside className="sidebar">
+  const nav = (
+    <>
       <div className="sidebar-brand">
         <div className="sidebar-logo">
           <svg viewBox="0 0 32 32" width="26" height="26">
@@ -61,10 +78,17 @@ export function Sidebar() {
             </defs>
           </svg>
         </div>
-        <div>
+        <div className="sidebar-brand-text">
           <div className="sidebar-brand-name">HRIS</div>
           <div className="sidebar-brand-tag">People, simplified.</div>
         </div>
+        <button
+          className="sidebar-close"
+          onClick={closeMobile}
+          aria-label="Close menu"
+        >
+          <X size={20} />
+        </button>
       </div>
 
       <nav className="sidebar-nav">
@@ -100,7 +124,36 @@ export function Sidebar() {
           </div>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      <aside className="sidebar sidebar-desktop">{nav}</aside>
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div
+              className="sidebar-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={closeMobile}
+            />
+            <motion.aside
+              className="sidebar sidebar-mobile"
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+            >
+              {nav}
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 

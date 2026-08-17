@@ -14,6 +14,9 @@
   justify-content: center;
   padding: var(--space-4);
 }
+@media (max-width: 480px) {
+  .modal-wrap { padding: var(--space-3); align-items: flex-end; }
+}
 .modal {
   background: var(--color-bg-surface);
   border-radius: var(--radius-xl);
@@ -22,6 +25,9 @@
   max-height: 90vh;
   display: flex;
   flex-direction: column;
+}
+@media (max-width: 480px) {
+  .modal { width: 100% !important; }
 }
 .modal-header {
   display: flex;

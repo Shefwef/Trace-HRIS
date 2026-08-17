@@ -4,10 +4,12 @@
   border-right: 1px solid var(--color-border-default);
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
+}
+.sidebar-desktop {
   position: sticky;
   top: 0;
   height: 100vh;
-  flex-shrink: 0;
 }
 .sidebar-brand {
   display: flex;
@@ -16,10 +18,12 @@
   padding: var(--space-6) var(--space-5);
   border-bottom: 1px solid var(--color-border-default);
 }
+.sidebar-brand-text { flex: 1; min-width: 0; }
 .sidebar-logo {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 .sidebar-brand-name {
   font-family: var(--font-display);
@@ -27,12 +31,24 @@
   font-weight: var(--weight-bold);
   color: var(--color-text-primary);
   letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 .sidebar-brand-tag {
   font-size: var(--text-xs);
   color: var(--color-text-muted);
   margin-top: -2px;
 }
+.sidebar-close {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast);
+}
+.sidebar-close:hover { background: var(--color-bg-subtle); color: var(--color-text-primary); }
 .sidebar-nav {
   flex: 1;
   overflow-y: auto;
@@ -72,6 +88,7 @@
   align-items: center;
   justify-content: center;
   width: 20px;
+  flex-shrink: 0;
 }
 .sidebar-item-active {
   background: var(--color-bg-subtle);
@@ -103,24 +120,34 @@
   color: var(--color-text-secondary);
 }
 
+/* Mobile drawer */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 90;
+  backdrop-filter: blur(2px);
+}
+.sidebar-mobile {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 91;
+  height: 100vh;
+  width: 280px;
+  max-width: 88vw;
+  box-shadow: var(--shadow-xl);
+}
+.sidebar-mobile .sidebar-close {
+  display: inline-flex;
+}
+
+/* Only one sidebar shows at a time */
 @media (max-width: 900px) {
-  .sidebar {
-    width: 72px;
-  }
-  .sidebar-brand > div,
-  .sidebar-brand-name,
-  .sidebar-brand-tag,
-  .sidebar-section,
-  .sidebar-item span:not(.sidebar-item-icon),
-  .sidebar-help,
-  .sidebar-foot {
-    display: none;
-  }
-  .sidebar-item {
-    justify-content: center;
-    padding: 12px 8px;
-  }
-  .sidebar-item-icon {
-    width: auto;
-  }
+  .sidebar-desktop { display: none; }
+}
+@media (min-width: 901px) {
+  .sidebar-mobile,
+  .sidebar-overlay { display: none !important; }
 }

@@ -215,3 +215,8 @@
   .login { grid-template-columns: 1fr; }
   .login-left { display: none; }
 }
+@media (max-width: 480px) {
+  .login-right { padding: var(--space-4); }
+  .login-card { padding: var(--space-5); }
+  .login-quick { grid-template-columns: 1fr; }
+}
