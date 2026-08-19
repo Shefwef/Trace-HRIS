@@ -454,6 +454,83 @@ export function useDeleteHoliday() {
   });
 }
 
+// ─── Settings ───────────────────────────────────────
+
+export interface SystemSettings {
+  senderEmail: string;
+  senderName: string;
+  fromEmail: string;
+  standardHoursPerDay: number;
+  workStartTime: string;
+  workEndTime: string;
+  workDaysBitmask: number;
+  overtimeThresholdMinutes: number;
+  updatedAt: string;
+}
+export function useSettings() {
+  return useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api<SystemSettings>('/api/settings'),
+    staleTime: 60_000,
+  });
+}
+export function useUpdateSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: Partial<SystemSettings>) =>
+      api<SystemSettings>('/api/settings', {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  });
+}
+
+// ─── Users (admin) ─────────────────────────────────
+
+export interface InviteEmployeePayload {
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: 'ADMIN' | 'HR' | 'EMPLOYEE';
+  department: string;
+  designation: string;
+  employeeIdCode: string;
+  cycleStartMonth: number;
+  password?: string;
+}
+export function useInviteEmployee() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: InviteEmployeePayload) =>
+      api<{ ok: true; id: string; email: string; initialPassword: string }>(
+        '/api/users/invite',
+        { method: 'POST', body: JSON.stringify(input) }
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+}
+
+export interface UpdateEmployeePayload {
+  fullName?: string;
+  role?: 'ADMIN' | 'HR' | 'EMPLOYEE';
+  department?: string;
+  designation?: string;
+  employeeIdCode?: string;
+  isActive?: boolean;
+}
+export function useUpdateEmployee() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: UpdateEmployeePayload }) =>
+      api(`/api/users/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+}
+
 export function useSendHolidayNotice() {
   const qc = useQueryClient();
   return useMutation({

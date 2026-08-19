@@ -80,3 +80,37 @@ export type CreateHolidayInput = z.infer<typeof CreateHolidaySchema>;
 
 export const UpdateHolidaySchema = CreateHolidaySchema.partial();
 export type UpdateHolidayInput = z.infer<typeof UpdateHolidaySchema>;
+
+export const UpdateSettingsSchema = z.object({
+  senderEmail: z.email().optional(),
+  senderName: z.string().min(2).max(80).optional(),
+  fromEmail: z.email().optional(),
+  standardHoursPerDay: z.int().min(1).max(24).optional(),
+  workStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Must be HH:mm').optional(),
+  workEndTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Must be HH:mm').optional(),
+  overtimeThresholdMinutes: z.int().min(0).max(24 * 60).optional(),
+});
+export type UpdateSettingsInput = z.infer<typeof UpdateSettingsSchema>;
+
+export const InviteEmployeeSchema = z.object({
+  email: z.email(),
+  firstName: z.string().min(1).max(80),
+  lastName: z.string().min(1).max(80),
+  role: z.enum(['ADMIN', 'HR', 'EMPLOYEE']),
+  department: z.string().min(1).max(120),
+  designation: z.string().min(1).max(120),
+  employeeIdCode: z.string().min(1).max(50),
+  cycleStartMonth: z.int().min(1).max(12).default(1),
+  password: z.string().min(8).max(100).optional(),
+});
+export type InviteEmployeeInput = z.infer<typeof InviteEmployeeSchema>;
+
+export const UpdateEmployeeSchema = z.object({
+  fullName: z.string().min(2).max(160).optional(),
+  role: z.enum(['ADMIN', 'HR', 'EMPLOYEE']).optional(),
+  department: z.string().max(120).optional(),
+  designation: z.string().max(120).optional(),
+  employeeIdCode: z.string().max(50).optional(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateEmployeeInput = z.infer<typeof UpdateEmployeeSchema>;
