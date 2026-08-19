@@ -1,4 +1,6 @@
-import { NavLink, useLocation } from 'react-router-dom';
+'use client';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -16,7 +18,7 @@ import {
   ScrollText,
   X,
 } from 'lucide-react';
-import { useCurrentUser } from '../../lib/store';
+import { useCurrentUser } from '@/lib/session';
 import { useMobileNav } from './navContext';
 import { cx } from '../../lib/utils';
 import './Sidebar.css';
@@ -47,46 +49,39 @@ export function Sidebar() {
   const user = useCurrentUser();
   const mobileOpen = useMobileNav((s) => s.mobileOpen);
   const closeMobile = useMobileNav((s) => s.close);
-  const location = useLocation();
+  const pathname = usePathname();
 
   useEffect(() => {
     closeMobile();
-  }, [location.pathname, closeMobile]);
+  }, [pathname, closeMobile]);
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [mobileOpen]);
 
   if (!user) return null;
 
-  const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
+  const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'HR';
 
   const nav = (
     <>
       <div className="sidebar-brand">
         <div className="sidebar-logo">
-          <svg viewBox="0 0 32 32" width="26" height="26">
-            <rect width="32" height="32" rx="8" fill="url(#g1)" />
-            <circle cx="16" cy="13" r="5" fill="white" />
-            <path d="M6 27c0-5 4.5-9 10-9s10 4 10 9" fill="white" />
-            <defs>
-              <linearGradient id="g1" x1="0" x2="32" y1="0" y2="32">
-                <stop stopColor="#2C5282" />
-                <stop offset="1" stopColor="#3182CE" />
-              </linearGradient>
-            </defs>
-          </svg>
+          <img
+            src="/Trace%20Consulting%20Logo.png"
+            alt="Trace Consulting"
+            width={26}
+            height={26}
+          />
         </div>
         <div className="sidebar-brand-text">
           <div className="sidebar-brand-name">HRIS</div>
           <div className="sidebar-brand-tag">People, simplified.</div>
         </div>
-        <button
-          className="sidebar-close"
-          onClick={closeMobile}
-          aria-label="Close menu"
-        >
+        <button className="sidebar-close" onClick={closeMobile} aria-label="Close menu">
           <X size={20} />
         </button>
       </div>
@@ -158,14 +153,13 @@ export function Sidebar() {
 }
 
 function NavItem({ to, label, icon }: { to: string; label: string; icon: React.ReactNode }) {
+  const pathname = usePathname() ?? '';
+  const isActive =
+    to === '/' ? pathname === '/' : to === '/admin' ? pathname === '/admin' : pathname.startsWith(to);
   return (
-    <NavLink
-      to={to}
-      end={to === '/' || to === '/admin'}
-      className={({ isActive }) => cx('sidebar-item', isActive && 'sidebar-item-active')}
-    >
+    <Link href={to} className={cx('sidebar-item', isActive && 'sidebar-item-active')}>
       <span className="sidebar-item-icon">{icon}</span>
       <span>{label}</span>
-    </NavLink>
+    </Link>
   );
 }

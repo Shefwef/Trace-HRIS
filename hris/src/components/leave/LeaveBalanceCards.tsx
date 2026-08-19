@@ -1,10 +1,19 @@
 import { motion } from 'framer-motion';
 import { ArcRing } from '../ui/ArcRing';
-import type { LeaveBalance } from '../../lib/types';
 import './LeaveBalanceCards.css';
 
+interface BalanceLike {
+  casualTotal: number;
+  casualUsed: number;
+  casualPending: number;
+  sickTotal: number;
+  sickUsed: number;
+  sickPending: number;
+  replacementBalance: number;
+}
+
 interface Props {
-  balance: LeaveBalance;
+  balance: BalanceLike;
 }
 
 export function LeaveBalanceCards({ balance }: Props) {

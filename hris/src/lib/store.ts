@@ -539,12 +539,26 @@ export const useStore = create<Store>((set, get) => ({
     }),
 }));
 
-// Helper hooks
+// Helper hooks — delegate to the real Clerk session, adapting to the legacy
+// `User` shape used by page components.
+import { useSession, initials, avatarColorFor } from './session';
+
 export function useCurrentUser(): User | null {
-  return useStore((s) => {
-    if (!s.currentUserId) return null;
-    return s.users.find((u) => u.id === s.currentUserId) ?? null;
-  });
+  const sessionUser = useSession((s) => s.user);
+  if (!sessionUser) return null;
+  return {
+    id: sessionUser.id,
+    fullName: sessionUser.fullName,
+    email: sessionUser.email,
+    role: sessionUser.role as User['role'],
+    department: sessionUser.department,
+    designation: sessionUser.designation,
+    employeeIdCode: sessionUser.employeeIdCode,
+    avatarColor: avatarColorFor(sessionUser.id),
+    initials: initials(sessionUser.fullName),
+    cycleStartMonth: 1,
+    cycleStartDay: 1,
+  };
 }
 
 // Types for consumer imports
