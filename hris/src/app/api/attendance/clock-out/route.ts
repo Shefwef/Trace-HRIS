@@ -21,14 +21,11 @@ export async function POST(req: Request) {
   if (error) return error;
 
   let input: z.infer<typeof Body> = undefined;
-  try {
-    if (req.body) {
-      const [parsed, bad] = await parseBody(req, Body);
-      if (bad) return bad;
-      input = parsed;
-    }
-  } catch {
-    /* empty */
+  const contentLength = Number(req.headers.get('content-length') ?? '0');
+  if (contentLength > 0) {
+    const [parsed, bad] = await parseBody(req, Body);
+    if (bad) return bad;
+    input = parsed;
   }
 
   const now = input?.timestamp ? new Date(input.timestamp) : new Date();

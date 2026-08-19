@@ -15,15 +15,14 @@ export async function POST(req: Request) {
   const [user, error] = await requireAuth(req);
   if (error) return error;
 
+  // Client typically POSTs with no body — the widget just wants "clock me in now."
+  // Only try to parse if the request actually carries content.
   let input: z.infer<typeof Body> = undefined;
-  try {
-    if (req.body) {
-      const [parsed, bad] = await parseBody(req, Body);
-      if (bad) return bad;
-      input = parsed;
-    }
-  } catch {
-    // no body — accept as manual clock-in
+  const contentLength = Number(req.headers.get('content-length') ?? '0');
+  if (contentLength > 0) {
+    const [parsed, bad] = await parseBody(req, Body);
+    if (bad) return bad;
+    input = parsed;
   }
 
   const now = input?.timestamp ? new Date(input.timestamp) : new Date();
