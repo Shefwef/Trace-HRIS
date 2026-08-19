@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (Next.js + Prisma)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hris
+
+    # Dummy values only — real secrets live in Vercel and are never needed at
+    # build time. Format-validated placeholders keep Clerk / Prisma / Next
+    # happy without touching any external service.
+    env:
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZHVtbXktY2xlcmstZm9yLWNpLmNsZXJrLmFjY291bnRzLmRldiQ
+      CLERK_SECRET_KEY: sk_test_dummy_ci_key_not_real
+      DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy?sslmode=disable
+      DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy?sslmode=disable
+      RESEND_API_KEY: re_dummy
+      GEMINI_API_KEY: dummy
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: hris/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (prisma generate + next build)
+        run: npm run build
