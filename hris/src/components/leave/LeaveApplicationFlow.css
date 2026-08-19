@@ -240,6 +240,7 @@
   cursor: pointer;
 }
 .laf-halfslot { display: flex; gap: 8px; margin-top: 10px; }
+.laf-timerow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
 .laf-slot {
   flex: 1;
   padding: 10px;

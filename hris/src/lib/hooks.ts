@@ -1,0 +1,378 @@
+'use client';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { CreateLeaveInput, CreateExtraWorkInput } from './validation';
+
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, {
+    ...init,
+    headers: {
+      'content-type': 'application/json',
+      ...(init?.headers ?? {}),
+    },
+  });
+  if (!res.ok) {
+    let body: unknown = null;
+    try { body = await res.json(); } catch {}
+    const msg =
+      (typeof body === 'object' && body && 'message' in body && typeof (body as { message?: unknown }).message === 'string')
+        ? (body as { message: string }).message
+        : `Request failed (${res.status})`;
+    throw new Error(msg);
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
+}
+
+// ─── Types ───────────────────────────────────────────────
+
+export interface Balance {
+  cycleYear: number;
+  cycleStartDate: string;
+  cycleEndDate: string;
+  casualTotal: number;
+  casualUsed: number;
+  casualPending: number;
+  sickTotal: number;
+  sickUsed: number;
+  sickPending: number;
+  replacementBalance: number;
+}
+
+export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+export type LeaveType = 'CASUAL' | 'SICK' | 'REPLACEMENT';
+
+export interface LeaveRequestSummary {
+  id: string;
+  employeeId: string;
+  leaveType: LeaveType;
+  startDate: string;
+  endDate: string;
+  isHalfDay: boolean;
+  halfDaySlot: 'MORNING' | 'AFTERNOON' | null;
+  timeFrom: string | null;
+  timeTo: string | null;
+  durationDays: number;
+  reason: string;
+  description: string | null;
+  attachmentUrl: string | null;
+  channels: ('EMAIL' | 'IN_APP')[];
+  customMessage: string | null;
+  status: LeaveStatus;
+  adminNote: string | null;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  employee?: {
+    id: string; fullName: string; email: string; role: string;
+    department: string | null; designation: string | null; avatarUrl: string | null;
+  };
+  reviewer?: { id: string; fullName: string } | null;
+}
+
+export interface LeaveDetail extends LeaveRequestSummary {
+  balancePreview: {
+    casualLeft: number;
+    sickLeft: number;
+    replacementLeft: number;
+  } | null;
+}
+
+export interface ExtraWorkSummary {
+  id: string;
+  employeeId: string;
+  workDate: string;
+  workType: 'FULL_DAY' | 'HALF_DAY_MORNING' | 'HALF_DAY_AFTERNOON';
+  reason: string;
+  description: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  adminNote: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  employee?: { id: string; fullName: string; email: string; role: string; department: string | null; avatarUrl: string | null };
+  reviewer?: { id: string; fullName: string } | null;
+}
+
+export interface UserSummary {
+  id: string; fullName: string; email: string; role: string;
+  department: string | null; designation: string | null;
+  employeeIdCode: string | null; avatarUrl: string | null;
+}
+
+export interface NotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  referenceType: string | null;
+  referenceId: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+// ─── Queries ─────────────────────────────────────────────
+
+export function useBalance() {
+  return useQuery({
+    queryKey: ['balance'],
+    queryFn: () => api<Balance>('/api/leaves/balance'),
+  });
+}
+
+export function useMyLeaves() {
+  return useQuery({
+    queryKey: ['leaves', 'mine'],
+    queryFn: () => api<LeaveRequestSummary[]>('/api/leaves/requests?scope=mine'),
+  });
+}
+
+export function useAllLeaves() {
+  return useQuery({
+    queryKey: ['leaves', 'all'],
+    queryFn: () => api<LeaveRequestSummary[]>('/api/leaves/requests?scope=all'),
+  });
+}
+
+export function useLeaveDetail(id: string | null) {
+  return useQuery({
+    queryKey: ['leaves', 'detail', id],
+    queryFn: () => api<LeaveDetail>(`/api/leaves/requests/${id}`),
+    enabled: !!id,
+  });
+}
+
+export function useMyExtraWork() {
+  return useQuery({
+    queryKey: ['extra-work', 'mine'],
+    queryFn: () => api<ExtraWorkSummary[]>('/api/extra-work?scope=mine'),
+  });
+}
+
+export function useAllExtraWork() {
+  return useQuery({
+    queryKey: ['extra-work', 'all'],
+    queryFn: () => api<ExtraWorkSummary[]>('/api/extra-work?scope=all'),
+  });
+}
+
+export function useUsers() {
+  return useQuery({
+    queryKey: ['users'],
+    queryFn: () => api<UserSummary[]>('/api/users'),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useNotifications() {
+  return useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => api<{ unread: number; items: NotificationItem[] }>('/api/notifications'),
+    refetchInterval: 30_000,
+  });
+}
+
+// ─── Mutations ───────────────────────────────────────────
+
+export function useSubmitLeave() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateLeaveInput) =>
+      api<LeaveRequestSummary>('/api/leaves/requests', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leaves'] });
+      qc.invalidateQueries({ queryKey: ['balance'] });
+    },
+  });
+}
+
+export function useCancelLeave() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api(`/api/leaves/requests/${id}/cancel`, { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leaves'] });
+      qc.invalidateQueries({ queryKey: ['balance'] });
+    },
+  });
+}
+
+export function useApproveLeave() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string }) =>
+      api(`/api/leaves/requests/${id}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({ note }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leaves'] });
+      qc.invalidateQueries({ queryKey: ['balance'] });
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
+export function useRejectLeave() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note: string }) =>
+      api(`/api/leaves/requests/${id}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ note }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leaves'] });
+      qc.invalidateQueries({ queryKey: ['balance'] });
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
+export function useSubmitExtraWork() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateExtraWorkInput) =>
+      api<ExtraWorkSummary>('/api/extra-work', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['extra-work'] });
+    },
+  });
+}
+
+export function useApproveExtraWork() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string }) =>
+      api(`/api/extra-work/${id}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({ note }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['extra-work'] });
+      qc.invalidateQueries({ queryKey: ['balance'] });
+    },
+  });
+}
+
+export function useRejectExtraWork() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note: string }) =>
+      api(`/api/extra-work/${id}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ note }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['extra-work'] });
+    },
+  });
+}
+
+export function useMarkNotificationRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api(`/api/notifications/${id}/read`, { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}
+
+export function useMarkAllRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api('/api/notifications/read-all', { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}
+
+// ─── Attendance ─────────────────────────────────────────
+
+export interface AttendanceBreak {
+  id: string;
+  start: string;
+  end: string | null;
+  durationMinutes: number | null;
+}
+
+export interface AttendanceRecordData {
+  id: string;
+  date: string;
+  clockInTime: string | null;
+  clockOutTime: string | null;
+  totalWorkedMinutes: number;
+  totalBreakMinutes: number;
+  overtimeMinutes: number;
+  status: string;
+  source: string;
+  notes: string | null;
+  breaks: AttendanceBreak[];
+}
+
+export interface TodayResponse {
+  date: string;
+  record: AttendanceRecordData | null;
+  isWeekend: boolean;
+}
+
+export function useToday() {
+  return useQuery({
+    queryKey: ['attendance', 'today'],
+    queryFn: () => api<TodayResponse>('/api/attendance/today'),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useAttendanceHistory(year?: number, month?: number) {
+  const q = new URLSearchParams();
+  if (year) q.set('year', String(year));
+  if (month) q.set('month', String(month));
+  const qs = q.toString() ? `?${q.toString()}` : '';
+  return useQuery({
+    queryKey: ['attendance', 'history', year, month],
+    queryFn: () =>
+      api<{ year: number; month: number; records: AttendanceRecordData[] }>(
+        `/api/attendance/history${qs}`
+      ),
+  });
+}
+
+function invalidateAttendance(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['attendance'] });
+  qc.invalidateQueries({ queryKey: ['balance'] });
+}
+
+export function useClockIn() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api('/api/attendance/clock-in', { method: 'POST' }),
+    onSuccess: () => invalidateAttendance(qc),
+  });
+}
+export function useClockOut() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api('/api/attendance/clock-out', { method: 'POST' }),
+    onSuccess: () => invalidateAttendance(qc),
+  });
+}
+export function useStartBreak() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api('/api/attendance/break/start', { method: 'POST' }),
+    onSuccess: () => invalidateAttendance(qc),
+  });
+}
+export function useEndBreak() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api('/api/attendance/break/end', { method: 'POST' }),
+    onSuccess: () => invalidateAttendance(qc),
+  });
+}

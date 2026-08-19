@@ -1,10 +1,21 @@
+'use client';
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, ArrowLeft, ArrowRight, Check, Paperclip, Mail, MessageSquare, RotateCcw, Pencil } from 'lucide-react';
-import { useCurrentUser, useStore } from '../../lib/store';
+import {
+  X, ArrowLeft, ArrowRight, Check, Paperclip, Mail, MessageSquare, RotateCcw, Pencil,
+} from 'lucide-react';
+import { useCurrentUser } from '@/lib/session';
+import {
+  useBalance,
+  useMyLeaves,
+  useSubmitLeave,
+  useUsers,
+  type Balance,
+} from '@/lib/hooks';
+import { computeDurationDays } from '@/lib/leave';
 import { Button } from '../ui/Button';
 import { Field, TextArea, TextInput } from '../ui/Field';
-import { cx, fmtDate, leaveTypeLabel, workingDaysBetween } from '../../lib/utils';
+import { cx, fmtDate, leaveTypeLabel } from '../../lib/utils';
 import type { LeaveType, NotificationChannel, HalfDaySlot } from '../../lib/types';
 import './LeaveApplicationFlow.css';
 
@@ -18,22 +29,19 @@ const STEP_LABELS = ['Type', 'Dates', 'Details', 'Send', 'Review'];
 
 export function LeaveApplicationFlow({ open, onClose }: Props) {
   const user = useCurrentUser();
-  const allUsers = useStore((s) => s.users);
-  const allBalances = useStore((s) => s.balances);
-  const allRequests = useStore((s) => s.requests);
-  const submitLeave = useStore((s) => s.submitLeave);
+  const { data: balance } = useBalance();
+  const { data: myLeaves = [] } = useMyLeaves();
+  const { data: allUsers = [] } = useUsers();
+  const submit = useSubmitLeave();
 
-  const admins = useMemo(() => allUsers.filter((u) => u.role === 'ADMIN'), [allUsers]);
-  const balance = useMemo(
-    () => allBalances.find((b) => b.employeeId === user?.id),
-    [allBalances, user?.id]
+  const admins = useMemo(
+    () => allUsers.filter((u) => u.role === 'HR' || u.role === 'ADMIN'),
+    [allUsers]
   );
-  const requests = useMemo(
-    () =>
-      allRequests.filter(
-        (r) => r.employeeId === user?.id && r.status !== 'REJECTED' && r.status !== 'CANCELLED'
-      ),
-    [allRequests, user?.id]
+
+  const activeReqs = useMemo(
+    () => myLeaves.filter((r) => r.status === 'PENDING' || r.status === 'APPROVED'),
+    [myLeaves]
   );
 
   const [step, setStep] = useState<Step>(1);
@@ -42,21 +50,35 @@ export function LeaveApplicationFlow({ open, onClose }: Props) {
   const [endDate, setEndDate] = useState('');
   const [isHalfDay, setIsHalfDay] = useState(false);
   const [halfDaySlot, setHalfDaySlot] = useState<HalfDaySlot>('MORNING');
+  const [useTimeRange, setUseTimeRange] = useState(false);
+  const [timeFrom, setTimeFrom] = useState('09:00');
+  const [timeTo, setTimeTo] = useState('13:00');
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [channels, setChannels] = useState<NotificationChannel[]>(['EMAIL']);
   const [customMessage, setCustomMessage] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const singleDay = !!startDate && (!endDate || endDate === startDate);
 
   const duration = useMemo(() => {
-    if (!startDate) return 0;
+    if (!startDate || !leaveType) return 0;
     const end = endDate || startDate;
-    if (isHalfDay && startDate === end) return 0.5;
-    return Math.max(0, workingDaysBetween(startDate, end));
-  }, [startDate, endDate, isHalfDay]);
+    return computeDurationDays({
+      leaveType,
+      startDate,
+      endDate: end,
+      isHalfDay,
+      halfDaySlot: isHalfDay ? halfDaySlot : undefined,
+      timeFrom: useTimeRange && singleDay && !isHalfDay ? timeFrom : undefined,
+      timeTo: useTimeRange && singleDay && !isHalfDay ? timeTo : undefined,
+      reason: reason || 'x',
+      channels: channels.length ? channels : ['EMAIL'],
+    });
+  }, [startDate, endDate, isHalfDay, halfDaySlot, useTimeRange, timeFrom, timeTo, singleDay, leaveType, reason, channels]);
 
   const availableBalance = useMemo(() => {
     if (!leaveType || !balance) return 0;
@@ -70,10 +92,8 @@ export function LeaveApplicationFlow({ open, onClose }: Props) {
   const dateOverlap = useMemo(() => {
     if (!startDate) return null;
     const end = endDate || startDate;
-    return requests.find(
-      (r) => !(end < r.startDate || startDate > r.endDate)
-    );
-  }, [startDate, endDate, requests]);
+    return activeReqs.find((r) => !(end < r.startDate || startDate > r.endDate)) ?? null;
+  }, [startDate, endDate, activeReqs]);
 
   function reset() {
     setStep(1);
@@ -82,6 +102,9 @@ export function LeaveApplicationFlow({ open, onClose }: Props) {
     setEndDate('');
     setIsHalfDay(false);
     setHalfDaySlot('MORNING');
+    setUseTimeRange(false);
+    setTimeFrom('09:00');
+    setTimeTo('13:00');
     setReason('');
     setDescription('');
     setAttachment(null);
@@ -89,7 +112,7 @@ export function LeaveApplicationFlow({ open, onClose }: Props) {
     setCustomMessage(null);
     setEditingMessage(false);
     setDone(false);
-    setSubmitting(false);
+    setError(null);
   }
 
   function handleClose() {
@@ -101,10 +124,14 @@ export function LeaveApplicationFlow({ open, onClose }: Props) {
     if (!user || !leaveType) return '';
     const startFmt = startDate ? fmtDate(startDate) : '[start]';
     const endFmt = endDate ? fmtDate(endDate) : startFmt;
-    const dur = duration === 0.5 ? 'a half day' : `${duration} working day${duration === 1 ? '' : 's'}`;
+    const durLabel = useTimeRange && singleDay
+      ? `${timeFrom}–${timeTo}`
+      : duration === 0.5
+      ? 'a half day'
+      : `${duration} working day${duration === 1 ? '' : 's'}`;
     return `Dear HR & Leadership,
 
-I am writing to formally request ${leaveTypeLabel(leaveType).toLowerCase()} from ${startFmt} to ${endFmt} (${dur}).
+I am writing to formally request ${leaveTypeLabel(leaveType).toLowerCase()} from ${startFmt} to ${endFmt} (${durLabel}).
 
 Reason: ${reason || '[your reason]'}${description ? `\n\n${description}` : ''}
 ${attachment ? '\nPlease find the supporting document attached.\n' : ''}
@@ -114,7 +141,7 @@ Thank you for your consideration.
 
 Regards,
 ${user.fullName}
-${user.employeeIdCode} · ${user.department}`;
+${user.employeeIdCode || ''} · ${user.department || ''}`;
   }
 
   const displayMessage = customMessage ?? autoGeneratedMessage();
@@ -139,27 +166,28 @@ ${user.employeeIdCode} · ${user.department}`;
     return true;
   }
 
-  function submit() {
+  function handleSubmit() {
     if (!user || !leaveType) return;
-    setSubmitting(true);
-    setTimeout(() => {
-      submitLeave({
-        employeeId: user.id,
+    setError(null);
+    submit.mutate(
+      {
         leaveType,
         startDate,
         endDate: endDate || startDate,
         isHalfDay,
         halfDaySlot: isHalfDay ? halfDaySlot : undefined,
-        durationDays: duration,
+        timeFrom: useTimeRange && singleDay && !isHalfDay ? timeFrom : undefined,
+        timeTo: useTimeRange && singleDay && !isHalfDay ? timeTo : undefined,
         reason,
         description: description || undefined,
-        attachmentName: attachment?.name,
         channels,
         customMessage: customMessage ?? undefined,
-      });
-      setDone(true);
-      setSubmitting(false);
-    }, 700);
+      },
+      {
+        onSuccess: () => setDone(true),
+        onError: (e: Error) => setError(e.message),
+      }
+    );
   }
 
   if (!open) return null;
@@ -229,11 +257,7 @@ ${user.employeeIdCode} · ${user.department}`;
                       transition={{ duration: 0.22 }}
                     >
                       {step === 1 && (
-                        <StepType
-                          balance={balance}
-                          leaveType={leaveType}
-                          onChoose={setLeaveType}
-                        />
+                        <StepType balance={balance} leaveType={leaveType} onChoose={setLeaveType} />
                       )}
                       {step === 2 && (
                         <StepDates
@@ -245,6 +269,12 @@ ${user.employeeIdCode} · ${user.department}`;
                           setIsHalfDay={setIsHalfDay}
                           halfDaySlot={halfDaySlot}
                           setHalfDaySlot={setHalfDaySlot}
+                          useTimeRange={useTimeRange}
+                          setUseTimeRange={setUseTimeRange}
+                          timeFrom={timeFrom}
+                          setTimeFrom={setTimeFrom}
+                          timeTo={timeTo}
+                          setTimeTo={setTimeTo}
                           duration={duration}
                           available={availableBalance}
                           overlap={dateOverlap}
@@ -264,7 +294,7 @@ ${user.employeeIdCode} · ${user.department}`;
                         <StepSend
                           channels={channels}
                           toggle={toggleChannel}
-                          adminNames={admins.map((a) => `${a.fullName} (${a.designation})`)}
+                          adminNames={admins.map((a) => `${a.fullName} (${a.designation || a.role})`)}
                           adminEmails={admins.map((a) => a.email)}
                         />
                       )}
@@ -280,6 +310,7 @@ ${user.employeeIdCode} · ${user.department}`;
                             setEditingMessage(false);
                           }}
                           channels={channels}
+                          error={error}
                         />
                       )}
                     </motion.div>
@@ -313,8 +344,8 @@ ${user.employeeIdCode} · ${user.department}`;
                     <Button
                       variant="primary"
                       size="md"
-                      loading={submitting}
-                      onClick={submit}
+                      loading={submit.isPending}
+                      onClick={handleSubmit}
                     >
                       Submit Leave Request
                     </Button>
@@ -336,7 +367,7 @@ function StepType({
   leaveType,
   onChoose,
 }: {
-  balance: NonNullable<ReturnType<typeof useStore.getState>['balances'][number]>;
+  balance: Balance;
   leaveType: LeaveType | null;
   onChoose: (t: LeaveType) => void;
 }) {
@@ -381,12 +412,7 @@ function StepType({
               className={cx('laf-typecard', active && 'laf-typecard-active', disabled && 'laf-typecard-disabled')}
               disabled={disabled}
               onClick={() => onChoose(c.t)}
-              style={
-                {
-                  '--tc-color': c.color,
-                  '--tc-bg': c.bg,
-                } as React.CSSProperties
-              }
+              style={{ '--tc-color': c.color, '--tc-bg': c.bg } as React.CSSProperties}
             >
               <div className="laf-typecard-emoji">{c.emoji}</div>
               <div className="laf-typecard-title">{c.title}</div>
@@ -406,25 +432,28 @@ function StepDates({
   startDate, endDate, setStartDate, setEndDate,
   isHalfDay, setIsHalfDay,
   halfDaySlot, setHalfDaySlot,
+  useTimeRange, setUseTimeRange,
+  timeFrom, setTimeFrom, timeTo, setTimeTo,
   duration, available, overlap,
 }: {
   startDate: string; endDate: string;
   setStartDate: (s: string) => void; setEndDate: (s: string) => void;
   isHalfDay: boolean; setIsHalfDay: (b: boolean) => void;
   halfDaySlot: HalfDaySlot; setHalfDaySlot: (s: HalfDaySlot) => void;
+  useTimeRange: boolean; setUseTimeRange: (b: boolean) => void;
+  timeFrom: string; setTimeFrom: (s: string) => void;
+  timeTo: string; setTimeTo: (s: string) => void;
   duration: number; available: number;
-  overlap: any;
+  overlap: { status: string } | null;
 }) {
-  const canHalfDay = startDate && (!endDate || startDate === endDate);
+  const canGranularSingle = startDate && (!endDate || startDate === endDate);
   const durationErr =
     duration > available ? `That's more than your remaining balance of ${available} day${available === 1 ? '' : 's'}.` : undefined;
 
   return (
     <div>
       <h3 className="laf-step-title">When are you taking leave?</h3>
-      <p className="laf-step-desc">
-        Weekends and public holidays don't count toward your total.
-      </p>
+      <p className="laf-step-desc">Weekends don't count. Single day? You can also request a half-day or a specific time slot.</p>
       <div className="laf-daterow">
         <Field label="Start date" required>
           <TextInput
@@ -441,13 +470,13 @@ function StepDates({
             type="date"
             value={endDate || startDate}
             min={startDate}
-            disabled={isHalfDay}
+            disabled={isHalfDay || useTimeRange}
             onChange={(e) => setEndDate(e.target.value)}
           />
         </Field>
       </div>
 
-      {canHalfDay && (
+      {canGranularSingle && (
         <div className="laf-halfday">
           <label className="laf-check">
             <input
@@ -455,10 +484,13 @@ function StepDates({
               checked={isHalfDay}
               onChange={(e) => {
                 setIsHalfDay(e.target.checked);
-                if (e.target.checked) setEndDate(startDate);
+                if (e.target.checked) {
+                  setEndDate(startDate);
+                  setUseTimeRange(false);
+                }
               }}
             />
-            This is only a half day
+            Half day
           </label>
           {isHalfDay && (
             <div className="laf-halfslot">
@@ -471,6 +503,32 @@ function StepDates({
                   {s === 'MORNING' ? '🌅 Morning' : '🌇 Afternoon'}
                 </button>
               ))}
+            </div>
+          )}
+
+          <label className="laf-check" style={{ marginTop: 10 }}>
+            <input
+              type="checkbox"
+              checked={useTimeRange}
+              disabled={isHalfDay}
+              onChange={(e) => {
+                setUseTimeRange(e.target.checked);
+                if (e.target.checked) {
+                  setEndDate(startDate);
+                  setIsHalfDay(false);
+                }
+              }}
+            />
+            Specific time slot within the day
+          </label>
+          {useTimeRange && (
+            <div className="laf-timerow">
+              <Field label="From">
+                <TextInput type="time" value={timeFrom} onChange={(e) => setTimeFrom(e.target.value)} />
+              </Field>
+              <Field label="To">
+                <TextInput type="time" value={timeTo} onChange={(e) => setTimeTo(e.target.value)} />
+              </Field>
             </div>
           )}
         </div>
@@ -528,7 +586,7 @@ function StepDetails({
           maxLength={500}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Provide additional context if needed (e.g. medical condition, travel details)"
+          placeholder="Provide additional context if needed"
         />
       </Field>
       <div style={{ height: 12 }} />
@@ -635,19 +693,18 @@ function ChannelBox({ active, onClick, icon, label, desc }: {
 }
 
 function StepReview({
-  messageText, isEdited, editing, setEditing, onEditChange, onReset, channels,
+  messageText, isEdited, editing, setEditing, onEditChange, onReset, channels, error,
 }: {
   messageText: string; isEdited: boolean;
   editing: boolean; setEditing: (b: boolean) => void;
   onEditChange: (s: string) => void; onReset: () => void;
   channels: NotificationChannel[];
+  error?: string | null;
 }) {
   return (
     <div>
       <h3 className="laf-step-title">Review your message</h3>
-      <p className="laf-step-desc">
-        This is the exact message that will be sent. You can edit it below.
-      </p>
+      <p className="laf-step-desc">This is the exact message that will be sent. You can edit it below.</p>
       <div className="laf-preview">
         <div className="laf-preview-head">
           <div className="laf-preview-tabs">
@@ -678,6 +735,7 @@ function StepReview({
           <pre className="laf-preview-body">{messageText}</pre>
         )}
       </div>
+      {error && <div className="laf-inline-error" style={{ marginTop: 12 }}>{error}</div>}
     </div>
   );
 }

@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { Check, X, Paperclip, MessageCircle, Mail } from 'lucide-react';
-import { useStore } from '../../lib/store';
+'use client';
+import { useState, useEffect } from 'react';
+import { Check, X, MessageCircle, Mail } from 'lucide-react';
+import { avatarColorFor, initials } from '@/lib/session';
+import { useApproveLeave, useLeaveDetail, useRejectLeave } from '@/lib/hooks';
 import { Drawer } from '../ui/Drawer';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -8,7 +10,7 @@ import { Avatar } from '../ui/Avatar';
 import { Field, TextArea } from '../ui/Field';
 import { Modal } from '../ui/Modal';
 import { fmtDate, leaveTypeLabel, cx } from '../../lib/utils';
-import type { LeaveRequest, LeaveType } from '../../lib/types';
+import type { LeaveType } from '../../lib/types';
 import './LeaveReviewDrawer.css';
 
 const leaveVariant: Record<LeaveType, 'casual' | 'sick' | 'replacement'> = {
@@ -16,58 +18,65 @@ const leaveVariant: Record<LeaveType, 'casual' | 'sick' | 'replacement'> = {
 };
 
 interface Props {
-  request: LeaveRequest | null;
+  requestId: string | null;
   onClose: () => void;
 }
 
-export function LeaveReviewDrawer({ request, onClose }: Props) {
-  const users = useStore((s) => s.users);
-  const balances = useStore((s) => s.balances);
-  const approve = useStore((s) => s.approveLeave);
-  const reject = useStore((s) => s.rejectLeave);
+export function LeaveReviewDrawer({ requestId, onClose }: Props) {
+  const { data: request } = useLeaveDetail(requestId);
+  const approve = useApproveLeave();
+  const reject = useRejectLeave();
 
   const [note, setNote] = useState('');
   const [showApprove, setShowApprove] = useState(false);
   const [showReject, setShowReject] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
-  if (!request) return <Drawer open={false} onClose={onClose}>{null}</Drawer>;
+  useEffect(() => {
+    if (!requestId) {
+      setNote('');
+      setRejectReason('');
+      setShowApprove(false);
+      setShowReject(false);
+    }
+  }, [requestId]);
 
-  const employee = users.find((u) => u.id === request.employeeId);
-  const balance = balances.find((b) => b.employeeId === request.employeeId);
-  if (!employee || !balance) return null;
+  if (!requestId || !request) {
+    return <Drawer open={!!requestId} onClose={onClose}>{null}</Drawer>;
+  }
 
-  const balanceMap: Record<LeaveType, [number, number]> = {
-    CASUAL: [
-      balance.casualTotal - balance.casualUsed - balance.casualPending,
-      balance.casualTotal - balance.casualUsed - balance.casualPending - request.durationDays,
-    ],
-    SICK: [
-      balance.sickTotal - balance.sickUsed - balance.sickPending,
-      balance.sickTotal - balance.sickUsed - balance.sickPending - request.durationDays,
-    ],
-    REPLACEMENT: [
-      balance.replacementBalance,
-      balance.replacementBalance - request.durationDays,
-    ],
-  };
-  const [before, after] = balanceMap[request.leaveType];
+  const employee = request.employee;
+  if (!employee) return null;
+
+  const durationDays = request.durationDays;
+  const bp = request.balancePreview;
+  const currentBefore = bp
+    ? (request.leaveType === 'CASUAL'
+        ? bp.casualLeft
+        : request.leaveType === 'SICK'
+        ? bp.sickLeft
+        : bp.replacementLeft)
+    : 0;
+  const currentAfter = currentBefore - durationDays;
+
+  const empInitials = initials(employee.fullName);
+  const empColor = avatarColorFor(employee.id);
 
   return (
     <>
       <Drawer
-        open={!!request}
+        open={!!requestId}
         onClose={onClose}
         title={`${leaveTypeLabel(request.leaveType)} request`}
         subtitle={`Submitted ${fmtDate(request.createdAt, 'd MMM yyyy · h:mm a')}`}
       >
         <div className="lrd">
           <div className="lrd-emp">
-            <Avatar initials={employee.initials} color={employee.avatarColor} size="lg" />
+            <Avatar initials={empInitials} color={empColor} size="lg" />
             <div>
               <div className="lrd-emp-name">{employee.fullName}</div>
-              <div className="lrd-emp-role">{employee.designation} · {employee.department}</div>
-              <div className="lrd-emp-id mono">{employee.employeeIdCode}</div>
+              <div className="lrd-emp-role">{employee.designation ?? ''} · {employee.department ?? ''}</div>
+              <div className="lrd-emp-id mono">{request.employee?.email}</div>
             </div>
           </div>
 
@@ -84,9 +93,21 @@ export function LeaveReviewDrawer({ request, onClose }: Props) {
                 <div className="lrd-period-value">{fmtDate(request.endDate)}</div>
               </div>
               <div className="lrd-period-count">
-                <Badge variant={leaveVariant[request.leaveType]}>{request.durationDays} {request.durationDays === 1 ? 'day' : 'days'}</Badge>
+                <Badge variant={leaveVariant[request.leaveType]}>
+                  {durationDays} {durationDays === 1 ? 'day' : 'days'}
+                </Badge>
               </div>
             </div>
+            {request.timeFrom && request.timeTo && (
+              <div className="lrd-desc" style={{ marginTop: 8 }}>
+                Time slot: {request.timeFrom}–{request.timeTo}
+              </div>
+            )}
+            {request.isHalfDay && (
+              <div className="lrd-desc" style={{ marginTop: 8 }}>
+                Half day · {request.halfDaySlot === 'MORNING' ? 'morning' : 'afternoon'}
+              </div>
+            )}
           </div>
 
           <div className="lrd-section">
@@ -94,11 +115,11 @@ export function LeaveReviewDrawer({ request, onClose }: Props) {
             <div className="lrd-balances">
               <div className="lrd-balance">
                 <span>Current balance</span>
-                <strong>{before} days</strong>
+                <strong>{currentBefore} days</strong>
               </div>
-              <div className={cx('lrd-balance', 'lrd-balance-after', after < 0 && 'lrd-balance-warn')}>
+              <div className={cx('lrd-balance', 'lrd-balance-after', currentAfter < 0 && 'lrd-balance-warn')}>
                 <span>If approved</span>
-                <strong>{Math.max(0, after)} days</strong>
+                <strong>{Math.max(0, currentAfter)} days</strong>
               </div>
             </div>
           </div>
@@ -106,14 +127,7 @@ export function LeaveReviewDrawer({ request, onClose }: Props) {
           <div className="lrd-section">
             <div className="lrd-section-title">Reason</div>
             <div className="lrd-reason">{request.reason}</div>
-            {request.description && (
-              <div className="lrd-desc">{request.description}</div>
-            )}
-            {request.attachmentName && (
-              <div className="lrd-attach">
-                <Paperclip size={14} /> {request.attachmentName}
-              </div>
-            )}
+            {request.description && <div className="lrd-desc">{request.description}</div>}
           </div>
 
           <div className="lrd-section">
@@ -181,10 +195,17 @@ export function LeaveReviewDrawer({ request, onClose }: Props) {
             <Button variant="ghost" onClick={() => setShowApprove(false)}>Cancel</Button>
             <Button
               variant="success"
+              loading={approve.isPending}
               onClick={() => {
-                approve(request.id, note || undefined);
-                setShowApprove(false);
-                onClose();
+                approve.mutate(
+                  { id: request.id, note: note || undefined },
+                  {
+                    onSuccess: () => {
+                      setShowApprove(false);
+                      onClose();
+                    },
+                  }
+                );
               }}
             >
               Yes, approve
@@ -193,8 +214,8 @@ export function LeaveReviewDrawer({ request, onClose }: Props) {
         }
       >
         <p>
-          This will deduct <strong>{request.durationDays} day{request.durationDays === 1 ? '' : 's'}</strong> from{' '}
-          <strong>{employee.fullName}'s</strong>{' '}{leaveTypeLabel(request.leaveType).toLowerCase()} balance. They'll be notified immediately.
+          This will deduct <strong>{durationDays} day{durationDays === 1 ? '' : 's'}</strong> from{' '}
+          <strong>{employee.fullName}&apos;s</strong>{' '}{leaveTypeLabel(request.leaveType).toLowerCase()} balance. They&apos;ll be notified immediately.
         </p>
       </Modal>
 
@@ -208,11 +229,18 @@ export function LeaveReviewDrawer({ request, onClose }: Props) {
             <Button
               variant="danger"
               disabled={rejectReason.trim().length < 4}
+              loading={reject.isPending}
               onClick={() => {
-                reject(request.id, rejectReason.trim());
-                setShowReject(false);
-                setRejectReason('');
-                onClose();
+                reject.mutate(
+                  { id: request.id, note: rejectReason.trim() },
+                  {
+                    onSuccess: () => {
+                      setShowReject(false);
+                      setRejectReason('');
+                      onClose();
+                    },
+                  }
+                );
               }}
             >
               Reject request
