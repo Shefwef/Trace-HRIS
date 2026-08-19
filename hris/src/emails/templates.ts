@@ -187,6 +187,31 @@ export function extraWorkSubmittedEmail(input: {
   };
 }
 
+export function holidayNoticeEmail(input: {
+  holidayName: string;
+  holidayDate: string;
+  description?: string;
+  ctaUrl: string;
+}, s: Skin) {
+  const content = `
+    ${p(`Dear Team,`)}
+    ${p(`We would like to inform you that <strong>${escape(input.holidayDate)}</strong> is a public holiday in observance of <strong>${escape(input.holidayName)}</strong>.`)}
+    ${p(`The office will remain closed on this day. Please plan your work accordingly.`)}
+    ${input.description ? `<div style="margin-top:14px;padding:12px 14px;background:#f7f9fc;border-radius:8px;color:#4a5568;font-size:14px;line-height:1.55;">${escape(input.description)}</div>` : ''}
+    ${p(`We wish you a wonderful ${input.holidayName}! 🎉`)}
+  `;
+  return {
+    subject: `Holiday notice — ${input.holidayName} · ${input.holidayDate}`,
+    html: shell({
+      title: `Holiday notice — ${input.holidayName}`,
+      senderName: s.senderName,
+      content,
+      ctaLabel: 'Open HRIS calendar',
+      ctaHref: input.ctaUrl,
+    }),
+  };
+}
+
 export function extraWorkDecisionEmail(input: {
   employeeName: string;
   workDate: string;

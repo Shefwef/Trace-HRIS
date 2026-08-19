@@ -2,10 +2,10 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Inbox, Users, PlaneTakeoff, CalendarClock, ArrowRight } from 'lucide-react';
+import { Inbox, Users, PlaneTakeoff, CalendarClock, ArrowRight, Send } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useCurrentUser, initials, avatarColorFor } from '@/lib/session';
-import { useAllLeaves, useUsers } from '@/lib/hooks';
+import { useAllLeaves, useUsers, useHolidays, useSendHolidayNotice } from '@/lib/hooks';
 import { StatCard } from '../../components/ui/StatCard';
 import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
@@ -23,7 +23,14 @@ export function AdminDashboard() {
   const user = useCurrentUser();
   const { data: requests = [] } = useAllLeaves();
   const { data: users = [] } = useUsers();
+  const { data: holidays = [] } = useHolidays();
+  const sendHoliday = useSendHolidayNotice();
   const [reviewId, setReviewId] = useState<string | null>(null);
+
+  const upcomingHolidays = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return holidays.filter((h) => h.date >= today).slice(0, 3);
+  }, [holidays]);
 
   const pendingRequests = useMemo(
     () => requests.filter((r) => r.status === 'PENDING'),
@@ -107,8 +114,8 @@ export function AdminDashboard() {
         />
         <StatCard
           label="Next holiday"
-          value="—"
-          hint="Holidays come online in Phase 4"
+          value={upcomingHolidays[0] ? upcomingHolidays[0].name : '—'}
+          hint={upcomingHolidays[0] ? fmtDate(upcomingHolidays[0].date) : 'No upcoming holidays'}
           icon={<CalendarClock size={16} />}
           accent="primary"
         />
@@ -169,13 +176,47 @@ export function AdminDashboard() {
             <h3>Upcoming holidays</h3>
             <Link href="/admin/holidays" className="edash-section-link">Manage <ArrowRight size={14} /></Link>
           </header>
-          <div className="adash-inbox-empty" style={{ background: 'var(--color-bg-subtle)', color: 'var(--color-text-secondary)' }}>
-            <CalendarClock size={24} />
-            <div>
-              <strong>Holidays not yet configured</strong>
-              <p>The holiday manager comes online in Phase 4.</p>
+          {upcomingHolidays.length === 0 ? (
+            <div className="adash-inbox-empty" style={{ background: 'var(--color-bg-subtle)', color: 'var(--color-text-secondary)' }}>
+              <CalendarClock size={24} />
+              <div>
+                <strong>No upcoming holidays</strong>
+                <p>Add holidays from the Holiday Manager to see them here.</p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <ul className="adash-hol-list">
+              {upcomingHolidays.map((h) => (
+                <li key={h.id} className="adash-hol">
+                  <div className="adash-hol-date">
+                    <div className="adash-hol-day">{new Date(h.date).getUTCDate()}</div>
+                    <div className="adash-hol-month">{new Date(h.date).toLocaleString('en', { month: 'short', timeZone: 'UTC' })}</div>
+                  </div>
+                  <div className="adash-hol-body">
+                    <div className="adash-hol-name">{h.name}</div>
+                    <div className="adash-hol-meta">
+                      {h.notificationSentAt ? (
+                        <span className="adash-hol-sent">✓ Notice sent</span>
+                      ) : (
+                        <span className="muted">Notice pending</span>
+                      )}
+                    </div>
+                  </div>
+                  {!h.notificationSentAt && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      leadingIcon={<Send size={12} />}
+                      loading={sendHoliday.isPending}
+                      onClick={() => sendHoliday.mutate(h.id)}
+                    >
+                      Send
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </motion.section>
 
         <motion.section

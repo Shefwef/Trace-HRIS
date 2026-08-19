@@ -1,3 +1,4 @@
+'use client';
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -10,17 +11,19 @@ import {
   isToday,
   startOfMonth,
 } from 'date-fns';
-import { useCurrentUser, useStore } from '../../lib/store';
+import { useCurrentUser } from '@/lib/session';
+import { useMyLeaves, useHolidays, useAttendanceHistory } from '@/lib/hooks';
 import { Badge } from '../../components/ui/Badge';
 import { cx, fmtDate } from '../../lib/utils';
 import './Calendar.css';
 
 export function CalendarPage() {
   const user = useCurrentUser();
-  const [month, setMonth] = useState(new Date(2026, 7, 1));
-  const requests = useStore((s) => s.requests);
-  const holidays = useStore((s) => s.holidays);
-  const attendance = useStore((s) => s.attendance);
+  const [month, setMonth] = useState(() => new Date());
+  const { data: requests = [] } = useMyLeaves();
+  const { data: holidays = [] } = useHolidays(month.getFullYear());
+  const { data: attendanceData } = useAttendanceHistory(month.getFullYear(), month.getMonth() + 1);
+  const attendance = attendanceData?.records ?? [];
 
   const days = useMemo(() => {
     const first = startOfMonth(month);
@@ -66,10 +69,9 @@ export function CalendarPage() {
           const isWeekend = weekday === 0 || weekday === 6;
           const holiday = holidays.find((h) => h.date === iso);
           const leave = requests.find(
-            (r) => r.employeeId === user.id && r.status === 'APPROVED' &&
-                   iso >= r.startDate && iso <= r.endDate
+            (r) => r.status === 'APPROVED' && iso >= r.startDate && iso <= r.endDate
           );
-          const att = attendance.find((a) => a.employeeId === user.id && a.date === iso);
+          const att = attendance.find((a) => a.date === iso);
           return (
             <div
               key={iso}

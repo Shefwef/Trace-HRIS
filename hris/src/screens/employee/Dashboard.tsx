@@ -3,7 +3,7 @@ import { ArrowRight, CalendarClock, ClipboardList, Plus, TrendingUp, Sparkles } 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useCurrentUser } from '@/lib/session';
-import { useBalance, useMyLeaves } from '@/lib/hooks';
+import { useBalance, useMyLeaves, useHolidays } from '@/lib/hooks';
 import { AttendanceWidget } from '../../components/attendance/AttendanceWidget';
 import { LeaveBalanceCards } from '../../components/leave/LeaveBalanceCards';
 import { MiniCalendar } from '../../components/attendance/MiniCalendar';
@@ -32,11 +32,15 @@ export function EmployeeDashboard() {
   const [applyOpen, setApplyOpen] = useState(false);
   const { data: balance } = useBalance();
   const { data: myLeaves } = useMyLeaves();
+  const { data: holidays = [] } = useHolidays();
   const requests = (myLeaves ?? []).slice(0, 4);
 
   if (!user || !balance) return null;
 
-  const upcomingHoliday = null as { name: string; date: string } | null;
+  const today = new Date().toISOString().slice(0, 10);
+  const upcomingHoliday = holidays
+    .filter((h) => h.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date))[0] ?? null;
 
   return (
     <div className="edash">

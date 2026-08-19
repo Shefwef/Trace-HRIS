@@ -1,40 +1,45 @@
-import { useMemo, useState } from 'react';
+'use client';
+import { useState } from 'react';
 import { Plus, Send, Trash2, Pencil, CalendarCheck2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useStore } from '../../lib/store';
+import {
+  useHolidays,
+  useCreateHoliday,
+  useUpdateHoliday,
+  useDeleteHoliday,
+  useSendHolidayNotice,
+  type HolidayItem,
+} from '@/lib/hooks';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Field, TextInput, TextArea } from '../../components/ui/Field';
 import { Badge } from '../../components/ui/Badge';
 import { fmtDate, fmtRelative } from '../../lib/utils';
-import type { Holiday } from '../../lib/types';
 import './HolidayManager.css';
 
-function DEFAULT_EMAIL(name: string, date: string) {
+function DEFAULT_EMAIL_PREVIEW(name: string, date: string) {
   return `Dear Team,
 
 We would like to inform you that ${fmtDate(date)} is a public holiday in observance of ${name}.
 
 The office will remain closed on this day. Please plan your work accordingly.
 
-We wish you a wonderful ${name}!
+We wish you a wonderful ${name}! 🎉
 
 Warm regards,
-The HRIS People Team`;
+Trace HRIS`;
 }
 
-export function HolidayManager() {
-  const allHolidays = useStore((s) => s.holidays);
-  const holidays = useMemo(
-    () => allHolidays.slice().sort((a, b) => (a.date < b.date ? -1 : 1)),
-    [allHolidays]
-  );
-  const create = useStore((s) => s.createHoliday);
-  const update = useStore((s) => s.updateHoliday);
-  const del = useStore((s) => s.deleteHoliday);
-  const send = useStore((s) => s.sendHolidayNotice);
+type Recipients = 'ALL' | 'HR_ONLY' | 'STAFF_ONLY' | 'CUSTOM';
 
-  const [editing, setEditing] = useState<Holiday | 'new' | null>(null);
+export function HolidayManager() {
+  const { data: holidays = [], isLoading } = useHolidays();
+  const create = useCreateHoliday();
+  const update = useUpdateHoliday();
+  const del = useDeleteHoliday();
+  const send = useSendHolidayNotice();
+
+  const [editing, setEditing] = useState<HolidayItem | 'new' | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [confirmSend, setConfirmSend] = useState<string | null>(null);
 
@@ -42,9 +47,11 @@ export function HolidayManager() {
   const [date, setDate] = useState('');
   const [description, setDescription] = useState('');
   const [recurring, setRecurring] = useState(true);
-  const [recipients, setRecipients] = useState<Holiday['recipients']>('ALL');
+  const [recipients, setRecipients] = useState<Recipients>('ALL');
+  const [error, setError] = useState<string | null>(null);
 
-  function openEdit(h: Holiday | 'new') {
+  function openEdit(h: HolidayItem | 'new') {
+    setError(null);
     if (h === 'new') {
       setName('');
       setDate('');
@@ -62,19 +69,22 @@ export function HolidayManager() {
   }
 
   function save() {
+    setError(null);
+    const payload = { name, date, description: description || undefined, isRecurring: recurring, recipients };
     if (editing === 'new') {
-      create({
-        name,
-        date,
-        description,
-        isRecurring: recurring,
-        notificationScheduled: true,
-        recipients,
+      create.mutate(payload, {
+        onSuccess: () => setEditing(null),
+        onError: (e: Error) => setError(e.message),
       });
     } else if (editing) {
-      update(editing.id, { name, date, description, isRecurring: recurring, recipients });
+      update.mutate(
+        { id: editing.id, patch: payload },
+        {
+          onSuccess: () => setEditing(null),
+          onError: (e: Error) => setError(e.message),
+        }
+      );
     }
-    setEditing(null);
   }
 
   return (
@@ -89,6 +99,16 @@ export function HolidayManager() {
         </Button>
       </div>
 
+      {isLoading && <div className="muted">Loading holidays…</div>}
+
+      {!isLoading && holidays.length === 0 && (
+        <div className="card" style={{ padding: 32, textAlign: 'center', color: 'var(--color-text-muted)' }}>
+          <CalendarCheck2 size={32} style={{ marginBottom: 12 }} />
+          <div style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>No holidays yet</div>
+          <div style={{ fontSize: 14, marginTop: 4 }}>Click <em>New holiday</em> to add the company&apos;s first holiday.</div>
+        </div>
+      )}
+
       <div className="hmgr-list">
         {holidays.map((h) => {
           const isPast = new Date(h.date) < new Date();
@@ -101,9 +121,9 @@ export function HolidayManager() {
               layout
             >
               <div className="hmgr-card-date">
-                <div className="hmgr-card-day">{new Date(h.date).getDate()}</div>
-                <div className="hmgr-card-month">{new Date(h.date).toLocaleString('en', { month: 'short' })}</div>
-                <div className="hmgr-card-year">{new Date(h.date).getFullYear()}</div>
+                <div className="hmgr-card-day">{new Date(h.date).getUTCDate()}</div>
+                <div className="hmgr-card-month">{new Date(h.date).toLocaleString('en', { month: 'short', timeZone: 'UTC' })}</div>
+                <div className="hmgr-card-year">{new Date(h.date).getUTCFullYear()}</div>
               </div>
               <div className="hmgr-card-body">
                 <div className="hmgr-card-title">
@@ -127,9 +147,14 @@ export function HolidayManager() {
                 </div>
               </div>
               <div className="hmgr-card-actions">
-                {!h.notificationSentAt && !isPast && (
-                  <Button size="sm" variant="secondary" leadingIcon={<Send size={12} />} onClick={() => setConfirmSend(h.id)}>
-                    Send notice
+                {!isPast && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    leadingIcon={<Send size={12} />}
+                    onClick={() => setConfirmSend(h.id)}
+                  >
+                    {h.notificationSentAt ? 'Resend' : 'Send notice'}
                   </Button>
                 )}
                 <Button size="sm" variant="ghost" leadingIcon={<Pencil size={12} />} onClick={() => openEdit(h)}>
@@ -152,7 +177,14 @@ export function HolidayManager() {
         footer={
           <>
             <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
-            <Button variant="primary" onClick={save} disabled={!name || !date}>Save</Button>
+            <Button
+              variant="primary"
+              loading={create.isPending || update.isPending}
+              onClick={save}
+              disabled={!name || !date}
+            >
+              Save
+            </Button>
           </>
         }
       >
@@ -170,18 +202,22 @@ export function HolidayManager() {
             <select
               className="input"
               value={recipients}
-              onChange={(e) => setRecipients(e.target.value as Holiday['recipients'])}
+              onChange={(e) => setRecipients(e.target.value as Recipients)}
             >
               <option value="ALL">All employees</option>
               <option value="HR_ONLY">HR team only</option>
               <option value="STAFF_ONLY">Staff only (excluding HR)</option>
-              <option value="CUSTOM">Custom selection</option>
             </select>
           </Field>
           <label className="hmgr-check">
             <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
-            Add automatically to next year
+            Recurring holiday (indicative — actual repeat requires re-adding for the next year)
           </label>
+          {error && (
+            <div style={{ padding: 10, background: 'var(--color-danger-light)', color: 'var(--color-danger)', borderRadius: 8, fontSize: 13 }}>
+              {error}
+            </div>
+          )}
         </div>
       </Modal>
 
@@ -192,7 +228,17 @@ export function HolidayManager() {
         footer={
           <>
             <Button variant="ghost" onClick={() => setConfirmDelete(null)}>Cancel</Button>
-            <Button variant="danger" onClick={() => { if (confirmDelete) del(confirmDelete); setConfirmDelete(null); }}>
+            <Button
+              variant="danger"
+              loading={del.isPending}
+              onClick={() => {
+                if (confirmDelete) {
+                  del.mutate(confirmDelete, {
+                    onSuccess: () => setConfirmDelete(null),
+                  });
+                }
+              }}
+            >
               Delete
             </Button>
           </>
@@ -212,7 +258,13 @@ export function HolidayManager() {
             <Button
               variant="primary"
               leadingIcon={<Send size={14} />}
-              onClick={() => { if (confirmSend) send(confirmSend); setConfirmSend(null); }}
+              loading={send.isPending}
+              onClick={() => {
+                if (!confirmSend) return;
+                send.mutate(confirmSend, {
+                  onSuccess: () => setConfirmSend(null),
+                });
+              }}
             >
               Send now
             </Button>
@@ -225,14 +277,14 @@ export function HolidayManager() {
           return (
             <>
               <p style={{ marginBottom: 12 }}>
-                The following notice will be delivered by email and in-app to all recipients:
+                Every recipient in <strong>{h.recipients.toLowerCase().replace('_', ' ')}</strong> will
+                receive this notice by email and in-app.
               </p>
-              <pre className="hmgr-preview">{DEFAULT_EMAIL(h.name, h.date)}</pre>
+              <pre className="hmgr-preview">{DEFAULT_EMAIL_PREVIEW(h.name, h.date)}</pre>
             </>
           );
         })()}
       </Modal>
-
     </div>
   );
 }

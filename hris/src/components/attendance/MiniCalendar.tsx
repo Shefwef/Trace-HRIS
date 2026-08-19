@@ -1,8 +1,9 @@
+'use client';
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useCurrentUser, useStore } from '../../lib/store';
-import type { LeaveRequest, Holiday, AttendanceRecord } from '../../lib/types';
+import { useCurrentUser } from '@/lib/session';
+import { useMyLeaves, useHolidays, useAttendanceHistory } from '@/lib/hooks';
 import { cx } from '../../lib/utils';
 import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, isToday, parseISO } from 'date-fns';
 import './MiniCalendar.css';
@@ -10,9 +11,7 @@ import './MiniCalendar.css';
 type DayInfo = {
   date: Date;
   status?: 'PRESENT' | 'ABSENT' | 'LEAVE' | 'HOLIDAY' | 'HALF_DAY' | 'WEEKEND' | 'FUTURE';
-  leave?: LeaveRequest;
-  holiday?: Holiday;
-  attendance?: AttendanceRecord;
+  holidayName?: string;
 };
 
 function statusColor(s?: DayInfo['status']): string {
@@ -29,10 +28,11 @@ function statusColor(s?: DayInfo['status']): string {
 
 export function MiniCalendar() {
   const user = useCurrentUser();
-  const [month, setMonth] = useState(new Date(2026, 7, 1));
-  const requests = useStore((s) => s.requests);
-  const holidays = useStore((s) => s.holidays);
-  const attendance = useStore((s) => s.attendance);
+  const [month, setMonth] = useState(() => new Date());
+  const { data: requests = [] } = useMyLeaves();
+  const { data: holidays = [] } = useHolidays(month.getFullYear());
+  const { data: attData } = useAttendanceHistory(month.getFullYear(), month.getMonth() + 1);
+  const attendance = attData?.records ?? [];
 
   if (!user) return null;
 
@@ -49,15 +49,9 @@ export function MiniCalendar() {
     const isWeekend = weekday === 0 || weekday === 6;
     const holiday = holidays.find((h) => h.date === iso);
     const approvedLeave = requests.find(
-      (r) =>
-        r.employeeId === user.id &&
-        r.status === 'APPROVED' &&
-        iso >= r.startDate &&
-        iso <= r.endDate
+      (r) => r.status === 'APPROVED' && iso >= r.startDate && iso <= r.endDate
     );
-    const att = attendance.find(
-      (a) => a.employeeId === user.id && a.date === iso
-    );
+    const att = attendance.find((a) => a.date === iso);
     let status: DayInfo['status'];
     if (holiday) status = 'HOLIDAY';
     else if (approvedLeave) status = 'LEAVE';
@@ -66,7 +60,7 @@ export function MiniCalendar() {
     else if (att?.status === 'HALF_DAY') status = 'HALF_DAY';
     else if (att?.status === 'ABSENT') status = 'ABSENT';
     else status = 'FUTURE';
-    return { date: d, status, leave: approvedLeave, holiday, attendance: att };
+    return { date: d, status, holidayName: holiday?.name };
   });
 
   return (
@@ -101,11 +95,11 @@ export function MiniCalendar() {
               isToday(d.date) && 'mcal-cell-today'
             )}
             title={
-              d.holiday
-                ? `Holiday: ${d.holiday.name}`
-                : d.leave
-                ? `${d.leave.leaveType.toLowerCase()} leave`
-                : d.attendance?.status === 'PRESENT'
+              d.holidayName
+                ? `Holiday: ${d.holidayName}`
+                : d.status === 'LEAVE'
+                ? 'On leave'
+                : d.status === 'PRESENT'
                 ? 'Present'
                 : ''
             }
