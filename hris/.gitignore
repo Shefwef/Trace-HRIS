@@ -12,6 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Environment variables — NEVER commit
+.env
+.env.*
+!.env.example
+.env*.local
+
+# Next.js build output
+.next
+next-env.d.ts
+tsconfig.tsbuildinfo
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
