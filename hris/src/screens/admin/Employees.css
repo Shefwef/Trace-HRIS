@@ -12,9 +12,9 @@
 .empg-card-actions {
   display: flex;
   justify-content: flex-end;
-  padding-top: 8px;
+  padding-top: 12px;
   border-top: 1px dashed var(--color-border-default);
-  margin-top: 4px;
+  margin-top: auto;
 }
 .empg-grid {
   display: grid;

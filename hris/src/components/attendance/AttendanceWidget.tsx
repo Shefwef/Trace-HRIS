@@ -8,6 +8,7 @@ import {
   useStartBreak,
   useEndBreak,
 } from '@/lib/hooks';
+import { useStore } from '@/lib/store';
 import { Button } from '../ui/Button';
 import { fmtDuration } from '../../lib/utils';
 import './AttendanceWidget.css';
@@ -27,6 +28,11 @@ export function AttendanceWidget() {
   const clockOut = useClockOut();
   const startBreak = useStartBreak();
   const endBreak = useEndBreak();
+  const addToast = useStore((s) => s.addToast);
+
+  const onError = (kind: string) => (e: Error) => {
+    addToast({ kind: 'error', title: `Could not ${kind}`, body: e.message });
+  };
 
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -95,21 +101,18 @@ export function AttendanceWidget() {
       )}
 
       <div className="atw-actions">
-        {!record && !isWeekend && (
+        {!record && (
           <Button
             variant="primary"
             size="lg"
             leadingIcon={<Play size={16} />}
             loading={clockIn.isPending}
             disabled={busy}
-            onClick={() => clockIn.mutate()}
+            onClick={() =>
+              clockIn.mutate(undefined, { onError: onError('clock in') })
+            }
           >
-            Clock In
-          </Button>
-        )}
-        {isWeekend && !record && (
-          <Button variant="secondary" size="lg" disabled>
-            Non-working day
+            Clock In{isWeekend ? ' (weekend)' : ''}
           </Button>
         )}
         {isClockedIn && !activeBreak && (
@@ -120,7 +123,9 @@ export function AttendanceWidget() {
               leadingIcon={<Coffee size={16} />}
               loading={startBreak.isPending}
               disabled={busy}
-              onClick={() => startBreak.mutate()}
+              onClick={() =>
+                startBreak.mutate(undefined, { onError: onError('start break') })
+              }
             >
               Start Break
             </Button>
@@ -130,7 +135,9 @@ export function AttendanceWidget() {
               leadingIcon={<Square size={16} />}
               loading={clockOut.isPending}
               disabled={busy}
-              onClick={() => clockOut.mutate()}
+              onClick={() =>
+                clockOut.mutate(undefined, { onError: onError('clock out') })
+              }
             >
               Clock Out
             </Button>
@@ -143,7 +150,9 @@ export function AttendanceWidget() {
             leadingIcon={<Play size={16} />}
             loading={endBreak.isPending}
             disabled={busy}
-            onClick={() => endBreak.mutate()}
+            onClick={() =>
+              endBreak.mutate(undefined, { onError: onError('resume work') })
+            }
           >
             Resume Work
           </Button>

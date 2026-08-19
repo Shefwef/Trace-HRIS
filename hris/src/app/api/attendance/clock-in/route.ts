@@ -29,8 +29,9 @@ export async function POST(req: Request) {
   const now = input?.timestamp ? new Date(input.timestamp) : new Date();
   const dateOnly = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
-  if ([0, 6].includes(now.getUTCDay()))
-    return err(400, 'WEEKEND', 'Today is a non-working day.');
+  // Weekend hint is exposed via GET /attendance/today (isWeekend). We do NOT
+  // block clock-in on weekends — users might work Saturdays occasionally, and
+  // the compensation path is the extra-work log.
 
   const existing = await prisma.attendanceRecord.findUnique({
     where: { employeeId_date: { employeeId: user.id, date: dateOnly } },
