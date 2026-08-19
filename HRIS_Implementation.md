@@ -42,7 +42,7 @@ HRIS (Human Resource Information System) is a web-based platform for managing th
 ### 1.3 Key Principles
 
 - **Year-relative leave cycles:** Each employee's leave year starts on a custom date (e.g., Jan 1, Jul 1, Feb 1). The system always calculates leave balances relative to each employee's personal cycle start date.
-- **Three user roles:** Super Admin, Normal Admin (HR/CEO), and General Employee.
+- **Four user roles:** Super Admin, Admin (CEO/CTO), HR (People Operations), and General Employee.
 - **Dual notification channel:** All leave events and holiday alerts can be sent via Email or In-App Message, with Email pre-selected by default. The user always has the ability to switch or use both.
 - **No leave balance inflation:** Standard leave days (12 casual + 12 sick = 24 total) are static per cycle. They only decrease and never automatically refill mid-cycle.
 - **Replacement leaves are additive:** Replacement leaves come from logged overtime and exist in a separate balance pool, not from the 24 standard days.
@@ -229,29 +229,38 @@ body, p, td, li  { font-family: var(--font-body); font-weight: var(--weight-regu
 | Role | Who | Access Level |
 |------|-----|-------------|
 | `SUPER_ADMIN` | Technical owner / system administrator | Full system access including configuration, schema-level settings, audit logs |
-| `ADMIN` | HR Manager, CEO, CTO | Operational control: approve/reject leaves, manage employees, send holiday notices, view all analytics |
-| `EMPLOYEE` | General staff | Personal dashboard: apply for leave, track attendance, view own analytics |
+| `ADMIN` | CEO / CTO / other C-level | Operational control: approve/reject leaves, send holiday notices, view all analytics; can also apply for leave (routes to HR + Super Admin) |
+| `HR` | HR Manager, People Operations, Research Associate on the People team | Approve/reject leaves and extra-work logs, manage employees and holidays, send holiday notices; can also apply for leave (routes to the *other* HR user + CEO) |
+| `EMPLOYEE` | General staff | Personal dashboard: apply for leave, track attendance, log extra work, view own analytics |
+
+**Approval routing rules (server-side):**
+- **Employee submits** → notifies all HR users; CCs the CEO (Admin).
+- **HR submits** → notifies the *other* HR user + the CEO; CCs the Super Admin.
+- **Admin (CEO) submits** → notifies Super Admin + all HR users.
+- **Super Admin submits** → notifies all HR users + the CEO.
 
 ### 3.2 Permission Matrix
 
-| Feature | SUPER_ADMIN | ADMIN | EMPLOYEE |
-|---------|:-----------:|:-----:|:--------:|
-| Configure leave year cycle per employee | ✅ | ✅ | ❌ |
-| View all employees' leave records | ✅ | ✅ | ❌ |
-| View own leave records | ✅ | ✅ | ✅ |
-| Apply for leave | ❌ | ❌ | ✅ |
-| Approve / Reject leave | ✅ | ✅ | ❌ |
-| Manage replacement leave rules | ✅ | ✅ | ❌ |
-| Log attendance (clock in/out) | ✅ | ✅ | ✅ |
-| View all attendance records | ✅ | ✅ | ❌ |
-| Create / edit holidays | ✅ | ✅ | ❌ |
-| Send holiday notifications | ✅ | ✅ | ❌ |
-| Configure notification recipients | ✅ | ✅ | ❌ |
-| Add / deactivate employees | ✅ | ✅ | ❌ |
-| Download own analytics PDF | ✅ | ✅ | ✅ |
-| Download any employee's analytics PDF | ✅ | ✅ | ❌ |
-| Modify system-level configurations | ✅ | ❌ | ❌ |
-| Access audit logs | ✅ | ❌ | ❌ |
+| Feature | SUPER_ADMIN | ADMIN | HR | EMPLOYEE |
+|---------|:-----------:|:-----:|:--:|:--------:|
+| Configure leave year cycle per employee | ✅ | ✅ | ✅ | ❌ |
+| View all employees' leave records | ✅ | ✅ | ✅ | ❌ |
+| View own leave records | ✅ | ✅ | ✅ | ✅ |
+| Apply for leave | ✅ | ✅ | ✅ | ✅ |
+| Approve / Reject leave (incl. modify allocation) | ✅ | ✅ | ✅ | ❌ |
+| Approve / Reject extra-work logs | ✅ | ✅ | ✅ | ❌ |
+| Log attendance (clock in/out) | ✅ | ✅ | ✅ | ✅ |
+| Log extra work day (weekend / holiday) | ✅ | ✅ | ✅ | ✅ |
+| View all attendance records | ✅ | ✅ | ✅ | ❌ |
+| Create / edit holidays | ✅ | ✅ | ✅ | ❌ |
+| Send holiday notifications | ✅ | ✅ | ✅ | ❌ |
+| Configure notification recipients | ✅ | ✅ | ✅ | ❌ |
+| Add / invite / deactivate employees | ✅ | ✅ | ✅ | ❌ |
+| Edit system settings (sender email, work hours, standard hours/day) | ✅ | ✅ | ✅ | ❌ |
+| Download own analytics PDF | ✅ | ✅ | ✅ | ✅ |
+| Download any employee's analytics PDF | ✅ | ✅ | ✅ | ❌ |
+| Modify system-level configurations (Clerk keys, migrations, feature flags) | ✅ | ❌ | ❌ | ❌ |
+| Access audit logs | ✅ | ❌ | ❌ | ❌ |
 
 ---
 
@@ -932,7 +941,7 @@ CREATE TABLE users (
   full_name             VARCHAR(255) NOT NULL,
   email                 VARCHAR(255) UNIQUE NOT NULL,
   password_hash         TEXT NOT NULL,
-  role                  ENUM('SUPER_ADMIN', 'ADMIN', 'EMPLOYEE') NOT NULL,
+  role                  ENUM('SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE') NOT NULL,
   department            VARCHAR(100),
   designation           VARCHAR(100),
   employee_id_code      VARCHAR(50) UNIQUE,

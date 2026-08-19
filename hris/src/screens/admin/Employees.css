@@ -3,8 +3,19 @@
   flex-direction: column;
   gap: var(--space-5);
 }
+.empg-head { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; }
 .empg-head h1 { font-size: var(--text-3xl); letter-spacing: -0.02em; }
-@media (max-width: 640px) { .empg-head h1 { font-size: var(--text-2xl); } }
+@media (max-width: 640px) {
+  .empg-head h1 { font-size: var(--text-2xl); }
+  .empg-head { flex-direction: column; align-items: stretch; }
+}
+.empg-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border-default);
+  margin-top: 4px;
+}
 .empg-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

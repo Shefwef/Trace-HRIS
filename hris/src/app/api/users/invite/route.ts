@@ -1,0 +1,103 @@
+import { NextResponse } from 'next/server';
+import { createClerkClient } from '@clerk/backend';
+import { prisma } from '@/lib/db';
+import { requireAuth, canApprove, parseBody, err } from '@/lib/api';
+import { InviteEmployeeSchema } from '@/lib/validation';
+
+const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
+
+/** POST /api/users/invite — HR/Admin/Super Admin invites a new user. */
+export async function POST(req: Request) {
+  const [actor, error] = await requireAuth();
+  if (error) return error;
+  if (!canApprove(actor.role))
+    return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can invite employees.');
+
+  const [input, badReq] = await parseBody(req, InviteEmployeeSchema);
+  if (badReq) return badReq;
+
+  // Check for existing user by email (in Clerk or in our DB)
+  const existingDb = await prisma.user.findUnique({ where: { email: input.email } });
+  if (existingDb)
+    return err(409, 'ALREADY_EXISTS', 'A user with this email already exists.');
+
+  const existingClerk = await clerk.users.getUserList({ emailAddress: [input.email] });
+  if (existingClerk.data.length > 0)
+    return err(409, 'ALREADY_EXISTS', 'A Clerk user with this email already exists.');
+
+  // Generate a random password if none provided; user will change it on first sign-in
+  const initialPassword = input.password ?? generatePassword();
+
+  const clerkUser = await clerk.users.createUser({
+    emailAddress: [input.email],
+    firstName: input.firstName,
+    lastName: input.lastName,
+    password: initialPassword,
+    skipPasswordChecks: true,
+    publicMetadata: {
+      role: input.role,
+      department: input.department,
+      designation: input.designation,
+      employeeIdCode: input.employeeIdCode,
+    },
+  });
+
+  const year = new Date().getFullYear();
+  const cycleStartDate = new Date(year, input.cycleStartMonth - 1, 1);
+  const cycleEndDate = new Date(year, input.cycleStartMonth - 1 + 12, 0);
+
+  await prisma.user.create({
+    data: {
+      id: clerkUser.id,
+      fullName: `${input.firstName} ${input.lastName}`.trim(),
+      email: input.email,
+      role: input.role,
+      department: input.department,
+      designation: input.designation,
+      employeeIdCode: input.employeeIdCode,
+      cycleStartMonth: input.cycleStartMonth,
+    },
+  });
+
+  await prisma.leaveBalance.create({
+    data: {
+      employeeId: clerkUser.id,
+      cycleYear: year,
+      cycleStartDate,
+      cycleEndDate,
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      actorId: actor.id,
+      action: 'USER_INVITED',
+      targetType: 'user',
+      targetId: clerkUser.id,
+      metadata: {
+        email: input.email,
+        role: input.role,
+        department: input.department,
+      },
+    },
+  });
+
+  return NextResponse.json(
+    {
+      ok: true,
+      id: clerkUser.id,
+      email: input.email,
+      initialPassword,
+    },
+    { status: 201 }
+  );
+}
+
+/** Generate a memorable but strong password. */
+function generatePassword(): string {
+  const words = ['Trace', 'HRIS', 'Welcome', 'Access', 'Secure', 'Login'];
+  const w1 = words[Math.floor(Math.random() * words.length)];
+  const num = Math.floor(1000 + Math.random() * 9000);
+  const suffix = '!';
+  return `${w1}-${num}${suffix}`;
+}
