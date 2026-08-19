@@ -26,26 +26,25 @@
   outline-offset: 2px;
 }
 
-.help-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.55);
-  z-index: 90;
-  backdrop-filter: blur(2px);
-}
 .help-panel {
   position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  right: 20px;
+  bottom: 20px;
   z-index: 91;
-  height: 100vh;
-  width: 460px;
-  max-width: 92vw;
+  width: 380px;
+  height: 580px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 40px);
   background: var(--color-bg-surface);
-  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 24px 48px -12px rgba(15, 23, 42, 0.25),
+    0 8px 20px -6px rgba(15, 23, 42, 0.15);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  transform-origin: bottom right;
 }
 .help-header {
   padding: var(--space-5) var(--space-6);
@@ -251,6 +250,14 @@
     padding: 10px 14px 10px 12px;
   }
   .help-fab span { display: none; }
+  .help-panel {
+    right: 12px;
+    left: 12px;
+    bottom: 12px;
+    width: auto;
+    max-width: none;
+    height: 78vh;
+  }
   .help-messages, .help-input-row, .help-header, .help-suggested, .help-footer {
     padding-left: var(--space-4);
     padding-right: var(--space-4);

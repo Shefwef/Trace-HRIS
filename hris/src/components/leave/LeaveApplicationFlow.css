@@ -190,7 +190,16 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
-.laf-typecard-emoji { font-size: 28px; }
+.laf-typecard-icon {
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--tc-color);
+  background: color-mix(in srgb, var(--tc-color) 12%, transparent);
+}
 .laf-typecard-title {
   font-family: var(--font-display);
   font-weight: var(--weight-semibold);

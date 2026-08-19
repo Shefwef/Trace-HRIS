@@ -31,12 +31,7 @@ export function HelpPanel() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    document.body.style.overflow = open ? 'hidden' : '';
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [open]);
+  // Floating widget — do NOT lock body scroll; the app underneath stays usable.
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -99,34 +94,26 @@ export function HelpPanel() {
 
   return (
     <>
-      <button
-        className="help-fab"
-        onClick={() => setOpen(true)}
-        aria-label="Open assistant"
-      >
-        <Sparkles size={18} />
-        <span>Ask HRIS</span>
-      </button>
+      {!open && (
+        <button
+          className="help-fab"
+          onClick={() => setOpen(true)}
+          aria-label="Open assistant"
+        >
+          <Sparkles size={18} />
+          <span>Ask HRIS</span>
+        </button>
+      )}
 
       <AnimatePresence>
         {open && (
-          <>
-            <motion.div
-              className="help-overlay"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={() => setOpen(false)}
-            />
             <motion.aside
               className="help-panel"
-              initial={{ x: '100%', opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: '100%', opacity: 0 }}
-              transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
+              initial={{ opacity: 0, y: 20, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.96 }}
+              transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
               role="dialog"
-              aria-modal="true"
               aria-label="HRIS assistant"
             >
               <header className="help-header">
@@ -226,7 +213,6 @@ export function HelpPanel() {
                 Only answers about Trace HRIS or HR-information-system concepts.
               </footer>
             </motion.aside>
-          </>
         )}
       </AnimatePresence>
     </>

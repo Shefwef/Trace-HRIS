@@ -3,7 +3,9 @@ import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   X, ArrowLeft, ArrowRight, Check, Paperclip, Mail, MessageSquare, RotateCcw, Pencil,
+  Palmtree, Stethoscope, Repeat,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useCurrentUser } from '@/lib/session';
 import {
   useBalance,
@@ -371,14 +373,14 @@ function StepType({
   leaveType: LeaveType | null;
   onChoose: (t: LeaveType) => void;
 }) {
-  const cards: { t: LeaveType; title: string; left: number; color: string; bg: string; emoji: string }[] = [
+  const cards: { t: LeaveType; title: string; left: number; color: string; bg: string; Icon: LucideIcon }[] = [
     {
       t: 'CASUAL',
       title: 'Casual Leave',
       left: balance.casualTotal - balance.casualUsed - balance.casualPending,
       color: 'var(--color-leave-casual)',
       bg: 'var(--color-leave-casual-light)',
-      emoji: '🌿',
+      Icon: Palmtree,
     },
     {
       t: 'SICK',
@@ -386,7 +388,7 @@ function StepType({
       left: balance.sickTotal - balance.sickUsed - balance.sickPending,
       color: 'var(--color-leave-sick)',
       bg: 'var(--color-leave-sick-light)',
-      emoji: '💊',
+      Icon: Stethoscope,
     },
     {
       t: 'REPLACEMENT',
@@ -394,7 +396,7 @@ function StepType({
       left: balance.replacementBalance,
       color: 'var(--color-leave-replacement)',
       bg: 'var(--color-leave-replacement-light)',
-      emoji: '⚡',
+      Icon: Repeat,
     },
   ];
 
@@ -414,7 +416,7 @@ function StepType({
               onClick={() => onChoose(c.t)}
               style={{ '--tc-color': c.color, '--tc-bg': c.bg } as React.CSSProperties}
             >
-              <div className="laf-typecard-emoji">{c.emoji}</div>
+              <div className="laf-typecard-icon"><c.Icon size={28} strokeWidth={1.6} /></div>
               <div className="laf-typecard-title">{c.title}</div>
               <div className="laf-typecard-left">
                 {disabled ? 'No days remaining' : `${c.left} day${c.left === 1 ? '' : 's'} left`}

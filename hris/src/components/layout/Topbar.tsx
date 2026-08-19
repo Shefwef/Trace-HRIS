@@ -25,7 +25,7 @@ const NOTIF_ICONS: Record<string, React.ReactNode> = {
 
 export function Topbar() {
   const router = useRouter();
-  const { signOut } = useClerk();
+  const { signOut, openUserProfile } = useClerk();
   const user = useCurrentUser();
 
   const [notifOpen, setNotifOpen] = useState(false);
@@ -165,7 +165,13 @@ export function Topbar() {
                   </div>
                 </div>
                 <div className="topbar-menu-divider" />
-                <button className="topbar-menu-item">
+                <button
+                  className="topbar-menu-item"
+                  onClick={() => {
+                    setUserOpen(false);
+                    openUserProfile();
+                  }}
+                >
                   <UserCog size={14} />
                   Account settings
                 </button>
