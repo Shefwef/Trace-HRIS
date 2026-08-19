@@ -17,13 +17,29 @@ export async function currentUser(): Promise<ApiUser | null> {
   return prisma.user.findUnique({ where: { id: userId } });
 }
 
-/** Requires a signed-in user. Returns [user, null] on success or [null, response] on failure. */
-export async function requireAuth(): Promise<
-  [ApiUser, null] | [null, NextResponse]
-> {
+/**
+ * Requires a signed-in user. Returns [user, null] on success or [null, response] on failure.
+ * When called with a `req`, also enforces per-user rate limiting on write methods
+ * (POST/PATCH/PUT/DELETE): 30 writes per user per minute by default.
+ */
+export async function requireAuth(
+  req?: Request,
+  options?: { rateLimit?: { max?: number; windowMs?: number } | false }
+): Promise<[ApiUser, null] | [null, NextResponse]> {
   const user = await currentUser();
   if (!user) return [null, err(401, 'UNAUTHENTICATED', 'Sign in required.')];
   if (!user.isActive) return [null, err(403, 'INACTIVE', 'Account is inactive.')];
+
+  if (req && options?.rateLimit !== false) {
+    const method = req.method.toUpperCase();
+    const isWrite = method === 'POST' || method === 'PATCH' || method === 'PUT' || method === 'DELETE';
+    if (isWrite) {
+      const { rateLimit } = await import('./ratelimit');
+      const limited = await rateLimit(req, `user:${user.id}`, options?.rateLimit ?? {});
+      if (limited) return [null, limited];
+    }
+  }
+
   return [user, null];
 }
 

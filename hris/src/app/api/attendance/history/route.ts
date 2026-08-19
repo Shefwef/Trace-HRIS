@@ -8,7 +8,7 @@ import { serialize } from '../today/route';
  * GET /api/attendance/history?employeeId=...&year=YYYY&month=MM  (admin only)
  */
 export async function GET(req: Request) {
-  const [user, error] = await requireAuth();
+  const [user, error] = await requireAuth(req);
   if (error) return error;
 
   const url = new URL(req.url);

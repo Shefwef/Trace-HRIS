@@ -331,6 +331,24 @@ model SystemSettings {
   @@map("system_settings")
 }
 
+/// Fixed-window rate limit counter. One row per (subject, key, windowStart).
+/// Simple design: at request time we upsert-and-increment for the current
+/// window; if count > max the request is rejected. Windows expire naturally
+/// via a periodic prune (any old row can be deleted safely).
+model RateLimitBucket {
+  id           String   @id @default(cuid())
+  /// e.g. "user:<id>" or "ip:<address>"
+  subject      String
+  /// e.g. "POST /api/leaves/requests"
+  key          String
+  windowStart  DateTime
+  count        Int      @default(0)
+
+  @@unique([subject, key, windowStart])
+  @@index([windowStart])
+  @@map("rate_limit_buckets")
+}
+
 /// Append-only audit trail. Only SUPER_ADMIN can view.
 model AuditLog {
   id           String   @id @default(cuid())

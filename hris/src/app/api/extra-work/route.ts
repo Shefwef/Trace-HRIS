@@ -14,7 +14,7 @@ import { extraWorkSubmittedEmail } from '@/emails/templates';
  *   ?scope=all / pending  — admin/HR only
  */
 export async function GET(req: Request) {
-  const [user, error] = await requireAuth();
+  const [user, error] = await requireAuth(req);
   if (error) return error;
 
   const url = new URL(req.url);
@@ -48,7 +48,7 @@ export async function GET(req: Request) {
  * POST /api/extra-work — log an extra work day for approval.
  */
 export async function POST(req: Request) {
-  const [user, error] = await requireAuth();
+  const [user, error] = await requireAuth(req);
   if (error) return error;
 
   const [input, badReq] = await parseBody(req, CreateExtraWorkSchema);

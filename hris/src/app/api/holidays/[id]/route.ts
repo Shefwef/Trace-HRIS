@@ -6,7 +6,7 @@ import { UpdateHolidaySchema } from '@/lib/validation';
 import { serialize } from '../route';
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const [user, error] = await requireAuth();
+  const [user, error] = await requireAuth(req);
   if (error) return error;
   if (!canApprove(user.role))
     return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can update holidays.');
@@ -44,8 +44,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   return NextResponse.json(serialize(updated));
 }
 
-export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const [user, error] = await requireAuth();
+export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const [user, error] = await requireAuth(req);
   if (error) return error;
   if (!canApprove(user.role))
     return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can delete holidays.');

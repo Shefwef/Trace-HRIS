@@ -8,7 +8,7 @@ import { CreateHolidaySchema } from '@/lib/validation';
  *   Everyone can list holidays for the calendar.
  */
 export async function GET(req: Request) {
-  const [, error] = await requireAuth();
+  const [, error] = await requireAuth(req);
   if (error) return error;
 
   const url = new URL(req.url);
@@ -31,7 +31,7 @@ export async function GET(req: Request) {
 
 /** POST /api/holidays — create a new holiday (HR/Admin/Super Admin only). */
 export async function POST(req: Request) {
-  const [user, error] = await requireAuth();
+  const [user, error] = await requireAuth(req);
   if (error) return error;
   if (!canApprove(user.role))
     return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can create holidays.');

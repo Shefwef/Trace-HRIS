@@ -15,7 +15,7 @@ import { sendEmail } from '@/lib/email';
 import { leaveDecisionEmail } from '@/emails/templates';
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const [user, error] = await requireAuth();
+  const [user, error] = await requireAuth(req);
   if (error) return error;
   if (!canApprove(user.role))
     return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can approve.');

@@ -4,8 +4,8 @@ import { requireAuth } from '@/lib/api';
 
 /** Simple user directory: everyone can see basic info of every other user for @mentions,
  *  avatar rendering in inboxes etc. Roles/deptartments included; no secrets. */
-export async function GET() {
-  const [, error] = await requireAuth();
+export async function GET(req: Request) {
+  const [, error] = await requireAuth(req);
   if (error) return error;
 
   const users = await prisma.user.findMany({

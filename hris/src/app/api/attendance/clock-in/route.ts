@@ -12,7 +12,7 @@ const Body = z
   .optional();
 
 export async function POST(req: Request) {
-  const [user, error] = await requireAuth();
+  const [user, error] = await requireAuth(req);
   if (error) return error;
 
   let input: z.infer<typeof Body> = undefined;

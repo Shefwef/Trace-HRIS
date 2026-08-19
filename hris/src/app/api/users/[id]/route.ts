@@ -7,7 +7,7 @@ import { UpdateEmployeeSchema } from '@/lib/validation';
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const [actor, error] = await requireAuth();
+  const [actor, error] = await requireAuth(req);
   if (error) return error;
   if (!canApprove(actor.role))
     return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can edit employees.');

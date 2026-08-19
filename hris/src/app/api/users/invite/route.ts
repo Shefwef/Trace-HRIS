@@ -8,7 +8,7 @@ const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
 
 /** POST /api/users/invite — HR/Admin/Super Admin invites a new user. */
 export async function POST(req: Request) {
-  const [actor, error] = await requireAuth();
+  const [actor, error] = await requireAuth(req);
   if (error) return error;
   if (!canApprove(actor.role))
     return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can invite employees.');

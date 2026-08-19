@@ -15,7 +15,7 @@ import { leaveSubmittedEmail } from '@/emails/templates';
  *   ?scope=pending       — admin/HR only: PENDING requests
  */
 export async function GET(req: Request) {
-  const [user, error] = await requireAuth();
+  const [user, error] = await requireAuth(req);
   if (error) return error;
 
   const url = new URL(req.url);
@@ -55,7 +55,7 @@ export async function GET(req: Request) {
  * Approval routing depends on the applicant's role (see lib/routing.ts).
  */
 export async function POST(req: Request) {
-  const [user, error] = await requireAuth();
+  const [user, error] = await requireAuth(req);
   if (error) return error;
 
   const [input, badReq] = await parseBody(req, CreateLeaveSchema);

@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth, err } from '@/lib/api';
 
-export async function POST() {
-  const [user, error] = await requireAuth();
+export async function POST(req: Request) {
+  const [user, error] = await requireAuth(req);
   if (error) return error;
 
   const now = new Date();

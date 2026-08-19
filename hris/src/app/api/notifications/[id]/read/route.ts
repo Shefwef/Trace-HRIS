@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth, err } from '@/lib/api';
 
-export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const [user, error] = await requireAuth();
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const [user, error] = await requireAuth(req);
   if (error) return error;
   const { id } = await ctx.params;
 

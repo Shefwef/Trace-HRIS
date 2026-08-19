@@ -21,8 +21,8 @@ function serialize(s: {
   };
 }
 
-export async function GET() {
-  const [, error] = await requireAuth();
+export async function GET(req: Request) {
+  const [, error] = await requireAuth(req);
   if (error) return error;
 
   const s = await prisma.systemSettings.upsert({
@@ -34,7 +34,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
-  const [user, error] = await requireAuth();
+  const [user, error] = await requireAuth(req);
   if (error) return error;
   if (!canApprove(user.role))
     return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can edit settings.');

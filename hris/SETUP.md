@@ -37,6 +37,15 @@ Time: ~5 min.
 7. Still in Clerk, go to **User & Authentication → Email, Phone, Username**. Confirm "Password" and "Google" are both toggled on. Save.
 8. Go to **Sessions**. Set "Session timeout" to `7 days` (default is fine; adjust if you want).
 9. **Don't invite users yet** — I'll seed them programmatically once the app is wired.
+10. **Webhook (recommended)** — keeps our DB in sync when a user is deleted or updated directly in the Clerk dashboard:
+    - Go to **Webhooks → Add Endpoint**.
+    - Endpoint URL: `https://<your-vercel-domain>/api/webhooks/clerk` (for local dev use an ngrok tunnel).
+    - Message filters: check `user.deleted` and `user.updated`.
+    - Save, then copy the **Signing Secret** (starts with `whsec_...`) and paste to me alongside the other keys:
+    ```
+    CLERK_WEBHOOK_SIGNING_SECRET=whsec_...
+    ```
+    - Without this the webhook returns 501 and syncing falls back to manual. The app still works.
 
 ---
 
