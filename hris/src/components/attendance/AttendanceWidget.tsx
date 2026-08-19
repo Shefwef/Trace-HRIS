@@ -1,14 +1,18 @@
+'use client';
 import { useEffect, useState } from 'react';
 import { Play, Coffee, Square, Timer } from 'lucide-react';
-import { useCurrentUser, useStore } from '../../lib/store';
+import {
+  useToday,
+  useClockIn,
+  useClockOut,
+  useStartBreak,
+  useEndBreak,
+} from '@/lib/hooks';
 import { Button } from '../ui/Button';
 import { fmtDuration } from '../../lib/utils';
 import './AttendanceWidget.css';
 
-function pad(n: number): string {
-  return n.toString().padStart(2, '0');
-}
-
+function pad(n: number): string { return n.toString().padStart(2, '0'); }
 function fmtSeconds(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(total / 3600);
@@ -18,32 +22,25 @@ function fmtSeconds(ms: number): string {
 }
 
 export function AttendanceWidget() {
-  const user = useCurrentUser();
-  const [tick, setTick] = useState(0);
-  const clockIn = useStore((s) => s.clockIn);
-  const clockOut = useStore((s) => s.clockOut);
-  const startBreak = useStore((s) => s.startBreak);
-  const endBreak = useStore((s) => s.endBreak);
-  const record = useStore((s) => {
-    if (!user) return undefined;
-    const today = new Date().toISOString().slice(0, 10);
-    return s.attendance.find((a) => a.employeeId === user.id && a.date === today);
-  });
+  const { data } = useToday();
+  const clockIn = useClockIn();
+  const clockOut = useClockOut();
+  const startBreak = useStartBreak();
+  const endBreak = useEndBreak();
 
+  const [, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, []);
-  void tick;
 
-  if (!user) return null;
-
-  const now = Date.now();
+  const record = data?.record;
+  const isWeekend = data?.isWeekend ?? false;
   const activeBreak = record?.breaks.find((b) => !b.end);
   const isClockedIn = !!(record?.clockInTime && !record?.clockOutTime);
   const isClockedOut = !!record?.clockOutTime;
-  const isWeekend = [0, 6].includes(new Date().getDay());
 
+  const now = Date.now();
   let workedMs = 0;
   if (record?.clockInTime) {
     const clockInTime = new Date(record.clockInTime).getTime();
@@ -55,16 +52,14 @@ export function AttendanceWidget() {
       workedMs -= bEnd - bStart;
     }
   }
-  const breakMs = activeBreak
-    ? now - new Date(activeBreak.start).getTime()
-    : 0;
+  const breakMs = activeBreak ? now - new Date(activeBreak.start).getTime() : 0;
 
   const todayLabel = new Date().toLocaleDateString(undefined, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
+
+  const busy =
+    clockIn.isPending || clockOut.isPending || startBreak.isPending || endBreak.isPending;
 
   return (
     <div className="atw">
@@ -105,7 +100,9 @@ export function AttendanceWidget() {
             variant="primary"
             size="lg"
             leadingIcon={<Play size={16} />}
-            onClick={() => clockIn(user.id)}
+            loading={clockIn.isPending}
+            disabled={busy}
+            onClick={() => clockIn.mutate()}
           >
             Clock In
           </Button>
@@ -121,7 +118,9 @@ export function AttendanceWidget() {
               variant="secondary"
               size="lg"
               leadingIcon={<Coffee size={16} />}
-              onClick={() => startBreak(user.id)}
+              loading={startBreak.isPending}
+              disabled={busy}
+              onClick={() => startBreak.mutate()}
             >
               Start Break
             </Button>
@@ -129,7 +128,9 @@ export function AttendanceWidget() {
               variant="danger"
               size="lg"
               leadingIcon={<Square size={16} />}
-              onClick={() => clockOut(user.id)}
+              loading={clockOut.isPending}
+              disabled={busy}
+              onClick={() => clockOut.mutate()}
             >
               Clock Out
             </Button>
@@ -140,7 +141,9 @@ export function AttendanceWidget() {
             variant="success"
             size="lg"
             leadingIcon={<Play size={16} />}
-            onClick={() => endBreak(user.id)}
+            loading={endBreak.isPending}
+            disabled={busy}
+            onClick={() => endBreak.mutate()}
           >
             Resume Work
           </Button>
