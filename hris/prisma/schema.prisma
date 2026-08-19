@@ -1,0 +1,346 @@
+// HRIS — Production DB schema
+// Source of truth: HRIS_Implementation.md §10 + ARCHITECTURE.md
+// Ref: extra_work_logs replaces the old overtime_hours_bank model.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  HR
+  EMPLOYEE
+}
+
+enum LeaveType {
+  CASUAL
+  SICK
+  REPLACEMENT
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum HalfDaySlot {
+  MORNING
+  AFTERNOON
+}
+
+enum NotificationChannel {
+  EMAIL
+  IN_APP
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  LEAVE
+  HOLIDAY
+  WEEKEND
+}
+
+enum AttendanceSource {
+  MANUAL
+  BIOMETRIC
+}
+
+enum ExtraWorkType {
+  FULL_DAY          // 9 AM – 5 PM  → +1.0 replacement leave day
+  HALF_DAY_MORNING  // 9 AM – 1 PM  → +0.5 replacement leave day
+  HALF_DAY_AFTERNOON // 1 PM – 5 PM → +0.5 replacement leave day
+}
+
+enum ExtraWorkStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum HolidayRecipients {
+  ALL
+  HR_ONLY
+  STAFF_ONLY
+  CUSTOM
+}
+
+enum EmailStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+enum NotificationType {
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  LEAVE_PENDING
+  EXTRA_WORK_APPROVED
+  EXTRA_WORK_REJECTED
+  EXTRA_WORK_PENDING
+  REPLACEMENT_EARNED
+  HOLIDAY_NOTICE
+  ATTENDANCE_REMINDER
+  SYSTEM
+}
+
+// ─── Core tables ─────────────────────────────────────────
+
+/// A user of the system. `id` matches the Clerk user ID for easy joins.
+/// Real users are seeded via prisma/seed.ts; new users are added via the
+/// invite flow which calls Clerk's invitation API then mirrors here.
+model User {
+  id               String   @id
+  fullName         String
+  email            String   @unique
+  role             Role
+  department       String?
+  designation      String?
+  employeeIdCode   String?  @unique
+  avatarUrl        String?
+  cycleStartMonth  Int      @default(1)
+  cycleStartDay    Int      @default(1)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  leaveBalances    LeaveBalance[]
+  leaveRequests    LeaveRequest[]     @relation("EmployeeLeaves")
+  reviewedLeaves   LeaveRequest[]     @relation("ReviewerLeaves")
+  extraWorkLogs    ExtraWorkLog[]     @relation("EmployeeExtraWork")
+  reviewedExtras   ExtraWorkLog[]     @relation("ReviewerExtraWork")
+  attendance       AttendanceRecord[]
+  notifications    Notification[]
+  createdHolidays  Holiday[]
+  auditLog         AuditLog[]
+
+  @@index([role])
+  @@index([email])
+  @@map("users")
+}
+
+/// One row per employee per leave-cycle-year. The `casual_used + casual_pending`
+/// invariant is enforced by a DB check constraint (see migration).
+model LeaveBalance {
+  id                      String   @id @default(cuid())
+  employeeId              String
+  cycleYear               Int
+  cycleStartDate          DateTime @db.Date
+  cycleEndDate            DateTime @db.Date
+  casualTotal             Decimal  @default(12.0) @db.Decimal(4, 1)
+  casualUsed              Decimal  @default(0.0)  @db.Decimal(4, 1)
+  casualPending           Decimal  @default(0.0)  @db.Decimal(4, 1)
+  sickTotal               Decimal  @default(12.0) @db.Decimal(4, 1)
+  sickUsed                Decimal  @default(0.0)  @db.Decimal(4, 1)
+  sickPending             Decimal  @default(0.0)  @db.Decimal(4, 1)
+  replacementBalance      Decimal  @default(0.0)  @db.Decimal(4, 1)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  employee                User     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, cycleYear])
+  @@index([employeeId])
+  @@map("leave_balances")
+}
+
+/// A leave request. Supports full-day range, half-day, and — new — time-range
+/// partial leave (timeFrom/timeTo, e.g. 09:00–13:00 within a single day).
+model LeaveRequest {
+  id                    String                @id @default(cuid())
+  employeeId            String
+  leaveType             LeaveType
+  startDate             DateTime              @db.Date
+  endDate               DateTime              @db.Date
+  isHalfDay             Boolean               @default(false)
+  halfDaySlot           HalfDaySlot?
+  /// Optional custom time slot (single-day only, mutually exclusive with isHalfDay).
+  /// Stored as HH:mm strings. Duration derived server-side.
+  timeFrom              String?
+  timeTo                String?
+  durationDays          Decimal               @db.Decimal(4, 1)
+  reason                String                @db.VarChar(100)
+  description           String?
+  attachmentUrl         String?
+  channels              NotificationChannel[] @default([EMAIL])
+  customMessage         String?
+  status                LeaveStatus           @default(PENDING)
+  adminNote             String?
+  reviewedById          String?
+  reviewedAt            DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  employee              User                  @relation("EmployeeLeaves", fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewer              User?                 @relation("ReviewerLeaves", fields: [reviewedById], references: [id])
+
+  @@index([employeeId, status])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("leave_requests")
+}
+
+/// An extra work day (weekend/holiday) logged by an employee. When approved
+/// by HR or Admin, credits +1.0 (FULL_DAY) or +0.5 (HALF_DAY_*) to the
+/// employee's replacement leave balance.
+model ExtraWorkLog {
+  id             String          @id @default(cuid())
+  employeeId     String
+  workDate       DateTime        @db.Date
+  workType       ExtraWorkType
+  reason         String          @db.VarChar(200)
+  description    String?
+  status         ExtraWorkStatus @default(PENDING)
+  adminNote      String?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  employee       User            @relation("EmployeeExtraWork", fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewer       User?           @relation("ReviewerExtraWork", fields: [reviewedById], references: [id])
+
+  @@unique([employeeId, workDate], name: "one_log_per_day")
+  @@index([employeeId, status])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("extra_work_logs")
+}
+
+model AttendanceRecord {
+  id                    String            @id @default(cuid())
+  employeeId            String
+  date                  DateTime          @db.Date
+  clockInTime           DateTime?
+  clockOutTime          DateTime?
+  totalWorkedMinutes    Int               @default(0)
+  totalBreakMinutes     Int               @default(0)
+  overtimeMinutes       Int               @default(0)
+  status                AttendanceStatus
+  source                AttendanceSource  @default(MANUAL)
+  biometricDeviceId     String?
+  notes                 String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  employee              User              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  breaks                BreakSession[]
+
+  @@unique([employeeId, date])
+  @@index([employeeId, date(sort: Desc)])
+  @@map("attendance_records")
+}
+
+model BreakSession {
+  id               String   @id @default(cuid())
+  attendanceId     String
+  breakStart       DateTime
+  breakEnd         DateTime?
+  durationMinutes  Int?
+
+  attendance       AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+
+  @@index([attendanceId])
+  @@map("break_sessions")
+}
+
+model Holiday {
+  id                      String             @id @default(cuid())
+  name                    String
+  date                    DateTime           @db.Date
+  isRecurring             Boolean            @default(true)
+  description             String?
+  notificationScheduled   Boolean            @default(true)
+  notificationSendAt      DateTime?
+  recipients              HolidayRecipients  @default(ALL)
+  customRecipientIds      String[]           @default([])
+  notificationSentAt      DateTime?
+  createdById             String?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+
+  createdBy               User?              @relation(fields: [createdById], references: [id])
+
+  @@index([date])
+  @@map("holidays")
+}
+
+model Notification {
+  id             String           @id @default(cuid())
+  recipientId    String
+  type           NotificationType
+  title          String
+  body           String
+  referenceType  String?
+  referenceId    String?
+  isRead         Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+
+  recipient      User             @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, isRead, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model EmailLog {
+  id                 String       @id @default(cuid())
+  toAddresses        String[]
+  ccAddresses        String[]     @default([])
+  subject            String
+  bodyPreview        String?
+  status             EmailStatus  @default(QUEUED)
+  providerMessageId  String?
+  errorMessage       String?
+  referenceType      String?
+  referenceId        String?
+  sentAt             DateTime?
+  createdAt          DateTime     @default(now())
+
+  @@index([status, createdAt(sort: Desc)])
+  @@map("email_log")
+}
+
+/// Singleton settings row (id = "singleton"). Editable by SUPER_ADMIN, ADMIN, HR.
+model SystemSettings {
+  id                        String   @id @default("singleton")
+  senderEmail               String   @default("shefadib@gmail.com")
+  senderName                String   @default("Trace HRIS")
+  fromEmail                 String   @default("onboarding@resend.dev")
+  standardHoursPerDay       Int      @default(8)
+  workStartTime             String   @default("09:00")
+  workEndTime               String   @default("17:00")
+  workDaysBitmask           Int      @default(62) // Mon-Fri = bits 1-5
+  overtimeThresholdMinutes  Int      @default(480)
+  updatedAt                 DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+/// Append-only audit trail. Only SUPER_ADMIN can view.
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorId      String?
+  action       String
+  targetType   String?
+  targetId     String?
+  metadata     Json?
+  ip           String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  actor        User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt(sort: Desc)])
+  @@index([targetType, targetId])
+  @@map("audit_log")
+}
