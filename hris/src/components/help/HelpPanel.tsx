@@ -1,115 +1,111 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { HelpCircle, X, Search, ChevronRight } from 'lucide-react';
+import { Bot, X, Send, Sparkles, RefreshCw } from 'lucide-react';
 import './HelpPanel.css';
 
-interface FAQItem {
-  q: string;
-  a: string;
-  tags: string[]; // categories + keywords for search
-  audience: ('EMPLOYEE' | 'HR' | 'ADMIN' | 'SUPER_ADMIN')[];
+interface ChatMsg {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
-const FAQ: FAQItem[] = [
-  {
-    q: 'How do I apply for a leave?',
-    a: 'From your dashboard or the "My Leaves" page, click the blue "Apply for Leave" button. Follow the 5 steps: pick the type (Casual / Sick / Replacement), choose dates (you can also pick a half-day or a specific time slot), add a reason, choose email + in-app, and review the auto-generated message before submitting. HR gets notified immediately.',
-    tags: ['leave', 'apply', 'submit', 'request', 'time-range', 'half-day'],
-    audience: ['EMPLOYEE', 'HR', 'ADMIN', 'SUPER_ADMIN'],
-  },
-  {
-    q: 'How do I take a partial-day leave (like just the morning)?',
-    a: 'In the leave application flow, on Step 2 (Dates), pick a single-day date. You\'ll see two toggles below: "Half day" (Morning / Afternoon) or "Specific time slot within the day" (e.g. 09:00–13:00). Only one can be active at a time. The duration auto-updates as a fraction of your 8-hour day.',
-    tags: ['leave', 'half-day', 'partial', 'time slot', 'morning', 'afternoon'],
-    audience: ['EMPLOYEE', 'HR', 'ADMIN', 'SUPER_ADMIN'],
-  },
-  {
-    q: 'How do I cancel a leave I already submitted?',
-    a: 'Go to "My Leaves". Any request still marked "Pending" has a small Cancel button in the last column. Once approved, only HR can reverse it — reach out via chat or email.',
-    tags: ['leave', 'cancel', 'pending'],
-    audience: ['EMPLOYEE', 'HR', 'ADMIN', 'SUPER_ADMIN'],
-  },
-  {
-    q: 'Where do I see the credentials for a new employee I invited?',
-    a: 'After clicking "Create account" in the Invite modal, HRIS shows the initial password on the success screen. Copy the whole block with the "Copy all credentials" button and share it with the new employee. They can change their password after signing in via the avatar menu → Manage account.',
-    tags: ['invite', 'employee', 'password', 'onboarding', 'credentials'],
-    audience: ['HR', 'ADMIN', 'SUPER_ADMIN'],
-  },
-  {
-    q: 'How do I clock in?',
-    a: 'On your dashboard the big blue "Clock In" button starts your session. Timer counts up live. Start / end breaks with the buttons that appear. Clock Out when your day is done — you\'ll see a session summary with total worked, break, and overtime.',
-    tags: ['attendance', 'clock', 'clock-in', 'clock-out', 'break'],
-    audience: ['EMPLOYEE', 'HR', 'ADMIN', 'SUPER_ADMIN'],
-  },
-  {
-    q: 'I worked on a weekend / holiday — how do I get compensated?',
-    a: 'Go to Attendance → "Log extra work day". Pick the date and the slot you covered (Full day = +1 replacement leave day, Half day = +0.5). HR or Admin reviews and approves. Once approved, your replacement leave balance updates automatically and you can apply for a Replacement leave from the usual application flow.',
-    tags: ['attendance', 'extra work', 'replacement leave', 'weekend', 'holiday'],
-    audience: ['EMPLOYEE', 'HR', 'ADMIN', 'SUPER_ADMIN'],
-  },
-  {
-    q: 'How do I approve a leave request?',
-    a: 'Sidebar → "Leave Requests". Click any Pending row to open the Review Drawer. You can:\n• Approve as-is (single click)\n• Reject with a reason\n• Modify: click the "Modify" toggle in the "Approval allocation" section. You can change any day to half-day, drop days, or add days beyond what was requested. The button label updates to show the new total (e.g. "Approve (1.5 d)").',
-    tags: ['approve', 'reject', 'review', 'leave', 'modify', 'allocation'],
-    audience: ['HR', 'ADMIN', 'SUPER_ADMIN'],
-  },
-  {
-    q: 'How do I add a public holiday?',
-    a: 'Admin sidebar → "Holiday Manager" → "New holiday". Fill in name, date, optional description, and recipients (usually All employees). Save. Then click "Send notice" to email + in-app the announcement to everyone.',
-    tags: ['holiday', 'create', 'send notice', 'email'],
-    audience: ['HR', 'ADMIN', 'SUPER_ADMIN'],
-  },
-  {
-    q: 'How do I change the email address HRIS sends from?',
-    a: 'Admin sidebar → Settings → Sender email section. Change "Reply-to email" (where responses come back to) or "From address" (needs to be verified in Resend first). Click Save at the top. Takes effect immediately for the next email sent.',
-    tags: ['settings', 'sender', 'email', 'from', 'reply-to'],
-    audience: ['HR', 'ADMIN', 'SUPER_ADMIN'],
-  },
-  {
-    q: 'What is the difference between Admin and HR?',
-    a: 'HR handles day-to-day people ops (approvals, invites, holidays). Admin is for CEO/CTO — same operational powers as HR plus they receive CCs on leave requests. Super Admin is the technical owner (you) with access to audit logs and system-level config.',
-    tags: ['roles', 'permissions', 'admin', 'hr', 'super admin'],
-    audience: ['EMPLOYEE', 'HR', 'ADMIN', 'SUPER_ADMIN'],
-  },
-  {
-    q: 'I forgot my password — how do I reset it?',
-    a: 'On the sign-in page, click "Forgot password?" and follow the emailed link. If you don\'t receive the email within a couple of minutes, check spam. If still nothing, ping HR to trigger a fresh invitation.',
-    tags: ['password', 'reset', 'forgot', 'sign in'],
-    audience: ['EMPLOYEE', 'HR', 'ADMIN', 'SUPER_ADMIN'],
-  },
+const SUGGESTED_PROMPTS = [
+  'How do I apply for a half-day leave?',
+  'How do I approve a leave with adjustments?',
+  'How do I invite a new employee?',
+  'What is replacement leave?',
 ];
+
+const GREETING: ChatMsg = {
+  role: 'assistant',
+  content:
+    "Hi! I'm the Trace HRIS assistant. Ask me anything about this app — how to apply for a leave, approve one, log extra work, invite employees, or general HR-information-system concepts.",
+};
 
 export function HelpPanel() {
   const [open, setOpen] = useState(false);
-  const [q, setQ] = useState('');
-  const [expanded, setExpanded] = useState<string | null>(null);
-
-  const matches = useMemo(() => {
-    if (!q.trim()) return FAQ;
-    const needle = q.toLowerCase();
-    return FAQ.filter(
-      (f) =>
-        f.q.toLowerCase().includes(needle) ||
-        f.a.toLowerCase().includes(needle) ||
-        f.tags.some((t) => t.includes(needle))
-    );
-  }, [q]);
+  const [messages, setMessages] = useState<ChatMsg[]>([GREETING]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [open]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, sending]);
+
+  useEffect(() => {
+    if (open) {
+      const t = setTimeout(() => inputRef.current?.focus(), 200);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
+  async function send(userText: string) {
+    if (!userText.trim() || sending) return;
+    setError(null);
+    const nextMessages: ChatMsg[] = [
+      ...messages,
+      { role: 'user', content: userText.trim() },
+    ];
+    setMessages(nextMessages);
+    setInput('');
+    setSending(true);
+    try {
+      // Trim the greeting from the outgoing payload (server system prompt is enough)
+      const outgoing = nextMessages.filter(
+        (m, i) => !(i === 0 && m.role === 'assistant' && m.content === GREETING.content)
+      );
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ messages: outgoing }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? `Request failed (${res.status})`);
+      }
+      const data = (await res.json()) as { reply: string };
+      setMessages((cur) => [...cur, { role: 'assistant', content: data.reply || '…' }]);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      setError(msg);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      send(input);
+    }
+  }
+
+  function resetChat() {
+    setMessages([GREETING]);
+    setError(null);
+  }
 
   return (
     <>
       <button
         className="help-fab"
         onClick={() => setOpen(true)}
-        aria-label="Open help panel"
+        aria-label="Open assistant"
       >
-        <HelpCircle size={22} />
-        <span>Help</span>
+        <Sparkles size={18} />
+        <span>Ask HRIS</span>
       </button>
 
       <AnimatePresence>
@@ -131,57 +127,103 @@ export function HelpPanel() {
               transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
               role="dialog"
               aria-modal="true"
-              aria-label="Help panel"
+              aria-label="HRIS assistant"
             >
               <header className="help-header">
-                <div>
-                  <div className="help-eyebrow">HELP CENTER</div>
-                  <h2>How can we help?</h2>
+                <div className="help-title">
+                  <div className="help-title-icon"><Bot size={18} /></div>
+                  <div>
+                    <div className="help-eyebrow">ASSISTANT</div>
+                    <h2>Ask HRIS</h2>
+                  </div>
                 </div>
-                <button className="help-close" onClick={() => setOpen(false)} aria-label="Close">
-                  <X size={20} />
-                </button>
+                <div className="help-header-actions">
+                  <button
+                    className="help-close"
+                    onClick={resetChat}
+                    aria-label="Reset conversation"
+                    title="Reset conversation"
+                  >
+                    <RefreshCw size={16} />
+                  </button>
+                  <button className="help-close" onClick={() => setOpen(false)} aria-label="Close">
+                    <X size={20} />
+                  </button>
+                </div>
               </header>
 
-              <div className="help-search">
-                <Search size={16} />
-                <input
-                  autoFocus
-                  placeholder="Search for a topic (e.g. leave, holiday, invite)…"
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                />
-              </div>
-
-              <div className="help-list">
-                {matches.length === 0 && (
-                  <div className="help-empty">
-                    Nothing matches &quot;{q}&quot;. Try a different word, or reach out to
-                    HR at <a href="mailto:shefadib@gmail.com">shefadib@gmail.com</a>.
+              <div className="help-messages" ref={scrollRef}>
+                {messages.map((m, i) => (
+                  <div key={i} className={`help-msg help-msg-${m.role}`}>
+                    {m.role === 'assistant' && (
+                      <div className="help-msg-avatar"><Bot size={14} /></div>
+                    )}
+                    <div className="help-msg-bubble">
+                      {m.content.split('\n').map((line, li) => (
+                        <p key={li}>{line || ' '}</p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {sending && (
+                  <div className="help-msg help-msg-assistant">
+                    <div className="help-msg-avatar"><Bot size={14} /></div>
+                    <div className="help-msg-bubble help-msg-loading">
+                      <span></span><span></span><span></span>
+                    </div>
                   </div>
                 )}
-                {matches.map((f) => {
-                  const isOpen = expanded === f.q;
-                  return (
-                    <div key={f.q} className={`help-item ${isOpen ? 'help-item-open' : ''}`}>
-                      <button
-                        className="help-item-q"
-                        onClick={() => setExpanded(isOpen ? null : f.q)}
-                      >
-                        <span>{f.q}</span>
-                        <ChevronRight size={16} className="help-item-chev" />
-                      </button>
-                      {isOpen && (
-                        <div className="help-item-a">{f.a}</div>
-                      )}
-                    </div>
-                  );
-                })}
+                {error && (
+                  <div className="help-error">
+                    {error.includes('NOT_CONFIGURED') || error.includes("isn't configured")
+                      ? 'The assistant is not yet configured on this deployment. A Super Admin needs to add GEMINI_API_KEY.'
+                      : error}
+                  </div>
+                )}
               </div>
 
+              {messages.length <= 1 && !sending && !error && (
+                <div className="help-suggested">
+                  {SUGGESTED_PROMPTS.map((p) => (
+                    <button
+                      key={p}
+                      className="help-suggested-chip"
+                      onClick={() => send(p)}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <form
+                className="help-input-row"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  send(input);
+                }}
+              >
+                <textarea
+                  ref={inputRef}
+                  className="help-input"
+                  placeholder="Ask about the app or general HR concepts…"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  rows={1}
+                />
+                <button
+                  className="help-send"
+                  type="submit"
+                  disabled={!input.trim() || sending}
+                  aria-label="Send"
+                >
+                  <Send size={16} />
+                </button>
+              </form>
+
               <footer className="help-footer">
-                Still stuck? Email{' '}
-                <a href="mailto:shefadib@gmail.com">shefadib@gmail.com</a>.
+                Only answers about Trace HRIS or HR-information-system concepts.
               </footer>
             </motion.aside>
           </>

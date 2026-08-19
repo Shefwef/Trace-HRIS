@@ -107,6 +107,24 @@ You don't need to do anything here yet — I'll walk you through pasting the env
 
 ---
 
+## Step 5 — Gemini API (in-app assistant, optional)
+
+Time: ~2 min. **Free tier — no credit card required.**
+
+Powers the "Ask HRIS" chatbot in the bottom-right of every authenticated page. Scoped to only answer questions about this app or general HR-information-system concepts. Uses Google Gemini 3.6 Flash — the free tier covers ~1,500 requests/day, well beyond what a 4–100 person team will use.
+
+1. Go to https://aistudio.google.com/apikey and sign in with your Google account.
+2. Click **Create API key** → **Create API key in new project** (or pick an existing GCP project).
+3. Copy the key (starts with `AIza...`):
+   ```
+   GEMINI_API_KEY=AIza...
+   ```
+4. Paste to me alongside the other keys.
+
+If you skip this, the help panel still opens but shows a "chat not configured" message. Nothing else breaks.
+
+---
+
 ## What to send me
 
 Paste all of this back to me in a message (redact/mask if you're pasting anywhere public, but the assistant chat is fine):
