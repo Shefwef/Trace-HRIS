@@ -37,6 +37,71 @@ export function computeDurationDays(input: CreateLeaveInput): number {
   return days;
 }
 
+/**
+ * Compute the total duration in days from an approver's allocation.
+ * Each entry: FULL = 1, HALF_MORNING = 0.5, HALF_AFTERNOON = 0.5.
+ */
+export type AllocationSlot = 'FULL' | 'HALF_MORNING' | 'HALF_AFTERNOON';
+export interface AllocationEntry {
+  date: string; // YYYY-MM-DD
+  slot: AllocationSlot;
+}
+export function slotDays(slot: AllocationSlot): number {
+  return slot === 'FULL' ? 1 : 0.5;
+}
+export function computeDurationFromAllocation(entries: AllocationEntry[]): number {
+  return entries.reduce((sum, e) => sum + slotDays(e.slot), 0);
+}
+export function slotLabel(slot: AllocationSlot): string {
+  return slot === 'FULL'
+    ? 'Full day (9 AM – 5 PM)'
+    : slot === 'HALF_MORNING'
+    ? 'Half day, morning (9 AM – 1 PM)'
+    : 'Half day, afternoon (1 PM – 5 PM)';
+}
+export function slotShort(slot: AllocationSlot): string {
+  return slot === 'FULL' ? 'Full' : slot === 'HALF_MORNING' ? '½ AM' : '½ PM';
+}
+
+/** Given the fields on a leave request, produce a default per-day allocation. */
+export function defaultAllocationFor(input: {
+  startDate: string;
+  endDate: string;
+  isHalfDay: boolean;
+  halfDaySlot?: 'MORNING' | 'AFTERNOON' | null;
+  timeFrom?: string | null;
+  timeTo?: string | null;
+}): AllocationEntry[] {
+  const start = new Date(input.startDate + 'T00:00:00Z');
+  const end = new Date(input.endDate + 'T00:00:00Z');
+  const entries: AllocationEntry[] = [];
+
+  // Time-range partial (single-day, treated as half day toward the closer slot)
+  if (input.timeFrom && input.timeTo && input.startDate === input.endDate) {
+    const [fh] = input.timeFrom.split(':').map(Number);
+    const slot: AllocationSlot = fh < 12 ? 'HALF_MORNING' : 'HALF_AFTERNOON';
+    entries.push({ date: input.startDate, slot });
+    return entries;
+  }
+
+  if (input.isHalfDay) {
+    const slot: AllocationSlot =
+      input.halfDaySlot === 'AFTERNOON' ? 'HALF_AFTERNOON' : 'HALF_MORNING';
+    entries.push({ date: input.startDate, slot });
+    return entries;
+  }
+
+  const cur = new Date(start);
+  while (cur <= end) {
+    const dow = cur.getUTCDay();
+    if (dow !== 0 && dow !== 6) {
+      entries.push({ date: cur.toISOString().slice(0, 10), slot: 'FULL' });
+    }
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return entries;
+}
+
 export function extraWorkCredit(
   workType: 'FULL_DAY' | 'HALF_DAY_MORNING' | 'HALF_DAY_AFTERNOON'
 ): number {

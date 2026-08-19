@@ -230,6 +230,7 @@ interface RawRequest {
   customMessage: string | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
   adminNote: string | null;
+  approvedAllocation: unknown;
   reviewedById: string | null;
   reviewedAt: Date | null;
   createdAt: Date;
@@ -260,6 +261,7 @@ function serialize(r: RawRequest) {
     customMessage: r.customMessage,
     status: r.status,
     adminNote: r.adminNote,
+    approvedAllocation: r.approvedAllocation,
     reviewedById: r.reviewedById,
     reviewedAt: r.reviewedAt?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),

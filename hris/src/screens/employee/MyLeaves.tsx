@@ -214,6 +214,18 @@ export function MyLeaves() {
                 </a>
               </div>
             )}
+            {detail.approvedAllocation && detail.approvedAllocation.length > 0 && (
+              <div className="myleaves-detail-row">
+                <span className="myleaves-detail-label">Approved as</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {detail.approvedAllocation.map((a) => (
+                    <span key={a.date} className="mono" style={{ fontSize: 13 }}>
+                      {fmtDate(a.date, 'EEE, d MMM')} — {a.slot === 'FULL' ? 'Full day' : a.slot === 'HALF_MORNING' ? 'Half (morning)' : 'Half (afternoon)'}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             {detail.adminNote && (
               <div className="myleaves-detail-note">
                 <MessageCircle size={14} />

@@ -59,6 +59,9 @@ export interface LeaveRequestSummary {
   customMessage: string | null;
   status: LeaveStatus;
   adminNote: string | null;
+  approvedAllocation:
+    | { date: string; slot: 'FULL' | 'HALF_MORNING' | 'HALF_AFTERNOON' }[]
+    | null;
   reviewedById: string | null;
   reviewedAt: string | null;
   createdAt: string;
@@ -200,13 +203,18 @@ export function useCancelLeave() {
   });
 }
 
+export interface ApproveLeavePayload {
+  id: string;
+  note?: string;
+  allocation?: Array<{ date: string; slot: 'FULL' | 'HALF_MORNING' | 'HALF_AFTERNOON' }>;
+}
 export function useApproveLeave() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, note }: { id: string; note?: string }) =>
+    mutationFn: ({ id, note, allocation }: ApproveLeavePayload) =>
       api(`/api/leaves/requests/${id}/approve`, {
         method: 'POST',
-        body: JSON.stringify({ note }),
+        body: JSON.stringify({ note, allocation }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leaves'] });
@@ -374,5 +382,88 @@ export function useEndBreak() {
   return useMutation({
     mutationFn: () => api('/api/attendance/break/end', { method: 'POST' }),
     onSuccess: () => invalidateAttendance(qc),
+  });
+}
+
+// ─── Holidays ─────────────────────────────────────────
+
+export interface HolidayItem {
+  id: string;
+  name: string;
+  date: string;
+  isRecurring: boolean;
+  description: string | null;
+  notificationScheduled: boolean;
+  notificationSendAt: string | null;
+  recipients: 'ALL' | 'HR_ONLY' | 'STAFF_ONLY' | 'CUSTOM';
+  customRecipientIds: string[];
+  notificationSentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: { id: string; fullName: string } | null;
+}
+
+export interface CreateHolidayPayload {
+  name: string;
+  date: string;
+  isRecurring: boolean;
+  description?: string;
+  recipients: 'ALL' | 'HR_ONLY' | 'STAFF_ONLY' | 'CUSTOM';
+  customRecipientIds?: string[];
+}
+
+export function useHolidays(year?: number) {
+  const qs = year ? `?year=${year}` : '';
+  return useQuery({
+    queryKey: ['holidays', year ?? 'current'],
+    queryFn: () => api<HolidayItem[]>(`/api/holidays${qs}`),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useCreateHoliday() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateHolidayPayload) =>
+      api<HolidayItem>('/api/holidays', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['holidays'] }),
+  });
+}
+
+export function useUpdateHoliday() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<CreateHolidayPayload> }) =>
+      api<HolidayItem>(`/api/holidays/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['holidays'] }),
+  });
+}
+
+export function useDeleteHoliday() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api(`/api/holidays/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['holidays'] }),
+  });
+}
+
+export function useSendHolidayNotice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<{ ok: true; recipients: number }>(`/api/holidays/${id}/send-notice`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['holidays'] });
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+    },
   });
 }

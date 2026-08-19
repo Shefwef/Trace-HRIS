@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { requireAuth, canApprove, err, parseBody } from '@/lib/api';
 import { ApproveLeaveSchema } from '@/lib/validation';
-import { leaveTypeLabel, formatLeavePeriod } from '@/lib/leave';
+import {
+  leaveTypeLabel,
+  formatLeavePeriod,
+  computeDurationFromAllocation,
+  slotShort,
+  type AllocationEntry,
+} from '@/lib/leave';
 import { notify } from '@/lib/notifications';
 import { sendEmail } from '@/lib/email';
 import { leaveDecisionEmail } from '@/emails/templates';
@@ -30,7 +37,36 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   });
   if (!balance) return err(500, 'NO_BALANCE', 'Employee has no balance row for this cycle.');
 
-  const duration = Number(request.durationDays);
+  const originalDuration = Number(request.durationDays);
+  const finalDuration = input.allocation
+    ? computeDurationFromAllocation(input.allocation)
+    : originalDuration;
+
+  if (finalDuration <= 0)
+    return err(400, 'ZERO_DURATION', 'Approved allocation totals zero days.');
+
+  // Balance check for the FINAL duration (only for CASUAL/SICK; REPLACEMENT is a direct debit)
+  if (request.leaveType === 'CASUAL' || request.leaveType === 'SICK') {
+    const b = balance;
+    const total = request.leaveType === 'CASUAL' ? Number(b.casualTotal) : Number(b.sickTotal);
+    const used = request.leaveType === 'CASUAL' ? Number(b.casualUsed) : Number(b.sickUsed);
+    const pending = request.leaveType === 'CASUAL' ? Number(b.casualPending) : Number(b.sickPending);
+    // Available = total - used - (pending excluding this request's reservation)
+    const availableForModifiedApproval = total - used - (pending - originalDuration);
+    if (finalDuration > availableForModifiedApproval)
+      return err(
+        400,
+        'INSUFFICIENT_BALANCE',
+        `The modified allocation (${finalDuration}) exceeds the employee's available ${request.leaveType.toLowerCase()} balance.`
+      );
+  }
+  if (request.leaveType === 'REPLACEMENT' && finalDuration > Number(balance.replacementBalance))
+    return err(
+      400,
+      'INSUFFICIENT_BALANCE',
+      `The modified allocation (${finalDuration}) exceeds the employee's replacement leave balance.`
+    );
+
   const now = new Date();
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -41,6 +77,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         adminNote: input.note,
         reviewedById: user.id,
         reviewedAt: now,
+        durationDays: finalDuration,
+        approvedAllocation: input.allocation
+          ? (input.allocation as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       },
     });
 
@@ -48,23 +88,22 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       await tx.leaveBalance.update({
         where: { id: balance.id },
         data: {
-          casualUsed: { increment: duration },
-          casualPending: { decrement: duration },
+          casualUsed: { increment: finalDuration },
+          casualPending: { decrement: originalDuration },
         },
       });
     } else if (request.leaveType === 'SICK') {
       await tx.leaveBalance.update({
         where: { id: balance.id },
         data: {
-          sickUsed: { increment: duration },
-          sickPending: { decrement: duration },
+          sickUsed: { increment: finalDuration },
+          sickPending: { decrement: originalDuration },
         },
       });
     } else {
-      // REPLACEMENT — direct debit from the balance
       await tx.leaveBalance.update({
         where: { id: balance.id },
-        data: { replacementBalance: { decrement: duration } },
+        data: { replacementBalance: { decrement: finalDuration } },
       });
     }
 
@@ -74,7 +113,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         action: 'LEAVE_APPROVED',
         targetType: 'leave_request',
         targetId: id,
-        metadata: { note: input.note ?? null, duration },
+        metadata: {
+          note: input.note ?? null,
+          originalDuration,
+          finalDuration,
+          modified: !!input.allocation,
+          allocation: input.allocation ?? null,
+        },
       },
     });
 
@@ -89,7 +134,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     updated.timeFrom,
     updated.timeTo
   );
-  const durationLabel = `${duration} day${duration === 1 ? '' : 's'}`;
+  const durationLabel = `${finalDuration} day${finalDuration === 1 ? '' : 's'}`;
 
   const employee = await prisma.user.findUnique({ where: { id: updated.employeeId } });
   const freshBalance = await prisma.leaveBalance.findUnique({ where: { id: balance.id } });
@@ -100,11 +145,20 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       ? Number(freshBalance?.sickTotal ?? 0) - Number(freshBalance?.sickUsed ?? 0) - Number(freshBalance?.sickPending ?? 0)
       : Number(freshBalance?.replacementBalance ?? 0);
 
+  const wasModified = !!input.allocation;
+  const allocationSummary = input.allocation
+    ? input.allocation
+        .map((e: AllocationEntry) => `${e.date} — ${slotShort(e.slot)}`)
+        .join('\n')
+    : undefined;
+
   await notify({
     recipientId: updated.employeeId,
     type: 'LEAVE_APPROVED',
-    title: 'Your leave was approved',
-    body: `${user.fullName} approved your ${leaveTypeLabel(updated.leaveType)} for ${period}.`,
+    title: wasModified ? 'Your leave was approved (with adjustments)' : 'Your leave was approved',
+    body: wasModified
+      ? `${user.fullName} approved your ${leaveTypeLabel(updated.leaveType)} for ${period}, adjusted to ${durationLabel}.`
+      : `${user.fullName} approved your ${leaveTypeLabel(updated.leaveType)} for ${period}.`,
     referenceType: 'leave_request',
     referenceId: updated.id,
   });
@@ -116,6 +170,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   });
   if (updated.channels.includes('EMAIL') && employee) {
     const historyUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/leaves`;
+    const noteBody = wasModified
+      ? `${input.note ? input.note + '\n\n' : ''}Approved allocation:\n${allocationSummary}`
+      : input.note;
     const { subject, html } = leaveDecisionEmail(
       {
         employeeName: employee.fullName,
@@ -124,7 +181,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         duration: durationLabel,
         decision: 'APPROVED',
         reviewerName: user.fullName,
-        note: input.note,
+        note: noteBody,
         remainingBalance: `${remaining} day${remaining === 1 ? '' : 's'}`,
         historyUrl,
       },
@@ -139,5 +196,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, finalDuration, modified: wasModified });
 }

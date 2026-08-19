@@ -47,9 +47,18 @@ export const RejectLeaveSchema = z.object({
   note: z.string().min(4).max(500),
 });
 
+export const AllocationEntrySchema = z.object({
+  date: z.iso.date(),
+  slot: z.enum(['FULL', 'HALF_MORNING', 'HALF_AFTERNOON']),
+});
+
 export const ApproveLeaveSchema = z.object({
   note: z.string().max(500).optional(),
+  /** Optional per-day allocation. If provided, replaces the request's original
+   *  duration with the sum of these entries. */
+  allocation: z.array(AllocationEntrySchema).min(1).max(60).optional(),
 });
+export type AllocationEntry = z.infer<typeof AllocationEntrySchema>;
 
 export const CreateExtraWorkSchema = z.object({
   workDate: z.iso.date(),
@@ -58,3 +67,16 @@ export const CreateExtraWorkSchema = z.object({
   description: z.string().max(500).optional(),
 });
 export type CreateExtraWorkInput = z.infer<typeof CreateExtraWorkSchema>;
+
+export const CreateHolidaySchema = z.object({
+  name: z.string().min(2).max(120),
+  date: z.iso.date(),
+  isRecurring: z.boolean().default(true),
+  description: z.string().max(500).optional(),
+  recipients: z.enum(['ALL', 'HR_ONLY', 'STAFF_ONLY', 'CUSTOM']).default('ALL'),
+  customRecipientIds: z.array(z.string()).default([]),
+});
+export type CreateHolidayInput = z.infer<typeof CreateHolidaySchema>;
+
+export const UpdateHolidaySchema = CreateHolidaySchema.partial();
+export type UpdateHolidayInput = z.infer<typeof UpdateHolidaySchema>;

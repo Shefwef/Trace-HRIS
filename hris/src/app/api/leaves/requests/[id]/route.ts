@@ -51,6 +51,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     customMessage: req.customMessage,
     status: req.status,
     adminNote: req.adminNote,
+    approvedAllocation: req.approvedAllocation,
     reviewedAt: req.reviewedAt?.toISOString() ?? null,
     createdAt: req.createdAt.toISOString(),
     employee: req.employee,

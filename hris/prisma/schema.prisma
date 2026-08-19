@@ -180,6 +180,11 @@ model LeaveRequest {
   adminNote             String?
   reviewedById          String?
   reviewedAt            DateTime?
+  /// If the reviewer modified the allocation at approval time, this stores
+  /// the per-day breakdown as JSON: [{ date: "YYYY-MM-DD", slot: "FULL"|"HALF_MORNING"|"HALF_AFTERNOON" }, ...]
+  /// When set, durationDays reflects the sum of these entries, not the
+  /// original request. Null means the reviewer accepted the request as-is.
+  approvedAllocation    Json?
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
 
