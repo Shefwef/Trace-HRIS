@@ -113,6 +113,24 @@ export interface NotificationItem {
   createdAt: string;
 }
 
+export interface AuditLogItem {
+  id: string;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  metadata: unknown;
+  ip: string | null;
+  userAgent: string | null;
+  createdAt: string;
+  actor: { id: string; fullName: string; email: string; role: string } | null;
+}
+export interface AuditLogResponse {
+  total: number;
+  limit: number;
+  actions: string[];
+  items: AuditLogItem[];
+}
+
 // ─── Queries ─────────────────────────────────────────────
 
 export function useBalance() {
@@ -171,6 +189,45 @@ export function useNotifications() {
     queryKey: ['notifications'],
     queryFn: () => api<{ unread: number; items: NotificationItem[] }>('/api/notifications'),
     refetchInterval: 30_000,
+  });
+}
+
+export function useAuditLog(filters: { action?: string; actorId?: string; targetType?: string; since?: string } = {}) {
+  const q = new URLSearchParams();
+  if (filters.action) q.set('action', filters.action);
+  if (filters.actorId) q.set('actorId', filters.actorId);
+  if (filters.targetType) q.set('targetType', filters.targetType);
+  if (filters.since) q.set('since', filters.since);
+  const qs = q.toString() ? `?${q.toString()}` : '';
+  return useQuery({
+    queryKey: ['audit-log', filters],
+    queryFn: () => api<AuditLogResponse>(`/api/audit-log${qs}`),
+  });
+}
+
+export interface SystemStatus {
+  ok: boolean;
+  checkedAt: string;
+  db: {
+    ok: boolean;
+    latencyMs: number;
+    error: string | null;
+    counts: Record<string, number> | null;
+  };
+  env: {
+    node: string;
+    nextPublicAppUrl: string | null;
+    clerkConfigured: boolean;
+    databaseUrlHost: string | null;
+    resendConfigured: boolean;
+    nodeEnv: string | undefined;
+  };
+}
+export function useSystemStatus() {
+  return useQuery({
+    queryKey: ['system-status'],
+    queryFn: () => api<SystemStatus>('/api/system'),
+    refetchInterval: 60_000,
   });
 }
 
