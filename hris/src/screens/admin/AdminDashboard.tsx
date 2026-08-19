@@ -1,16 +1,18 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+'use client';
+import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Inbox, Users, PlaneTakeoff, CalendarClock, ArrowRight, Send } from 'lucide-react';
+import { Inbox, Users, PlaneTakeoff, CalendarClock, ArrowRight } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { useCurrentUser, useStore } from '../../lib/store';
+import { useCurrentUser, initials, avatarColorFor } from '@/lib/session';
+import { useAllLeaves, useUsers } from '@/lib/hooks';
 import { StatCard } from '../../components/ui/StatCard';
 import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { LeaveReviewDrawer } from '../../components/leave/LeaveReviewDrawer';
-import { fmtDate, fmtRelative, leaveTypeShort } from '../../lib/utils';
-import type { LeaveRequest, LeaveType } from '../../lib/types';
+import { fmtRelative, leaveTypeShort, fmtDate } from '../../lib/utils';
+import type { LeaveType } from '../../lib/types';
 import './AdminDashboard.css';
 
 const leaveVariant: Record<LeaveType, 'casual' | 'sick' | 'replacement'> = {
@@ -19,53 +21,49 @@ const leaveVariant: Record<LeaveType, 'casual' | 'sick' | 'replacement'> = {
 
 export function AdminDashboard() {
   const user = useCurrentUser();
-  const users = useStore((s) => s.users);
-  const requests = useStore((s) => s.requests);
-  const holidays = useStore((s) => s.holidays);
-  const sendHoliday = useStore((s) => s.sendHolidayNotice);
-  const [reviewReq, setReviewReq] = useState<LeaveRequest | null>(null);
+  const { data: requests = [] } = useAllLeaves();
+  const { data: users = [] } = useUsers();
+  const [reviewId, setReviewId] = useState<string | null>(null);
 
-  if (!user) return null;
-
-  const pendingRequests = requests
-    .filter((r) => r.status === 'PENDING')
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  const staff = users.filter((u) => u.role !== 'SUPER_ADMIN');
-  const onLeaveToday = requests.filter((r) => {
+  const pendingRequests = useMemo(
+    () => requests.filter((r) => r.status === 'PENDING'),
+    [requests]
+  );
+  const approvedLeaves = useMemo(
+    () => requests.filter((r) => r.status === 'APPROVED'),
+    [requests]
+  );
+  const staff = useMemo(() => users.filter((u) => u.role !== 'SUPER_ADMIN'), [users]);
+  const onLeaveToday = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
-    return r.status === 'APPROVED' && r.startDate <= today && r.endDate >= today;
-  }).length;
+    return approvedLeaves.filter((r) => r.startDate <= today && r.endDate >= today).length;
+  }, [approvedLeaves]);
 
-  const upcomingHolidays = holidays
-    .filter((h) => new Date(h.date) >= new Date())
-    .sort((a, b) => (a.date < b.date ? -1 : 1))
-    .slice(0, 3);
-
-  const approvedLeaves = requests.filter((r) => r.status === 'APPROVED');
   const usageByType = ['CASUAL', 'SICK', 'REPLACEMENT'].map((t) => ({
     name: t,
     value: approvedLeaves
       .filter((r) => r.leaveType === t)
       .reduce((sum, r) => sum + r.durationDays, 0),
-    fill:
-      t === 'CASUAL'
-        ? '#805AD5'
-        : t === 'SICK'
-        ? '#DD6B20'
-        : '#319795',
+    fill: t === 'CASUAL' ? '#805AD5' : t === 'SICK' ? '#DD6B20' : '#319795',
   }));
 
-  const departmentUsage = Array.from(
-    users.reduce((map, u) => {
-      if (u.role === 'SUPER_ADMIN') return map;
-      const total = requests
-        .filter((r) => r.employeeId === u.id && r.status === 'APPROVED')
-        .reduce((sum, r) => sum + r.durationDays, 0);
-      map.set(u.department, (map.get(u.department) ?? 0) + total);
-      return map;
-    }, new Map<string, number>()),
-    ([name, value]) => ({ name, value })
+  const departmentUsage = useMemo(
+    () =>
+      Array.from(
+        users.reduce((map, u) => {
+          if (u.role === 'SUPER_ADMIN' || !u.department) return map;
+          const total = approvedLeaves
+            .filter((r) => r.employeeId === u.id)
+            .reduce((sum, r) => sum + r.durationDays, 0);
+          map.set(u.department, (map.get(u.department) ?? 0) + total);
+          return map;
+        }, new Map<string, number>()),
+        ([name, value]) => ({ name, value })
+      ),
+    [users, approvedLeaves]
   );
+
+  if (!user) return null;
 
   return (
     <div className="adash">
@@ -78,7 +76,7 @@ export function AdminDashboard() {
             })}
           </p>
         </div>
-        <Link to="/admin/requests">
+        <Link href="/admin/requests">
           <Button variant="primary" trailingIcon={<ArrowRight size={16} />}>
             Open leave inbox
           </Button>
@@ -109,8 +107,8 @@ export function AdminDashboard() {
         />
         <StatCard
           label="Next holiday"
-          value={upcomingHolidays[0] ? upcomingHolidays[0].name : '—'}
-          hint={upcomingHolidays[0] ? fmtDate(upcomingHolidays[0].date) : ''}
+          value="—"
+          hint="Holidays come online in Phase 4"
           icon={<CalendarClock size={16} />}
           accent="primary"
         />
@@ -124,7 +122,7 @@ export function AdminDashboard() {
         >
           <header className="adash-panel-head">
             <h3>Pending leave requests</h3>
-            <Link to="/admin/requests" className="edash-section-link">Review all <ArrowRight size={14} /></Link>
+            <Link href="/admin/requests" className="edash-section-link">Review all <ArrowRight size={14} /></Link>
           </header>
           {pendingRequests.length === 0 ? (
             <div className="adash-inbox-empty">
@@ -137,12 +135,12 @@ export function AdminDashboard() {
           ) : (
             <ul className="adash-inbox-list">
               {pendingRequests.slice(0, 5).map((r) => {
-                const emp = users.find((u) => u.id === r.employeeId);
+                const emp = r.employee;
                 if (!emp) return null;
                 return (
                   <li key={r.id}>
-                    <button className="adash-inbox-item" onClick={() => setReviewReq(r)}>
-                      <Avatar initials={emp.initials} color={emp.avatarColor} size="md" />
+                    <button className="adash-inbox-item" onClick={() => setReviewId(r.id)}>
+                      <Avatar initials={initials(emp.fullName)} color={avatarColorFor(emp.id)} size="md" />
                       <div className="adash-inbox-body">
                         <div className="adash-inbox-title">
                           <strong>{emp.fullName}</strong>
@@ -169,37 +167,15 @@ export function AdminDashboard() {
         >
           <header className="adash-panel-head">
             <h3>Upcoming holidays</h3>
-            <Link to="/admin/holidays" className="edash-section-link">Manage <ArrowRight size={14} /></Link>
+            <Link href="/admin/holidays" className="edash-section-link">Manage <ArrowRight size={14} /></Link>
           </header>
-          <ul className="adash-hol-list">
-            {upcomingHolidays.length === 0 ? (
-              <li className="muted" style={{ padding: 16 }}>No upcoming holidays.</li>
-            ) : (
-              upcomingHolidays.map((h) => (
-                <li key={h.id} className="adash-hol">
-                  <div className="adash-hol-date">
-                    <div className="adash-hol-day">{new Date(h.date).getDate()}</div>
-                    <div className="adash-hol-month">{new Date(h.date).toLocaleString('en', { month: 'short' })}</div>
-                  </div>
-                  <div className="adash-hol-body">
-                    <div className="adash-hol-name">{h.name}</div>
-                    <div className="adash-hol-meta">
-                      {h.notificationSentAt ? (
-                        <span className="adash-hol-sent">✓ Notice sent {fmtRelative(h.notificationSentAt)}</span>
-                      ) : (
-                        <span className="muted">Notice not sent yet</span>
-                      )}
-                    </div>
-                  </div>
-                  {!h.notificationSentAt && (
-                    <Button size="sm" variant="secondary" leadingIcon={<Send size={12} />} onClick={() => sendHoliday(h.id)}>
-                      Send
-                    </Button>
-                  )}
-                </li>
-              ))
-            )}
-          </ul>
+          <div className="adash-inbox-empty" style={{ background: 'var(--color-bg-subtle)', color: 'var(--color-text-secondary)' }}>
+            <CalendarClock size={24} />
+            <div>
+              <strong>Holidays not yet configured</strong>
+              <p>The holiday manager comes online in Phase 4.</p>
+            </div>
+          </div>
         </motion.section>
 
         <motion.section
@@ -270,7 +246,7 @@ export function AdminDashboard() {
         </motion.section>
       </div>
 
-      <LeaveReviewDrawer request={reviewReq} onClose={() => setReviewReq(null)} />
+      <LeaveReviewDrawer requestId={reviewId} onClose={() => setReviewId(null)} />
     </div>
   );
 }

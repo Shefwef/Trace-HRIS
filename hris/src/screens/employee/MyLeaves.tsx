@@ -1,14 +1,14 @@
-import { useMemo, useState } from 'react';
-import { Plus, XCircle, MessageCircle, Paperclip } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, XCircle, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useCurrentUser, useStore } from '../../lib/store';
+import { useMyLeaves, useCancelLeave, type LeaveRequestSummary, type LeaveStatus } from '@/lib/hooks';
 import { LeaveApplicationFlow } from '../../components/leave/LeaveApplicationFlow';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { cx, fmtDate, fmtRelative, leaveTypeLabel, leaveTypeShort } from '../../lib/utils';
-import type { LeaveRequest, LeaveStatus, LeaveType } from '../../lib/types';
+import type { LeaveType } from '../../lib/types';
 import './MyLeaves.css';
 
 const TABS: { key: 'ALL' | LeaveStatus; label: string }[] = [
@@ -27,21 +27,12 @@ const leaveVariant: Record<LeaveType, 'casual' | 'sick' | 'replacement'> = {
 };
 
 export function MyLeaves() {
-  const user = useCurrentUser();
-  const cancelLeave = useStore((s) => s.cancelLeave);
-  const allRequests = useStore((s) => s.requests);
-  const requests = useMemo(
-    () =>
-      allRequests
-        .filter((r) => r.employeeId === user?.id)
-        .slice()
-        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
-    [allRequests, user?.id]
-  );
+  const { data: requests = [], isLoading } = useMyLeaves();
+  const cancel = useCancelLeave();
   const [tab, setTab] = useState<'ALL' | LeaveStatus>('ALL');
   const [applyOpen, setApplyOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState<string | null>(null);
-  const [detail, setDetail] = useState<LeaveRequest | null>(null);
+  const [detail, setDetail] = useState<LeaveRequestSummary | null>(null);
 
   const filtered = requests.filter((r) => tab === 'ALL' || r.status === tab);
 
@@ -128,6 +119,7 @@ export function MyLeaves() {
                   <strong>{fmtDate(r.startDate)}</strong>
                   {r.startDate !== r.endDate && <> – <strong>{fmtDate(r.endDate)}</strong></>}
                   {r.isHalfDay && <em> · {r.halfDaySlot === 'MORNING' ? 'morning' : 'afternoon'} half</em>}
+                  {r.timeFrom && r.timeTo && <em> · {r.timeFrom}–{r.timeTo}</em>}
                 </span>
                 <span className="mono" data-label="Duration">
                   {r.durationDays} {r.durationDays === 1 ? 'day' : 'days'}
@@ -170,7 +162,7 @@ export function MyLeaves() {
             <Button
               variant="danger"
               onClick={() => {
-                if (confirmCancel) cancelLeave(confirmCancel);
+                if (confirmCancel) cancel.mutate(confirmCancel);
                 setConfirmCancel(null);
               }}
             >
@@ -214,12 +206,12 @@ export function MyLeaves() {
                 <span>{detail.description}</span>
               </div>
             )}
-            {detail.attachmentName && (
+            {detail.attachmentUrl && (
               <div className="myleaves-detail-row">
                 <span className="myleaves-detail-label">Attachment</span>
-                <span className="myleaves-attach">
-                  <Paperclip size={13} /> {detail.attachmentName}
-                </span>
+                <a href={detail.attachmentUrl} target="_blank" rel="noopener noreferrer" className="myleaves-attach">
+                  View attachment
+                </a>
               </div>
             )}
             {detail.adminNote && (

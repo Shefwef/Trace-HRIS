@@ -1,27 +1,26 @@
-import { useMemo } from 'react';
+'use client';
+import { useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Bar, BarChart } from 'recharts';
 import { motion } from 'framer-motion';
-import { CheckCircle2, XCircle, Coffee, Zap } from 'lucide-react';
-import { useCurrentUser, useStore } from '../../lib/store';
+import { CheckCircle2, XCircle, Coffee, Zap, Plus } from 'lucide-react';
+import { useAttendanceHistory, useBalance } from '@/lib/hooks';
 import { AttendanceWidget } from '../../components/attendance/AttendanceWidget';
 import { StatCard } from '../../components/ui/StatCard';
-import { MiniCalendar } from '../../components/attendance/MiniCalendar';
+import { Button } from '../../components/ui/Button';
+import { LogExtraWorkModal } from '../../components/attendance/LogExtraWorkModal';
 import { fmtDate, fmtDuration, fmtTime } from '../../lib/utils';
 import './Attendance.css';
 
 export function AttendancePage() {
-  const user = useCurrentUser();
-  const allAttendance = useStore((s) => s.attendance);
-  const attendance = useMemo(
-    () =>
-      allAttendance
-        .filter((a) => a.employeeId === user?.id)
-        .slice()
-        .sort((a, b) => (a.date < b.date ? 1 : -1)),
-    [allAttendance, user?.id]
-  );
+  const [extraOpen, setExtraOpen] = useState(false);
+  const now = new Date();
+  const { data } = useAttendanceHistory(now.getFullYear(), now.getMonth() + 1);
+  const { data: balance } = useBalance();
 
-  if (!user) return null;
+  const attendance = useMemo(
+    () => (data?.records ?? []).slice().sort((a, b) => (a.date < b.date ? 1 : -1)),
+    [data]
+  );
 
   const present = attendance.filter((a) => a.status === 'PRESENT').length;
   const absent = attendance.filter((a) => a.status === 'ABSENT').length;
@@ -33,7 +32,7 @@ export function AttendancePage() {
     .reverse()
     .filter((a) => a.totalWorkedMinutes > 0)
     .map((a) => ({
-      day: new Date(a.date).getDate(),
+      day: new Date(a.date).getUTCDate(),
       hours: +(a.totalWorkedMinutes / 60).toFixed(2),
       overtime: +(a.overtimeMinutes / 60).toFixed(2),
     }));
@@ -45,11 +44,30 @@ export function AttendancePage() {
           <h1>Attendance</h1>
           <p className="muted">Your working hours, breaks and overtime this month.</p>
         </div>
+        <Button variant="secondary" leadingIcon={<Plus size={16} />} onClick={() => setExtraOpen(true)}>
+          Log extra work day
+        </Button>
       </div>
 
       <div className="atpg-top">
         <AttendanceWidget />
-        <MiniCalendar />
+        <div className="card atpg-extra-card">
+          <div className="atpg-extra-head">
+            <h3>Replacement leave</h3>
+            <span className="mono">{balance?.replacementBalance ?? 0} days</span>
+          </div>
+          <p className="muted" style={{ fontSize: 14, lineHeight: 1.55 }}>
+            Worked on a weekend or holiday? Log it here to earn replacement leave — a full day = +1,
+            a half day (9–1 or 1–5) = +0.5. HR or Admin approves.
+          </p>
+          <Button
+            variant="primary"
+            leadingIcon={<Plus size={16} />}
+            onClick={() => setExtraOpen(true)}
+          >
+            Log extra work day
+          </Button>
+        </div>
       </div>
 
       <div className="atpg-stats">
@@ -67,7 +85,7 @@ export function AttendancePage() {
         <div className="card atpg-chart">
           <header className="atpg-chart-head">
             <h3>Daily hours worked</h3>
-            <span className="muted">Last {dailyHours.length} days</span>
+            <span className="muted">This month</span>
           </header>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={dailyHours} margin={{ top: 12, right: 12, bottom: 0, left: -18 }}>
@@ -82,7 +100,7 @@ export function AttendancePage() {
         <div className="card atpg-chart">
           <header className="atpg-chart-head">
             <h3>Daily overtime</h3>
-            <span className="muted">Feeds replacement leave</span>
+            <span className="muted">Beyond 8h/day</span>
           </header>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={dailyHours} margin={{ top: 12, right: 12, bottom: 0, left: -18 }}>
@@ -111,19 +129,27 @@ export function AttendancePage() {
             <span>Overtime</span>
             <span>Status</span>
           </div>
-          {attendance.map((a) => (
-            <div key={a.id} className="atpg-row">
-              <span data-label="Date">{fmtDate(a.date, 'EEE, d MMM')}</span>
-              <span className="mono" data-label="Clock in">{a.clockInTime ? fmtTime(a.clockInTime) : '—'}</span>
-              <span className="mono" data-label="Clock out">{a.clockOutTime ? fmtTime(a.clockOutTime) : '—'}</span>
-              <span className="mono" data-label="Break">{a.totalBreakMinutes ? fmtDuration(a.totalBreakMinutes) : '—'}</span>
-              <span className="mono" data-label="Worked">{a.totalWorkedMinutes ? fmtDuration(a.totalWorkedMinutes) : '—'}</span>
-              <span className="mono" data-label="Overtime">{a.overtimeMinutes ? fmtDuration(a.overtimeMinutes) : '—'}</span>
-              <span data-label="Status"><StatusDot status={a.status} /></span>
+          {attendance.length === 0 ? (
+            <div className="atpg-row" style={{ gridTemplateColumns: '1fr', color: 'var(--color-text-muted)', padding: 24, justifyContent: 'center' }}>
+              No attendance records this month yet.
             </div>
-          ))}
+          ) : (
+            attendance.map((a) => (
+              <div key={a.id} className="atpg-row">
+                <span data-label="Date">{fmtDate(a.date, 'EEE, d MMM')}</span>
+                <span className="mono" data-label="Clock in">{a.clockInTime ? fmtTime(a.clockInTime) : '—'}</span>
+                <span className="mono" data-label="Clock out">{a.clockOutTime ? fmtTime(a.clockOutTime) : '—'}</span>
+                <span className="mono" data-label="Break">{a.totalBreakMinutes ? fmtDuration(a.totalBreakMinutes) : '—'}</span>
+                <span className="mono" data-label="Worked">{a.totalWorkedMinutes ? fmtDuration(a.totalWorkedMinutes) : '—'}</span>
+                <span className="mono" data-label="Overtime">{a.overtimeMinutes ? fmtDuration(a.overtimeMinutes) : '—'}</span>
+                <span data-label="Status"><StatusDot status={a.status} /></span>
+              </div>
+            ))
+          )}
         </div>
       </div>
+
+      <LogExtraWorkModal open={extraOpen} onClose={() => setExtraOpen(false)} />
     </div>
   );
 }

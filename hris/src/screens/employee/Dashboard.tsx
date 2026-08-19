@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ArrowRight, CalendarClock, ClipboardList, Plus, TrendingUp, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
-import { useCurrentUser, useStore } from '../../lib/store';
+import Link from 'next/link';
+import { useCurrentUser } from '@/lib/session';
+import { useBalance, useMyLeaves } from '@/lib/hooks';
 import { AttendanceWidget } from '../../components/attendance/AttendanceWidget';
 import { LeaveBalanceCards } from '../../components/leave/LeaveBalanceCards';
 import { MiniCalendar } from '../../components/attendance/MiniCalendar';
@@ -29,28 +30,13 @@ const leaveVariant: Record<LeaveType, 'casual' | 'sick' | 'replacement'> = {
 export function EmployeeDashboard() {
   const user = useCurrentUser();
   const [applyOpen, setApplyOpen] = useState(false);
-  const allBalances = useStore((s) => s.balances);
-  const holidays = useStore((s) => s.holidays);
-  const allRequests = useStore((s) => s.requests);
-  const balance = useMemo(
-    () => allBalances.find((b) => b.employeeId === user?.id),
-    [allBalances, user?.id]
-  );
-  const requests = useMemo(
-    () =>
-      allRequests
-        .filter((r) => r.employeeId === user?.id)
-        .slice()
-        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-        .slice(0, 4),
-    [allRequests, user?.id]
-  );
+  const { data: balance } = useBalance();
+  const { data: myLeaves } = useMyLeaves();
+  const requests = (myLeaves ?? []).slice(0, 4);
 
   if (!user || !balance) return null;
 
-  const upcomingHoliday = holidays
-    .filter((h) => new Date(h.date) >= new Date())
-    .sort((a, b) => (a.date < b.date ? -1 : 1))[0];
+  const upcomingHoliday = null as { name: string; date: string } | null;
 
   return (
     <div className="edash">
@@ -89,7 +75,7 @@ export function EmployeeDashboard() {
           <section className="edash-section">
             <div className="edash-section-head">
               <h3>Recent leave activity</h3>
-              <Link to="/leaves" className="edash-section-link">
+              <Link href="/leaves" className="edash-section-link">
                 See all <ArrowRight size={14} />
               </Link>
             </div>
@@ -162,8 +148,8 @@ export function EmployeeDashboard() {
               <Sparkles size={16} />
             </div>
             <div className="edash-tip-body">
-              <strong>You've earned {balance.replacementBalance} replacement day{balance.replacementBalance === 1 ? '' : 's'}</strong>
-              <p>Great work! Overtime beyond 8 hrs converts into replacement leave.</p>
+              <strong>{balance.replacementBalance} replacement day{balance.replacementBalance === 1 ? '' : 's'} in the bank</strong>
+              <p>Log an extra work day (weekends or holidays) — a full day earns +1, a half day earns +0.5.</p>
             </div>
           </motion.div>
 
