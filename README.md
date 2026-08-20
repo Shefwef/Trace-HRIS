@@ -26,6 +26,27 @@ Dev quick-start: [`hris/README.md`](./hris/README.md).
 - **HR** — People Operations. Reviews leave, invites employees, manages holidays and settings.
 - **Employee** — general staff. Applies for leave, clocks in/out, logs extra work.
 
+## Team roster (seeded)
+
+| Role | Name | Email | Employee ID |
+|---|---|---|---|
+| Super Admin | Shefayat Adib | `shefadib@gmail.com` | SUPER-001 |
+| Admin (CEO) | Fuad M Khalid Hossen | `fuad.khalid@traceconsultingltd.com` | TRACE-001 |
+| HR | Abu Saleh Muhammad Saifullah | `asmsaifullah@traceconsultingltd.com` | TRACE-002 |
+| HR | Umme Mahbuba Tama | `umtama@traceconsultingltd.com` | TRACE-003 |
+| Employee | Tanvir Kabir | `tanvir.kabir@traceconsultingltd.com` | TRACE-101 |
+| Employee | Rubayat E Shams Anik | `res.anik@traceconsultingltd.com` | TRACE-102 |
+
+To add another employee: append them to [`hris/prisma/seed-users.ts`](./hris/prisma/seed-users.ts), then run:
+
+```powershell
+cd hris
+TARGET_EMAIL=<their-email> npx tsx --env-file=.env.local scripts/add-employee.ts       # sync to Clerk + Postgres
+TARGET_EMAIL=<their-email> npx tsx scripts/print-welcome.ts                            # print copy-paste welcome email
+```
+
+Never run `npm run db:seed` for a single add — it resets everyone's passwords back to the initial values.
+
 ## Approval routing
 
 - Employee → both HR users, CCs the CEO.
