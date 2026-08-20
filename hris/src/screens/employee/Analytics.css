@@ -58,3 +58,17 @@
   font-family: var(--font-display);
   color: var(--color-text-primary);
 }
+
+.anpg-empty {
+  text-align: center;
+  padding: var(--space-8) var(--space-6);
+}
+.anpg-empty h3 {
+  font-family: var(--font-display);
+  color: var(--color-text-primary);
+  margin: 0 0 8px;
+}
+.anpg-empty-inline {
+  padding: var(--space-6) 0;
+  text-align: center;
+}

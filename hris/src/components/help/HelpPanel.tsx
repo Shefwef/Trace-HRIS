@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bot, X, Send, Sparkles, RefreshCw } from 'lucide-react';
+import { Bot, X, Send, MessageCircle, RefreshCw } from 'lucide-react';
 import './HelpPanel.css';
 
 interface ChatMsg {
@@ -100,7 +100,7 @@ export function HelpPanel() {
           onClick={() => setOpen(true)}
           aria-label="Open assistant"
         >
-          <Sparkles size={18} />
+          <MessageCircle size={18} />
           <span>Ask HRIS</span>
         </button>
       )}
