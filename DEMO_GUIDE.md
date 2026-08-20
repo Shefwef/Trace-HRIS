@@ -20,12 +20,13 @@ Every action is logged, every approval flows to the right person automatically, 
 every change triggers both an in-app notification *and* an email. Nothing lives in
 one person's inbox anymore.
 
-The app is designed for **4 people today**, but the architecture is built so that
-adding a 100th employee changes nothing about how any of the existing screens work.
+The app is designed for a small team today (6 people at the time of writing),
+but the architecture is built so that adding a 100th employee changes nothing
+about how any of the existing screens work.
 
 ---
 
-## Cast of characters — 4 roles, 5 real users
+## Cast of characters — 4 roles, 6 real users
 
 Trace HRIS treats every action through the lens of **who is doing it**. There are
 four roles, each with a different level of access:
@@ -37,7 +38,7 @@ four roles, each with a different level of access:
 | **Admin** | CEO / CTO | Everything HR can do + gets CC'd on Employee leave requests |
 | **Super Admin** | Technical owner | Everything Admin can do + view the audit log + view the system health page |
 
-The five real users seeded into the system:
+The six real users seeded into the system:
 
 | Name | Email | Role | Password (first-time) |
 |---|---|---|---|
@@ -46,8 +47,9 @@ The five real users seeded into the system:
 | ASM Saifullah | `asmsaifullah@traceconsultingltd.com` | **HR** | `Trace-HRIS-Saifullah-2026!` |
 | Umme Tama | `umtama@traceconsultingltd.com` | **HR** | `Trace-HRIS-Tama-2026!` |
 | Tanvir Kabir | `tanvir.kabir@traceconsultingltd.com` | **Employee** | `Trace-HRIS-Tanvir-2026!` |
+| Rubayat E Shams Anik | `res.anik@traceconsultingltd.com` | **Employee** | `Trace-HRIS-Anik-2026!` |
 
-> **For the demo:** open five browser windows (or use Chrome profiles / private
+> **For the demo:** open six browser windows (or use Chrome profiles / private
 > windows). Sign each into a different account. Line them up left-to-right so you
 > can switch instantly. Don't try to log in/out during the demo — it wastes time
 > and breaks the flow.
@@ -97,7 +99,7 @@ Walk through in this order. Each block is 3–5 minutes.
 **Continue as: Tanvir**
 
 1. Click **Apply for Leave**. A 5-step wizard opens.
-2. **Step 1: Type.** Pick Casual.
+2. **Step 1: Type.** Three clean icons — a palm tree for Casual, a stethoscope for Sick, repeat-arrows for Replacement. Pick Casual.
 3. **Step 2: Duration.** Pick a date next week. Change "Full day" to "Half day
    (morning)". Point at the balance preview: "0.5 days will be deducted from
    your Casual balance."
@@ -218,33 +220,39 @@ Walk through in this order. Each block is 3–5 minutes.
    - Database latency (should be < 100ms)
    - Environment configuration (Clerk / Resend / Gemini all green)
    - Security posture card (headers, rate limiting, webhook — all green)
+7. Click the **avatar in the top-right** → **Account settings** — Clerk's user-profile modal slides open. Point out that from here anyone can:
+   - Change their password
+   - Add or verify a second email address
+   - Enable 2FA
+   - Manage connected accounts (Google sign-in, etc.)
 
 > **What to say:** "For compliance and incident response, we can prove exactly
 > what happened, when, and who did it. This is the kind of thing an auditor
-> or a lawyer would ask for."
+> or a lawyer would ask for. Meanwhile, every user manages their own account
+> security — no HR ticket required for a password change."
 
 ## Block 8 — The in-app assistant (2 min)
 
 **Switch to: any user**
 
-1. Click the bottom-right **"Ask HRIS"** button.
-2. Ask: *"How do I approve a leave request with modifications?"* → get a helpful
-   step-by-step answer.
-3. Ask: *"What's the capital of France?"* → politely declines. The bot only
-   answers questions about **this app** or about **HR-information-system concepts
-   in general**.
+1. Click the bottom-right **"Ask HRIS"** button. A **small floating window pops open** in the bottom-right corner — notice the rest of the app stays fully visible and usable behind it. The chat is a widget, not a takeover.
+2. Ask: *"How do I approve a leave request with modifications?"* → get a helpful step-by-step answer.
+3. Ask: *"What's the capital of France?"* → politely declines. The bot only answers questions about **this app** or about **HR-information-system concepts in general**.
 4. Ask: *"What is replacement leave?"* → explains the policy correctly.
 5. Point at the reset button in the header — clears the conversation.
+6. **While the chat is open**, click the dashboard or open Apply-for-Leave — the chat window travels with you and stays reachable. No context loss.
 
 > **What to say:** "New joiners don't have to bug HR with the same 10
-> questions every month. The assistant knows the app inside-out and can't be
-> hijacked to answer off-topic questions."
+> questions every month. The assistant knows the app inside-out, can't be
+> hijacked to answer off-topic questions, and — because it's a floating
+> widget rather than a modal — you can ask it a question about the exact
+> form you're staring at without losing your place."
 
 ## Block 9 — Wrap up and Q&A (2 min)
 
 Return to the dashboard as any user. Summarize:
 
-- **4 roles, 5 users, 4 modules** — leave, attendance, holidays, employees
+- **4 roles, 6 users, 4 modules** — leave, attendance, holidays, employees
 - **Everything is audited.** Every action, every IP, every browser.
 - **Everything is email-notified.** No more "did you see my request?"
 - **Everything is mobile-responsive.** Demo on your phone if you want.
@@ -270,11 +278,12 @@ Return to the dashboard as any user. Summarize:
 - Clock in / clock out, take breaks
 - Log extra work (for replacement leave credit)
 - Read notifications and marked-read history
+- **Manage their own account** via avatar → Account settings (change password, add second email, enable 2FA)
 
 **What they cannot do:**
 - Approve or reject anyone's leave
 - See other employees' data
-- Change any settings
+- Change any system-wide settings
 
 ## HR's world
 
@@ -283,6 +292,7 @@ Everything Employees can, plus:
 - **Admin → Employees** — invite, deactivate, edit
 - **Admin → Holidays** — full CRUD + send notice email
 - **Admin → Settings** — sender email, working days, cycle start
+- Manage their own account (same as Employee)
 
 ## Admin (CEO)'s world
 
@@ -295,6 +305,25 @@ Same as HR, but:
 Same as Admin, plus:
 - **Admin → Audit Log** — every action with actor, IP, user-agent
 - **Admin → System** — live database health, env-var status, security posture
+
+---
+
+## Adding a new employee mid-year
+
+The HR flow inside the app (`/admin/employees` → **Invite Employee**) works but
+doesn't persist to the seed script — a future re-seed would wipe them. For
+permanent hires, the technical owner runs two scripts:
+
+1. Add the person's details to `hris/prisma/seed-users.ts`
+2. `TARGET_EMAIL=<email> npx tsx --env-file=.env.local scripts/add-employee.ts` — creates the Clerk user, Postgres row, and a fresh leave balance for the current cycle. Non-destructive: doesn't touch anyone else's password.
+3. `TARGET_EMAIL=<email> npx tsx scripts/print-welcome.ts` — prints a copy-paste-ready welcome email (subject + body). Paste it into your Gmail and send.
+
+If your Resend account has a verified domain (SETUP.md Step 3 Option B), use
+`scripts/send-welcome.ts` instead — it sends the email automatically from
+your branded address.
+
+**Example:** Rubayat E Shams Anik (Employee, Policy & Research, TRACE-102)
+was added this way on 2026-08-20 — she's the sixth user in the roster above.
 
 ---
 
@@ -347,6 +376,18 @@ company email. Standard OAuth-grade flow, no admin intervention needed.
 A: Every write is rate-limited to 30 per minute per user (chat is 20 per
 minute). A 31st request in the same minute gets a 429 error with a
 `Retry-After` header explaining when they can try again.
+
+**Q: What if I close the chatbot mid-conversation?**
+A: It reopens with your last conversation intact. Click the reset button in
+the header if you want a fresh start. Because the chat is a floating widget
+and not a full-screen takeover, closing it doesn't interrupt whatever you
+were doing in the app underneath.
+
+**Q: How do I change my password?**
+A: Click your avatar in the top-right → **Account settings**. Clerk's
+profile manager slides open where you can update your password, add a
+second email, enable two-factor authentication, and manage your Google (or
+other OAuth) sign-in connections. No HR ticket, no admin involvement.
 
 ---
 
