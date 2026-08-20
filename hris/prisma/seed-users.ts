@@ -92,7 +92,7 @@ export const SEED_USERS: SeedUser[] = [
     department: 'Policy & Research',
     designation: 'Policy, Research and Business Development Specialist',
     employeeIdCode: 'TRACE-102',
-    avatarPath: '',
+    avatarPath: '/Rubayat_E_Shams_Anik.jpg',
     password: 'Trace-HRIS-Anik-2026!',
   },
 ];
