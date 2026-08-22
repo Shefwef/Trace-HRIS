@@ -620,6 +620,7 @@ export interface SystemSettings {
   senderEmail: string;
   senderName: string;
   fromEmail: string;
+  qaRedirectEmail: string | null;
   standardHoursPerDay: number;
   workStartTime: string;
   workEndTime: string;
@@ -673,7 +674,7 @@ export function useInviteEmployee() {
 
 export interface UpdateEmployeePayload {
   fullName?: string;
-  role?: 'ADMIN' | 'HR' | 'EMPLOYEE';
+  role?: 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'EMPLOYEE';
   department?: string;
   designation?: string;
   employeeIdCode?: string;

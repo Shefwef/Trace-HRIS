@@ -5,6 +5,7 @@ import { UpdateSettingsSchema } from '@/lib/validation';
 
 function serialize(s: {
   senderEmail: string; senderName: string; fromEmail: string;
+  qaRedirectEmail: string | null;
   standardHoursPerDay: number; workStartTime: string; workEndTime: string;
   workDaysBitmask: number; overtimeThresholdMinutes: number; updatedAt: Date;
 }) {
@@ -12,6 +13,7 @@ function serialize(s: {
     senderEmail: s.senderEmail,
     senderName: s.senderName,
     fromEmail: s.fromEmail,
+    qaRedirectEmail: s.qaRedirectEmail,
     standardHoursPerDay: s.standardHoursPerDay,
     workStartTime: s.workStartTime,
     workEndTime: s.workEndTime,
@@ -48,9 +50,16 @@ export async function PATCH(req: Request) {
     create: { id: 'singleton' },
   });
 
+  // Empty string in the UI means "clear this field" — persist as null.
+  const patch = {
+    ...input,
+    qaRedirectEmail:
+      input.qaRedirectEmail === '' ? null : input.qaRedirectEmail,
+  };
+
   const updated = await prisma.systemSettings.update({
     where: { id: 'singleton' },
-    data: input,
+    data: patch,
   });
 
   await prisma.auditLog.create({

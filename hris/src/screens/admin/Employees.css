@@ -156,3 +156,45 @@
   display: block;
   margin-top: 4px;
 }
+
+.empg-card-role {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px dashed var(--color-border-default);
+}
+.empg-card-role label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  font-weight: var(--weight-semibold);
+}
+.empg-card-role select {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: border var(--transition-fast), box-shadow var(--transition-fast);
+}
+.empg-card-role select:hover:not(:disabled) {
+  border-color: var(--color-brand-secondary);
+}
+.empg-card-role select:focus {
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.15);
+}
+.empg-card-role select:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}

@@ -1,8 +1,9 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { Search, Mail, UserPlus, UserX } from 'lucide-react';
+import { Search, Mail, UserPlus, UserX, ShieldCheck } from 'lucide-react';
 import { useUsers, useUpdateEmployee } from '@/lib/hooks';
-import { initials, avatarColorFor } from '@/lib/session';
+import { initials, avatarColorFor, useCurrentUser } from '@/lib/session';
+import { useStore } from '@/lib/store';
 import { Avatar } from '../../components/ui/Avatar';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -11,17 +12,47 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { InviteEmployeeModal } from '../../components/admin/InviteEmployeeModal';
 import './Employees.css';
 
+type AppRole = 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'EMPLOYEE';
+
+/**
+ * Which roles the current actor is allowed to assign.
+ *   SUPER_ADMIN / ADMIN → all four roles.
+ *   HR                  → HR + EMPLOYEE only.
+ *   EMPLOYEE            → nothing (this page is HR+ only anyway).
+ */
+function assignableRoles(actorRole: string | undefined): AppRole[] {
+  if (actorRole === 'SUPER_ADMIN' || actorRole === 'ADMIN')
+    return ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'];
+  if (actorRole === 'HR') return ['HR', 'EMPLOYEE'];
+  return [];
+}
+
+const ROLE_LABEL: Record<AppRole, string> = {
+  SUPER_ADMIN: 'Super Admin',
+  ADMIN: 'Admin',
+  HR: 'HR',
+  EMPLOYEE: 'Employee',
+};
+
 export function EmployeesPage() {
+  const currentUser = useCurrentUser();
   const { data: users = [], isLoading } = useUsers();
   const updateEmployee = useUpdateEmployee();
+  const addToast = useStore((s) => s.addToast);
   const [q, setQ] = useState('');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [deactivateId, setDeactivateId] = useState<string | null>(null);
 
+  const canAssign = assignableRoles(currentUser?.role);
+  const canEditRoles = canAssign.length > 0;
+
   const filtered = useMemo(
     () =>
       users
-        .filter((u) => u.role !== 'SUPER_ADMIN')
+        // Hide the actor from their own list; you can't edit yourself here.
+        .filter((u) => u.id !== currentUser?.id)
+        // HR shouldn't be able to see (or accidentally edit) SUPER_ADMIN rows.
+        .filter((u) => !(currentUser?.role === 'HR' && u.role === 'SUPER_ADMIN'))
         .filter((u) => {
           if (!q.trim()) return true;
           const n = q.trim().toLowerCase();
@@ -32,8 +63,20 @@ export function EmployeesPage() {
             (u.employeeIdCode ?? '').toLowerCase().includes(n)
           );
         }),
-    [users, q]
+    [users, q, currentUser]
   );
+
+  function changeRole(id: string, next: AppRole) {
+    updateEmployee.mutate(
+      { id, patch: { role: next } },
+      {
+        onSuccess: () =>
+          addToast({ kind: 'success', title: 'Role updated', body: `Set to ${ROLE_LABEL[next]}` }),
+        onError: (e: Error) =>
+          addToast({ kind: 'error', title: 'Could not update role', body: e.message }),
+      },
+    );
+  }
 
   return (
     <div className="empg">
@@ -102,6 +145,35 @@ export function EmployeesPage() {
                   <span className="mono">{u.employeeIdCode ?? '—'}</span>
                   <span className="empg-mail"><Mail size={12} /> {u.email}</span>
                 </div>
+                {canEditRoles && (
+                  <div className="empg-card-role">
+                    <label>
+                      <ShieldCheck size={12} />
+                      Role
+                    </label>
+                    <select
+                      value={u.role}
+                      disabled={updateEmployee.isPending}
+                      onChange={(e) => {
+                        const next = e.target.value as AppRole;
+                        if (next === u.role) return;
+                        changeRole(u.id, next);
+                      }}
+                    >
+                      {(() => {
+                        // Always include the user's current role, even if the
+                        // actor couldn't newly assign it — so the dropdown
+                        // shows the true current state.
+                        const opts = Array.from(new Set([u.role as AppRole, ...canAssign]));
+                        return opts.map((r) => (
+                          <option key={r} value={r}>
+                            {ROLE_LABEL[r]}
+                          </option>
+                        ));
+                      })()}
+                    </select>
+                  </div>
+                )}
                 <div className="empg-card-actions">
                   <Button
                     variant="ghost"

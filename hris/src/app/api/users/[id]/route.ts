@@ -27,6 +27,34 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       return err(400, 'SELF_DEACTIVATE', 'You cannot deactivate yourself.');
   }
 
+  // Role-assignment hierarchy:
+  //   SUPER_ADMIN / ADMIN can assign any role.
+  //   HR can only assign HR or EMPLOYEE — never ADMIN or SUPER_ADMIN.
+  //   (EMPLOYEE never reaches this point — canApprove() above rejects.)
+  if (input.role) {
+    const hrAllowed = ['HR', 'EMPLOYEE'] as const;
+    if (actor.role === 'HR' && !hrAllowed.includes(input.role as typeof hrAllowed[number])) {
+      return err(
+        403,
+        'ROLE_ELEVATION_FORBIDDEN',
+        'HR users can only assign HR or Employee roles. Ask an Admin or Super Admin to promote further.',
+      );
+    }
+    // Guard: don't accidentally demote the only Super Admin
+    if (existing.role === 'SUPER_ADMIN' && input.role !== 'SUPER_ADMIN') {
+      const superCount = await prisma.user.count({
+        where: { role: 'SUPER_ADMIN', isActive: true },
+      });
+      if (superCount <= 1) {
+        return err(
+          400,
+          'LAST_SUPER_ADMIN',
+          'You cannot demote the only active Super Admin. Promote someone else first.',
+        );
+      }
+    }
+  }
+
   const updated = await prisma.user.update({
     where: { id },
     data: {

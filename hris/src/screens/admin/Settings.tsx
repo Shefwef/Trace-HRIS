@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Save, Clock, Mail, Users, Fingerprint, Info } from 'lucide-react';
+import { Save, Clock, Mail, Users, Fingerprint, Info, FlaskConical } from 'lucide-react';
 import { useSettings, useUpdateSettings, type SystemSettings } from '@/lib/hooks';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -101,6 +101,29 @@ export function AdminSettings() {
                 value={value('fromEmail') ?? ''}
                 onChange={(e) => setField('fromEmail', e.target.value)}
                 placeholder="onboarding@resend.dev"
+              />
+            </Field>
+          </section>
+
+          <section className="card stg-card">
+            <div className="stg-card-icon" style={{ background: 'var(--color-warning-light)', color: 'var(--color-warning)' }}>
+              <FlaskConical size={18} />
+            </div>
+            <h3>
+              QA mode {value('qaRedirectEmail') ? <Badge variant="warning">Active</Badge> : <Badge>Off</Badge>}
+            </h3>
+            <p>
+              When set, every outgoing HRIS email is redirected to this single inbox instead of the real recipient. The original To / Cc are preserved in the email body and subject prefix. Perfect for end-to-end testing before real employee inboxes are wired up. <strong>Clear this field to return to normal delivery.</strong>
+            </p>
+            <Field
+              label="Redirect all emails to"
+              hint="Leave empty for normal (per-recipient) delivery."
+            >
+              <TextInput
+                type="email"
+                value={value('qaRedirectEmail') ?? ''}
+                onChange={(e) => setField('qaRedirectEmail', e.target.value)}
+                placeholder="shefayatadib@iut-dhaka.edu"
               />
             </Field>
           </section>
