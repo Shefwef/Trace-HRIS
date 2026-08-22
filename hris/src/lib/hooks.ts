@@ -413,32 +413,135 @@ function invalidateAttendance(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ['balance'] });
 }
 
+const TODAY_KEY = ['attendance', 'today'] as const;
+
+/**
+ * Optimistic clock-in — flips the UI to "clocked in" the instant the button
+ * is clicked, then reconciles with the server in the background. If the
+ * server rejects (e.g. already clocked in from another device), we roll back.
+ */
 export function useClockIn() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api('/api/attendance/clock-in', { method: 'POST' }),
-    onSuccess: () => invalidateAttendance(qc),
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: TODAY_KEY });
+      const prev = qc.getQueryData<TodayResponse>(TODAY_KEY);
+      const now = new Date().toISOString();
+      qc.setQueryData<TodayResponse>(TODAY_KEY, (old) => ({
+        date: old?.date ?? new Date().toISOString().slice(0, 10),
+        isWeekend: old?.isWeekend ?? false,
+        record:
+          old?.record != null
+            ? { ...old.record, clockInTime: now, status: 'PRESENT' }
+            : {
+                id: 'optimistic',
+                date: new Date().toISOString().slice(0, 10),
+                clockInTime: now,
+                clockOutTime: null,
+                totalWorkedMinutes: 0,
+                totalBreakMinutes: 0,
+                overtimeMinutes: 0,
+                status: 'PRESENT',
+                source: 'MANUAL',
+                notes: null,
+                breaks: [],
+              },
+      }));
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(TODAY_KEY, ctx.prev);
+    },
+    onSettled: () => invalidateAttendance(qc),
   });
 }
+
 export function useClockOut() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api('/api/attendance/clock-out', { method: 'POST' }),
-    onSuccess: () => invalidateAttendance(qc),
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: TODAY_KEY });
+      const prev = qc.getQueryData<TodayResponse>(TODAY_KEY);
+      const now = new Date().toISOString();
+      qc.setQueryData<TodayResponse>(TODAY_KEY, (old) => {
+        if (!old?.record) return old;
+        return { ...old, record: { ...old.record, clockOutTime: now } };
+      });
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(TODAY_KEY, ctx.prev);
+    },
+    onSettled: () => invalidateAttendance(qc),
   });
 }
+
 export function useStartBreak() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api('/api/attendance/break/start', { method: 'POST' }),
-    onSuccess: () => invalidateAttendance(qc),
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: TODAY_KEY });
+      const prev = qc.getQueryData<TodayResponse>(TODAY_KEY);
+      const now = new Date().toISOString();
+      qc.setQueryData<TodayResponse>(TODAY_KEY, (old) => {
+        if (!old?.record) return old;
+        return {
+          ...old,
+          record: {
+            ...old.record,
+            breaks: [
+              ...old.record.breaks,
+              { id: 'optimistic', start: now, end: null, durationMinutes: null },
+            ],
+          },
+        };
+      });
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(TODAY_KEY, ctx.prev);
+    },
+    onSettled: () => invalidateAttendance(qc),
   });
 }
+
 export function useEndBreak() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api('/api/attendance/break/end', { method: 'POST' }),
-    onSuccess: () => invalidateAttendance(qc),
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: TODAY_KEY });
+      const prev = qc.getQueryData<TodayResponse>(TODAY_KEY);
+      const now = new Date().toISOString();
+      qc.setQueryData<TodayResponse>(TODAY_KEY, (old) => {
+        if (!old?.record) return old;
+        return {
+          ...old,
+          record: {
+            ...old.record,
+            breaks: old.record.breaks.map((b) =>
+              !b.end
+                ? {
+                    ...b,
+                    end: now,
+                    durationMinutes: Math.round(
+                      (new Date(now).getTime() - new Date(b.start).getTime()) / 60000,
+                    ),
+                  }
+                : b,
+            ),
+          },
+        };
+      });
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(TODAY_KEY, ctx.prev);
+    },
+    onSettled: () => invalidateAttendance(qc),
   });
 }
 

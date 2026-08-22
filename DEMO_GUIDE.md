@@ -1,8 +1,22 @@
 # Trace HRIS — Demo Guide
 
 > **For:** the instructor and senior reviewers walking through Trace HRIS for the first time.
-> **Length:** 30 minutes end-to-end. Skim in 10, deep-dive in 60.
+> **Demo length:** ~35 minutes end-to-end. Skim in 10, deep-dive in 60.
 > **Style:** written for a non-technical reader. No code, no jargon without a definition.
+
+## What's inside this document
+
+1. **What is this system?** — one paragraph elevator pitch
+2. **Cast of characters** — the 4 roles and 6 real users
+3. **Approval routing** — the one rule that governs every leave request
+4. **The 35-minute demo script** — 10 blocks to walk through, in order
+5. **Reference — one page per module** — role-by-role capability map
+6. **Adding a new employee mid-year** — the 3-step onboarding workflow
+7. **Q&A cheat sheet** — likely questions with prepared answers
+8. **Post-launch checklist** — items to complete after the demo lands
+9. **A-to-Z QA walkthrough** — 3-pass verification you can run yourself
+10. **Fallback plans** — what to do if the demo goes sideways
+11. **Where to look for more information** — pointers to the other docs
 
 ---
 
@@ -73,9 +87,11 @@ half, add a day, remove a day — subject to the applicant's remaining balance.
 
 ---
 
-# The 30-minute demo script
+# The 35-minute demo script
 
-Walk through in this order. Each block is 3–5 minutes.
+Walk through in this order. Each block is 2–5 minutes. **Total: ~35 minutes**
+of active demo. Skip Block 7 (Super Admin) or Block 10 (Reports) if you're
+short on time — the essentials are Blocks 1–4.
 
 ## Block 1 — Sign in and the dashboard (3 min)
 
@@ -132,8 +148,8 @@ Walk through in this order. Each block is 3–5 minutes.
 
 **Continue as: Tanvir**
 
-1. Click the **Clock in** button on the attendance widget. Timer starts running.
-2. Click **Start break** → timer freezes. Click **End break** → timer resumes.
+1. Click the **Clock in** button on the attendance widget. **The timer starts instantly** — no spinner, no wait. (This is the optimistic-update pattern: the UI flips the moment you click, then reconciles with the server in the background.)
+2. Click **Start break** → timer freezes immediately. Click **End break** → timer resumes.
 3. Click **Clock out**. The session gets saved to your history.
 4. Show the attendance page — table of today's session with clock-in, breaks, clock-out timestamps.
 5. Now navigate to **Log Extra Work**. Fill in: worked last Saturday, full day. Submit.
@@ -248,7 +264,40 @@ Walk through in this order. Each block is 3–5 minutes.
 > widget rather than a modal — you can ask it a question about the exact
 > form you're staring at without losing your place."
 
-## Block 9 — Wrap up and Q&A (2 min)
+## Block 9 — Reports: real downloadable PDFs (3 min)
+
+**Switch to: Saifullah (HR)** — so we can show both employee-level and
+company-wide reports.
+
+1. Navigate to **Reports**.
+2. Point at the **period picker** at the top — Year + Month dropdowns.
+   Every report card underneath shows its current scope ("August 2026" or
+   "Full cycle 2026") right on the card. Change the year → all four cards
+   update.
+3. Click **Download PDF** on the **Performance summary** card. Button flips to
+   "Generating…" with a spinner, then to "Downloaded ✓" — the PDF opens.
+4. Open the PDF and point at:
+   - **Trace logo** in the blue header bar, top-left
+   - **Report title** + **Cycle year** in the header meta on the right
+   - **Employee profile** card, **headline metrics** row (4 KPIs), **balance
+     snapshot** row, **leave activity** card
+   - Footer: "Trace Consulting Ltd · Confidential · Generated [timestamp]"
+     and "Page X of Y" — every page has this
+5. Back in the app, click **Download PDF** on **Monthly attendance**. Open
+   the PDF. Point at the daily table with color-coded status badges
+   (green PRESENT, gray WEEKEND, red ABSENT).
+6. Click **Download PDF** on **Company cycle report** (this button is only
+   visible to HR / Admin / Super Admin — not Employees). Open the PDF —
+   it's **landscape A4** with every active employee side-by-side: balance,
+   attendance %, pending requests. Perfect for a board pack.
+
+> **What to say:** "Every report is rendered fresh on the server the moment
+> you click — nothing is cached, so what you see is the current state of
+> the database. All four reports use the same Trace branding, so if you
+> hand these to auditors or bring them to a board meeting, they look like
+> they came from a real system, not a spreadsheet."
+
+## Block 10 — Wrap up and Q&A (2 min)
 
 Return to the dashboard as any user. Summarize:
 
@@ -256,8 +305,10 @@ Return to the dashboard as any user. Summarize:
 - **Everything is audited.** Every action, every IP, every browser.
 - **Everything is email-notified.** No more "did you see my request?"
 - **Everything is mobile-responsive.** Demo on your phone if you want.
-- **Everything is secured.** Only 5 approved emails can even see the login work.
+- **Everything is secured.** Only pre-approved emails can even reach the sign-in flow.
 - **Nothing hardcoded.** Sender email, working days, cycle start — all editable.
+- **Everything downloadable.** Four branded PDF reports on demand.
+- **Ready for biometric attendance** — one wall device + a small bridge and clock-in becomes a fingerprint press. See [BIOMETRIC_INTEGRATION.md](./BIOMETRIC_INTEGRATION.md).
 
 ---
 
@@ -278,6 +329,7 @@ Return to the dashboard as any user. Summarize:
 - Clock in / clock out, take breaks
 - Log extra work (for replacement leave credit)
 - Read notifications and marked-read history
+- **Download branded PDF reports** for themselves — attendance, leave history, performance summary
 - **Manage their own account** via avatar → Account settings (change password, add second email, enable 2FA)
 
 **What they cannot do:**
@@ -292,6 +344,7 @@ Everything Employees can, plus:
 - **Admin → Employees** — invite, deactivate, edit
 - **Admin → Holidays** — full CRUD + send notice email
 - **Admin → Settings** — sender email, working days, cycle start
+- **Reports → Company cycle report** — landscape A4 PDF spanning all active employees
 - Manage their own account (same as Employee)
 
 ## Admin (CEO)'s world
@@ -389,6 +442,235 @@ profile manager slides open where you can update your password, add a
 second email, enable two-factor authentication, and manage your Google (or
 other OAuth) sign-in connections. No HR ticket, no admin involvement.
 
+**Q: Can we integrate a fingerprint scanner at the office entrance?**
+A: Yes — the attendance API already accepts biometric events. Add a
+wall-mounted device (e.g. ZKTeco K40, ~$200) and a small bridge service on
+the office LAN, and clock-in becomes a fingerprint press. Full plan in
+[BIOMETRIC_INTEGRATION.md](./BIOMETRIC_INTEGRATION.md).
+
+**Q: Are these PDF reports really generated on the fly?**
+A: Yes. Every click hits the server, queries the current database, renders
+the PDF with React-PDF, and streams it back. Nothing is pre-baked or
+cached. Change any data and the next download reflects it immediately.
+
+---
+
+# Post-launch checklist — what still needs to change
+
+The app works today. Before you hand it to a wider audience, a handful of
+"one-time production hygiene" items should get done. None of these are
+launch blockers, but they matter for a polished long-term deployment.
+
+## Email — switch off the personal address
+
+**Current state:** outgoing emails come from `onboarding@resend.dev` (Resend's
+test sender), with a Reply-To of `shefadib@gmail.com` (a personal address).
+Resend's free tier only lets emails leave the system if the recipient is
+already registered on the Resend account — so notification emails to Fuad,
+Saifullah, Tama, Tanvir and Rubayat currently bounce silently.
+
+**Fix (~10 minutes + ~10 minutes DNS wait):**
+
+1. Log into [https://resend.com/domains](https://resend.com/domains).
+2. Click **Add Domain** → enter `traceconsultingltd.com` (or a subdomain
+   like `mail.traceconsultingltd.com`).
+3. Resend gives you 4 DNS records (MX, TXT, DKIM). Add them in the domain
+   registrar's DNS panel. Wait ~10 minutes for verification.
+4. In Trace HRIS, sign in as Super Admin → **Admin → Settings**:
+   - **Sender email (from):** `hris@traceconsultingltd.com` (must match the
+     verified domain)
+   - **Sender name:** `Trace HRIS` (already set)
+   - **Reply-to:** `people@traceconsultingltd.com` (or your ops inbox)
+5. Save. Test with a leave submission — email should now arrive at any
+   recipient.
+
+Until this is done, either:
+- Send from `onboarding@resend.dev` (emails still deliver, look
+  unbranded) — this is the current default
+- Or use the `scripts/print-welcome.ts` fallback: prints the email content
+  to the terminal, you paste it into your own Gmail
+
+## Trace domain on Vercel
+
+**Current state:** the app lives at a `.vercel.app` URL. Fine for demo, not
+for production.
+
+**Fix:** Vercel → Project → Settings → **Domains** → **Add** → enter
+`hris.traceconsultingltd.com` → follow the DNS instructions Vercel gives.
+Once verified, also update:
+- Vercel env var `NEXT_PUBLIC_APP_URL` → `https://hris.traceconsultingltd.com`
+- Clerk dashboard → Applications → your app → **Domains** → add the new
+  hostname so Clerk accepts sessions from it
+
+## Clerk webhook — auto-sync deletes
+
+**Current state:** if someone gets deleted directly in Clerk (rather than
+via the app's Deactivate flow), Postgres is left with a stale user row.
+The webhook endpoint exists (`/api/webhooks/clerk`) but currently returns
+501 because `CLERK_WEBHOOK_SIGNING_SECRET` isn't set.
+
+**Fix (~5 minutes):**
+
+1. Clerk dashboard → **Webhooks → Add Endpoint**
+2. Endpoint URL: `https://hris.traceconsultingltd.com/api/webhooks/clerk`
+3. Message filters: check `user.deleted` and `user.updated`
+4. Copy the **Signing Secret** (starts with `whsec_...`)
+5. Vercel → env vars → add `CLERK_WEBHOOK_SIGNING_SECRET` → redeploy
+
+## Gemini key on Vercel
+
+**Current state:** `GEMINI_API_KEY` is set in local `.env.local` but not
+yet in Vercel. On the deployed app the chatbot returns "not configured."
+
+**Fix:** Vercel → Project → Settings → Environment Variables → add
+`GEMINI_API_KEY` with the value from your local `.env.local`. Redeploy.
+
+## Convert biometric
+
+Currently attendance is button-click only. When you're ready:
+1. Read [BIOMETRIC_INTEGRATION.md](./BIOMETRIC_INTEGRATION.md)
+2. Order the device (2–7 days)
+3. Follow the 5-step implementation checklist there
+
+## Next.js middleware → proxy rename
+
+**Current state:** on `next dev` you see a warning "The 'middleware' file
+convention is deprecated. Please use 'proxy' instead." Non-breaking; safe
+to defer until you're doing a Next.js 17 upgrade later.
+
+**Fix:** `npx @next/codemod@canary middleware-to-proxy hris/` — one command
+migration.
+
+## Verified sender for holiday notices
+
+Same story as leave emails — holiday notice broadcasts also go through
+Resend. Once the domain is verified above, they'll flow to everyone. No
+extra work.
+
+## Rotate keys quarterly
+
+Every ~3 months, rotate:
+- Clerk secret key (Clerk dashboard → API Keys → rotate)
+- Resend API key (Resend dashboard → API Keys → rotate)
+- Gemini API key (AI Studio → rotate)
+- Update each in Vercel env vars, redeploy
+
+Set a calendar reminder. Takes 5 minutes per service.
+
+## Grow the seed roster as people join
+
+When a new hire comes:
+1. Append them to `hris/prisma/seed-users.ts` with an initial password
+2. `TARGET_EMAIL=<their-email> npx tsx --env-file=.env.local scripts/add-employee.ts`
+3. `TARGET_EMAIL=<their-email> npx tsx scripts/print-welcome.ts` and send them the email
+
+Never run the full `npm run db:seed` for a single add — it resets every
+existing user's password.
+
+---
+
+# A-to-Z QA walkthrough
+
+Use this checklist to verify the whole system works end-to-end. Group it
+into three passes: **backend sanity**, **role-based flows**, **cross-
+cutting**. Each pass takes ~15 minutes.
+
+## Pass 1 — Backend sanity (10 min)
+
+Sign in as Super Admin (Shefayat) and open two browser tabs.
+
+- [ ] **Sign in works** — `shefadib@gmail.com` + password `Trace-HRIS-Super-2026!`.
+- [ ] **Dashboard loads** — arc rings render, attendance widget visible, no console errors.
+- [ ] **Sidebar** — Employees, Requests, Holidays, Settings, Audit Log, System all visible for Super Admin.
+- [ ] **Wrong email is rejected** — try to sign in as `random@example.com` → Clerk refuses (not in allowlist).
+- [ ] **Deep link to unauthorized page** — as Employee (Tanvir), visit `/admin/audit` → redirected to `/not-authorized`.
+- [ ] **DB latency** — as Super Admin, open **Admin → System**. Latency should be < 300 ms; DB status green.
+- [ ] **Env config** — same page: Clerk, Resend, Gemini all show ✓.
+- [ ] **Audit log records logins** — Refresh `/admin/audit` and confirm a fresh entry for your last sign-in.
+
+## Pass 2 — Role-based flows (30 min)
+
+### Leave — Employee submits → HR approves
+
+- [ ] As **Tanvir**, click **Apply for Leave**.
+- [ ] Pick Casual, next Wednesday, half-day (morning), reason "dentist."
+- [ ] Submit. Toast confirms. Notification bell shows a new notification.
+- [ ] Check email: **you'll only see the email if you're the recipient AND your address is on the Resend allowlist**. Until domain verification, this means only `shefayatadib@iut-dhaka.edu` gets emails.
+- [ ] As **Saifullah** (HR), go to **Admin → Requests**. Tanvir's request is in Pending. Notification bell has one unread.
+- [ ] Open the review drawer. Balance impact shows -0.5 casual.
+- [ ] Try **Modify allocation** — flip the half to full. Preview updates to -1.0.
+- [ ] Approve. Toast. As **Tanvir**, refresh dashboard — balance decremented, notification arrived.
+
+### Leave — HR submits → other HR + CEO approve
+
+- [ ] As **Saifullah**, submit a 2-day leave.
+- [ ] As **Umme** (HR), check inbox — request is there, plus a note that CEO is also notified.
+- [ ] As **Fuad** (CEO), check inbox — request is there.
+- [ ] Reject as Fuad with a reason. Verify Saifullah gets rejection notification + email attempt.
+
+### Attendance
+
+- [ ] As **Tanvir**, click **Clock In**. Timer starts **instantly** (no spinner delay).
+- [ ] Wait a few seconds. Start a break — timer freezes.
+- [ ] End break — resumes.
+- [ ] Clock out. Session appears in today's history.
+- [ ] Refresh the page — attendance state persists.
+- [ ] Try clocking in on a Saturday — it works (weekend hard-block was removed).
+- [ ] Attendance page → history table shows the session with correct clock-in/out times.
+
+### Extra work → Replacement leave
+
+- [ ] As **Tanvir**, **Log Extra Work** → last Sunday, full day. Submit.
+- [ ] As **Saifullah**, **Extra Work** tab → approve.
+- [ ] As **Tanvir**, dashboard → **Replacement: 1.0** now shows.
+- [ ] Log another extra day but choose "half (9-1)" → 0.5.
+- [ ] Approve → Replacement becomes 1.5.
+
+### Holidays
+
+- [ ] As **Saifullah**, **Admin → Holidays** → **Add Holiday**.
+- [ ] Name: "Test Holiday," date: next Friday.
+- [ ] Save. Card appears in the list.
+- [ ] Click **Send Notice**. Success toast (email attempts logged; delivery only if recipient is on Resend allowlist).
+- [ ] As **Tanvir**, dashboard → mini-calendar highlights next Friday.
+- [ ] `/calendar` full view shows the holiday.
+
+### Reports
+
+- [ ] As **Tanvir**, **Reports** → pick current year + month.
+- [ ] **Performance summary** → Download → PDF opens with Trace logo, brand blue header, 4 KPI cards, balance snapshot.
+- [ ] **Monthly attendance** → Download → daily table with status badges.
+- [ ] **Leave history** → Download → cycle summary + request table.
+- [ ] Verify **Company cycle report** card is NOT visible to Tanvir (he's Employee).
+- [ ] As **Saifullah**, **Reports** → **Company cycle report** card IS visible → Download → landscape A4 with every employee.
+
+### Chatbot
+
+- [ ] Click the **MessageCircle** button bottom-right. Floating window opens (no backdrop).
+- [ ] Ask "How do I apply for a half-day?" → helpful answer.
+- [ ] Ask "What's the weather?" → politely declines (out of scope).
+- [ ] Click reset — conversation clears.
+- [ ] Send 21 messages in a minute → 21st gets rate-limited.
+
+### Account settings
+
+- [ ] Avatar top-right → **Account settings** → Clerk modal opens.
+- [ ] Try changing password → succeeds.
+- [ ] Sign out → sign back in with the new password → works.
+
+## Pass 3 — Cross-cutting (10 min)
+
+- [ ] **Security headers** — DevTools → Network → any page → response headers include `X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security`, `Permissions-Policy`.
+- [ ] **Unauthenticated API** — sign out, then `curl -i https://<domain>/api/leaves/requests` → 401.
+- [ ] **Rate limit** — sign back in, submit 31 leave requests in a minute → 31st gets 429.
+- [ ] **Mobile** — DevTools → toggle mobile view (375 px). Sidebar collapses to drawer, tables reflow, no horizontal scroll.
+- [ ] **Dark mode / print** — not implemented; ignore.
+- [ ] **Neon cold-start** — leave the app idle 15 min, refresh. First request should retry silently (300/900/2100 ms backoff).
+- [ ] **Audit trail integrity** — as Super Admin, `/admin/audit` shows every action from this QA session, with correct actors, timestamps, IPs, and user-agents.
+
+If every checkbox passes, the system is production-ready modulo the
+post-launch checklist items above.
+
 ---
 
 # Fallback plans if the demo goes sideways
@@ -413,6 +695,7 @@ other OAuth) sign-in connections. No HR ticket, no admin involvement.
 - **How the app was set up:** [`hris/SETUP.md`](./hris/SETUP.md) — the one-time provisioning of Clerk, Neon, Resend, Gemini.
 - **Developer quick-start:** [`hris/README.md`](./hris/README.md) — run locally, deploy, environment variables.
 - **Product overview:** [`README.md`](./README.md) — feature checklist, tech stack, roles at a glance.
+- **Biometric integration plan:** [`BIOMETRIC_INTEGRATION.md`](./BIOMETRIC_INTEGRATION.md) — three architecture options, recommended device, bridge implementation.
 
 ---
 
