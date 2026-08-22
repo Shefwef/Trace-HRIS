@@ -89,33 +89,56 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-height: 320px;
   transition: transform var(--transition-normal), box-shadow var(--transition-normal);
 }
 .empg-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
+
+/* Reserve a consistent block for the top identity area so single-line
+   designations (e.g. "Research Associate") don't collapse the card while
+   longer ones (2-line specialist titles) don't push everything below out
+   of alignment. Grid rows: name → designation → badges. */
 .empg-card-top {
   display: flex;
   gap: 12px;
   align-items: flex-start;
+  min-height: 96px;
+}
+.empg-card-top > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
 }
 .empg-name {
   font-family: var(--font-display);
   font-size: var(--text-base);
   font-weight: var(--weight-semibold);
   color: var(--color-text-primary);
+  line-height: 1.25;
 }
 .empg-role {
   font-size: var(--text-sm);
   color: var(--color-text-secondary);
-  margin-top: 2px;
+  line-height: 1.35;
+  /* Reserve exactly 2 lines of vertical space so 1-line and 2-line
+     designations sit at the same block height across cards. */
+  min-height: calc(var(--text-sm) * 1.35 * 2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .empg-dept {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
-  margin-top: 8px;
+  margin-top: 4px;
+  min-height: 22px;
 }
 .empg-card-body {
   display: flex;
@@ -123,6 +146,8 @@
   gap: 4px 12px;
   font-size: var(--text-xs);
   color: var(--color-text-muted);
+  min-height: 40px;
+  align-content: flex-start;
 }
 .empg-mail {
   display: inline-flex;
@@ -157,35 +182,50 @@
   margin-top: 4px;
 }
 
+/* Role field — a proper form group inside the card, not a floating row.
+   Label sits above the dropdown, both wrapped in a subtle boxed container
+   so it reads as one considered element instead of two loose bits. */
 .empg-card-role {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 0;
-  border-top: 1px dashed var(--color-border-default);
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
 }
 .empg-card-role label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--text-xs);
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--color-text-muted);
   font-weight: var(--weight-semibold);
 }
 .empg-card-role select {
-  flex: 1;
-  padding: 6px 10px;
+  width: 100%;
+  height: 34px;
+  padding: 0 32px 0 10px;
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-sm);
-  background: var(--color-bg-surface);
+  background-color: var(--color-bg-surface);
   color: var(--color-text-primary);
   font-size: var(--text-sm);
   font-family: inherit;
+  font-weight: var(--weight-medium);
   cursor: pointer;
   outline: none;
   transition: border var(--transition-fast), box-shadow var(--transition-fast);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  /* Chevron rendered as an inline SVG so every browser looks identical */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234A5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px 12px;
 }
 .empg-card-role select:hover:not(:disabled) {
   border-color: var(--color-brand-secondary);
