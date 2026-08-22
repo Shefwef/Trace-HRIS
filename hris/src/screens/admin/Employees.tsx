@@ -155,7 +155,13 @@ export function EmployeesPage() {
             return (
               <div key={u.id} className="empg-card card">
                 <div className="empg-card-top">
-                  <Avatar initials={initials(u.fullName)} color={avatarColorFor(u.id)} size="lg" />
+                  <Avatar
+                    initials={initials(u.fullName)}
+                    color={avatarColorFor(u.id)}
+                    size="lg"
+                    imageUrl={u.avatarUrl}
+                    alt={u.fullName}
+                  />
                   <div>
                     <div className="empg-name">{u.fullName}</div>
                     <div className="empg-role">{u.designation}</div>

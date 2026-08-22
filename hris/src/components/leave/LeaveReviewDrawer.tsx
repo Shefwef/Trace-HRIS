@@ -132,7 +132,13 @@ export function LeaveReviewDrawer({ requestId, onClose }: Props) {
       >
         <div className="lrd">
           <div className="lrd-emp">
-            <Avatar initials={empInitials} color={empColor} size="lg" />
+            <Avatar
+              initials={empInitials}
+              color={empColor}
+              size="lg"
+              imageUrl={employee.avatarUrl}
+              alt={employee.fullName}
+            />
             <div>
               <div className="lrd-emp-name">{employee.fullName}</div>
               <div className="lrd-emp-role">{employee.designation ?? ''} · {employee.department ?? ''}</div>

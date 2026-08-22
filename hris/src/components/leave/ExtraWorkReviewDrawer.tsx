@@ -53,7 +53,13 @@ export function ExtraWorkReviewDrawer({ logId, onClose }: Props) {
       >
         <div className="lrd">
           <div className="lrd-emp">
-            <Avatar initials={empInitials} color={empColor} size="lg" />
+            <Avatar
+              initials={empInitials}
+              color={empColor}
+              size="lg"
+              imageUrl={log.employee.avatarUrl}
+              alt={log.employee.fullName}
+            />
             <div>
               <div className="lrd-emp-name">{log.employee.fullName}</div>
               <div className="lrd-emp-role">{log.employee.role} · {log.employee.department ?? ''}</div>

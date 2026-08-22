@@ -7,8 +7,9 @@ import {
 } from 'recharts';
 import { TrendingUp, TrendingDown, Award, Target } from 'lucide-react';
 import { useCurrentUser } from '@/lib/session';
-import { useBalance, useMyLeaves, useAttendanceHistory } from '@/lib/hooks';
+import { useBalance, useMyLeaves, useAttendanceHistory, useSettings } from '@/lib/hooks';
 import { StatCard } from '../../components/ui/StatCard';
+import { AttendanceHeatmap } from './AttendanceHeatmap';
 import './Analytics.css';
 
 export function AnalyticsPage() {
@@ -20,6 +21,7 @@ export function AnalyticsPage() {
     now.getFullYear(),
     now.getMonth() + 1,
   );
+  const { data: settings } = useSettings();
 
   const approved = useMemo(
     () => (myLeaves ?? []).filter((r) => r.status === 'APPROVED'),
@@ -129,6 +131,14 @@ export function AnalyticsPage() {
           accent="danger"
         />
       </div>
+
+      <AttendanceHeatmap
+        records={records}
+        leaves={myLeaves ?? []}
+        workDaysBitmask={settings?.workDaysBitmask ?? 62}
+        startHour={settings?.workStartTime ? Number(settings.workStartTime.split(':')[0]) : 9}
+        endHour={settings?.workEndTime ? Number(settings.workEndTime.split(':')[0]) : 17}
+      />
 
       {!hasAnyData ? (
         <div className="card anpg-panel anpg-empty">

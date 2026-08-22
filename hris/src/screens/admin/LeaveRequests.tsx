@@ -160,7 +160,7 @@ export function LeaveRequestsPage() {
                       layout
                     >
                       <span className="lreq-emp" data-label="Employee">
-                        <Avatar initials={initials(emp.fullName)} color={avatarColorFor(emp.id)} size="sm" />
+                        <Avatar initials={initials(emp.fullName)} color={avatarColorFor(emp.id)} size="sm" imageUrl={emp.avatarUrl} alt={emp.fullName} />
                         <span>
                           <strong>{emp.fullName}</strong>
                           <em>{emp.department}</em>
@@ -221,7 +221,7 @@ export function LeaveRequestsPage() {
                       layout
                     >
                       <span className="lreq-emp" data-label="Employee">
-                        <Avatar initials={initials(emp.fullName)} color={avatarColorFor(emp.id)} size="sm" />
+                        <Avatar initials={initials(emp.fullName)} color={avatarColorFor(emp.id)} size="sm" imageUrl={emp.avatarUrl} alt={emp.fullName} />
                         <span>
                           <strong>{emp.fullName}</strong>
                           <em>{emp.department}</em>

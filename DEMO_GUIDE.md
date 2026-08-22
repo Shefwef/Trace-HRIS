@@ -34,13 +34,13 @@ Every action is logged, every approval flows to the right person automatically, 
 every change triggers both an in-app notification *and* an email. Nothing lives in
 one person's inbox anymore.
 
-The app is designed for a small team today (6 people at the time of writing),
+The app is designed for a small team today (11 people at the time of writing),
 but the architecture is built so that adding a 100th employee changes nothing
 about how any of the existing screens work.
 
 ---
 
-## Cast of characters — 4 roles, 6 real users
+## Cast of characters — 4 roles, 11 real users
 
 Trace HRIS treats every action through the lens of **who is doing it**. There are
 four roles, each with a different level of access:
@@ -52,21 +52,28 @@ four roles, each with a different level of access:
 | **Admin** | CEO / CTO | Everything HR can do + gets CC'd on Employee leave requests |
 | **Super Admin** | Technical owner | Everything Admin can do + view the audit log + view the system health page |
 
-The six real users seeded into the system:
+The 11 real users seeded into the system (multi-role — a person can hold more than one role at a time):
 
-| Name | Email | Role | Password (first-time) |
-|---|---|---|---|
-| Shefayat Adib | `shefadib@gmail.com` | **Super Admin** | `Trace-HRIS-Super-2026!` |
-| Fuad Khalid | `fuad.khalid@traceconsultingltd.com` | **Admin** (CEO) | `Trace-HRIS-Fuad-2026!` |
-| ASM Saifullah | `asmsaifullah@traceconsultingltd.com` | **HR** | `Trace-HRIS-Saifullah-2026!` |
-| Umme Tama | `umtama@traceconsultingltd.com` | **HR** | `Trace-HRIS-Tama-2026!` |
-| Tanvir Kabir | `tanvir.kabir@traceconsultingltd.com` | **Employee** | `Trace-HRIS-Tanvir-2026!` |
-| Rubayat E Shams Anik | `res.anik@traceconsultingltd.com` | **Employee** | `Trace-HRIS-Anik-2026!` |
+| Name | Designation | Email | Role set | Password (first-time) |
+|---|---|---|---|---|
+| Shefayat Adib | System Administrator | `shefadib@gmail.com` | **Super Admin** | `Trace-HRIS-Super-2026!` |
+| Fuad M Khalid Hossen | Chief Executive Officer (CEO) | `fuad.khalid@traceconsultingltd.com` | **Admin** | `Trace-HRIS-Fuad-2026!` |
+| Abu Saleh Muhammad Saifullah | Chief Operating Officer (COO) | `asmsaifullah@traceconsultingltd.com` | **Admin + HR** | `Trace-HRIS-Saifullah-2026!` |
+| Umme Mahbuba Tama | Research Associate | `umtama@traceconsultingltd.com` | **HR** | `Trace-HRIS-Tama-2026!` |
+| Tanvir Kabir | Digital Content & Multimedia Specialist | `tanvir.kabir@traceconsultingltd.com` | **Employee** | `Trace-HRIS-Tanvir-2026!` |
+| Rubayat E Shams Anik | Policy, Research and Business Development Specialist | `res.anik@traceconsultingltd.com` | **Employee** | `Trace-HRIS-Anik-2026!` |
+| Mimma Afrin | Technical Lead — Laboratory Operations | `mimma.afrin@traceconsultingltd.com` | **Employee** | `Trace-HRIS-Mimma-2026!` |
+| Recardo Saurav Antor Halder | Manager, Business Development | `recardo.halder@traceconsultingltd.com` | **Employee** | `Trace-HRIS-Recardo-2026!` |
+| Nabeel Khan | Head of Partnerships & Strategic Growth | `nabeel.khan@traceconsultingltd.com` | **Employee** | `Trace-HRIS-Nabeel-2026!` |
+| Moudud Ahmmed Sujan | Head of External Affairs | `moudud.sujan@traceconsultingltd.com` | **Employee** | `Trace-HRIS-Moudud-2026!` |
+| Ahmed Julker Nine | Research and Policy Analyst | `ahmed.nine@traceconsultingltd.com` | **Employee** | `Trace-HRIS-Ahmed-2026!` |
 
-> **For the demo:** open six browser windows (or use Chrome profiles / private
-> windows). Sign each into a different account. Line them up left-to-right so you
-> can switch instantly. Don't try to log in/out during the demo — it wastes time
-> and breaks the flow.
+**Notification routing under the multi-role model:** any leave request notifies **anyone with the HR role** (Saifullah + Tama). Fuad, who is Admin-only, retains the power to approve but gets no notifications or emails. Saifullah gets both because he holds Admin + HR.
+
+> **For the demo:** you don't need to open 11 browsers — just pick the roles you're
+> actually demoing (usually Super Admin + Admin + HR + one Employee = 4 windows).
+> Line them up left-to-right so you can switch instantly. Don't try to log in/out
+> during the demo — it wastes time and breaks the flow.
 
 ---
 
@@ -301,7 +308,7 @@ company-wide reports.
 
 Return to the dashboard as any user. Summarize:
 
-- **4 roles, 6 users, 4 modules** — leave, attendance, holidays, employees
+- **4 roles, 11 users, 4 modules** — leave, attendance, holidays, employees
 - **Everything is audited.** Every action, every IP, every browser.
 - **Everything is email-notified.** No more "did you see my request?"
 - **Everything is mobile-responsive.** Demo on your phone if you want.
@@ -361,22 +368,61 @@ Same as Admin, plus:
 
 ---
 
-## Adding a new employee mid-year
+## Adding a new employee (two supported flows)
 
-The HR flow inside the app (`/admin/employees` → **Invite Employee**) works but
-doesn't persist to the seed script — a future re-seed would wipe them. For
-permanent hires, the technical owner runs two scripts:
+### Flow A — In-app invite (recommended for HR)
 
-1. Add the person's details to `hris/prisma/seed-users.ts`
-2. `TARGET_EMAIL=<email> npx tsx --env-file=.env.local scripts/add-employee.ts` — creates the Clerk user, Postgres row, and a fresh leave balance for the current cycle. Non-destructive: doesn't touch anyone else's password.
-3. `TARGET_EMAIL=<email> npx tsx scripts/print-welcome.ts` — prints a copy-paste-ready welcome email (subject + body). Paste it into your Gmail and send.
+For a new hire that HR is onboarding:
 
-If your Resend account has a verified domain (SETUP.md Step 3 Option B), use
-`scripts/send-welcome.ts` instead — it sends the email automatically from
-your branded address.
+1. Sign in as HR, Admin, or Super Admin.
+2. Go to **Admin → Employees**.
+3. Click **Invite Employee** (top right).
+4. Fill the form:
+   - **First / Last name** — how they appear in the app.
+   - **Work email** — pre-verified in Clerk on creation. They can sign in immediately with email + password (no verification code required).
+   - **Roles** — tick one or more. A person can hold multiple roles (e.g. tick both **Admin** and **HR** for a COO who needs both).
+   - **Employee ID** — the next code in the sequence (`TRACE-108`, `TRACE-109`, …).
+   - **Cycle starts in** — usually **January**.
+   - **Department** and **Designation** — free text; used in badges and PDF reports.
+5. Click **Create account**.
+6. A success screen shows the **initial password**. Click **Copy all credentials** and send them to the new hire via a secure channel.
+7. Tell them to **sign in with email + password**. If Clerk shows an "Email code" option, they should skip it — a code email may be delayed or spam-filtered.
 
-**Example:** Rubayat E Shams Anik (Employee, Policy & Research, TRACE-102)
-was added this way on 2026-08-20 — she's the sixth user in the roster above.
+Once created, the person appears in `/admin/employees` immediately. Their leave balance is pre-populated for the current cycle. You can adjust their roles from the card at any time.
+
+### Flow B — Permanent seed entry (for the technical owner)
+
+Use this when you want the person to survive a full `npm run db:seed`:
+
+1. Append the person's details to `hris/prisma/seed-users.ts` — see [`hris/prisma/seed-users.ts`](./hris/prisma/seed-users.ts) for the exact shape. Include a `roles` array (never just `role`), and a photo path pointing to a file you've dropped into `hris/public/`.
+2. Run the sync script:
+   ```powershell
+   cd hris
+   npx tsx --env-file=.env.local scripts/sync-roles.ts
+   ```
+   This creates any missing Clerk accounts with the initial password, uploads their profile photo to Clerk, refreshes their `publicMetadata`, and upserts their Postgres row + current-cycle leave balance. **Non-destructive** — no passwords touched for anyone already signed in.
+3. Optional: print a copy-paste welcome email:
+   ```powershell
+   TARGET_EMAIL=<their-email> npx tsx scripts/print-welcome.ts
+   ```
+4. Paste the printed subject + body into your own Gmail and send. When Resend domain verification is done, `scripts/send-welcome.ts` will send it automatically.
+
+**Example — how the current roster was populated:** all 11 users (Shefayat, Fuad, Saifullah, Umme, Tanvir, Rubayat, Mimma, Recardo, Nabeel, Moudud, Ahmed) live in `seed-users.ts` with the roles they should hold on day one. A single run of `sync-roles.ts` provisioned all of them.
+
+### Super Admin QA — "Can I add an employee that behaves normally?"
+
+To verify the flow end-to-end tomorrow:
+
+1. Sign in as Shefayat (Super Admin).
+2. Turn on QA mode: **Admin → Settings → QA mode → set your email → Save**. Now every notification email will redirect to your inbox with a banner showing the real recipient.
+3. Go to **Admin → Employees → Invite Employee**. Create a test person (any name, any real email you control — QA redirect protects them from receiving anything).
+4. Sign out and sign in as the new person with the initial password from the success screen.
+5. Apply for a 1-day leave.
+6. Sign out and sign in as Saifullah (HR). Review and approve.
+7. Check your own email — the approval notification should have arrived at your inbox with a `[QA→new-person@…]` prefix.
+8. Sign back in as Super Admin, go to **Admin → Employees**, and click **Deactivate** on the test person. They can no longer sign in, but their audit trail remains.
+
+Total time: **~5 minutes**. Confirms the whole invite → login → apply → approve → email pipeline is intact before you sit in front of the seniors.
 
 ---
 

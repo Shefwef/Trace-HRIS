@@ -139,7 +139,13 @@ export function Topbar() {
         {/* User menu */}
         <div className="topbar-user" ref={userRef}>
           <button className="topbar-userbtn" onClick={() => setUserOpen((v) => !v)}>
-            <Avatar initials={userInitials} color={userColor} size="sm" />
+            <Avatar
+              initials={userInitials}
+              color={userColor}
+              size="sm"
+              imageUrl={user.avatarUrl}
+              alt={user.fullName}
+            />
             <div className="topbar-user-info hide-sm">
               <div className="topbar-user-name">{user.fullName}</div>
               <div className="topbar-user-role">
@@ -158,7 +164,13 @@ export function Topbar() {
                 transition={{ duration: 0.18 }}
               >
                 <div className="topbar-menu-user-card">
-                  <Avatar initials={userInitials} color={userColor} size="lg" />
+                  <Avatar
+                    initials={userInitials}
+                    color={userColor}
+                    size="lg"
+                    imageUrl={user.avatarUrl}
+                    alt={user.fullName}
+                  />
                   <div>
                     <div className="topbar-menu-user-name">{user.fullName}</div>
                     <div className="topbar-menu-user-role">{user.email}</div>

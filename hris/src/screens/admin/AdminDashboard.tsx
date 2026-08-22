@@ -147,7 +147,7 @@ export function AdminDashboard() {
                 return (
                   <li key={r.id}>
                     <button className="adash-inbox-item" onClick={() => setReviewId(r.id)}>
-                      <Avatar initials={initials(emp.fullName)} color={avatarColorFor(emp.id)} size="md" />
+                      <Avatar initials={initials(emp.fullName)} color={avatarColorFor(emp.id)} size="md" imageUrl={emp.avatarUrl} alt={emp.fullName} />
                       <div className="adash-inbox-body">
                         <div className="adash-inbox-title">
                           <strong>{emp.fullName}</strong>
