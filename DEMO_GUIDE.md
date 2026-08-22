@@ -34,13 +34,13 @@ Every action is logged, every approval flows to the right person automatically, 
 every change triggers both an in-app notification *and* an email. Nothing lives in
 one person's inbox anymore.
 
-The app is designed for a small team today (11 people at the time of writing),
+The app is designed for a small team today (12 people at the time of writing),
 but the architecture is built so that adding a 100th employee changes nothing
 about how any of the existing screens work.
 
 ---
 
-## Cast of characters — 4 roles, 11 real users
+## Cast of characters — 4 roles, 12 real users
 
 Trace HRIS treats every action through the lens of **who is doing it**. There are
 four roles, each with a different level of access:
@@ -52,7 +52,7 @@ four roles, each with a different level of access:
 | **Admin** | CEO / CTO | Everything HR can do + gets CC'd on Employee leave requests |
 | **Super Admin** | Technical owner | Everything Admin can do + view the audit log + view the system health page |
 
-The 11 real users seeded into the system (multi-role — a person can hold more than one role at a time):
+The 12 real users seeded into the system (multi-role — a person can hold more than one role at a time):
 
 | Name | Designation | Email | Role set | Password (first-time) |
 |---|---|---|---|---|
@@ -67,6 +67,7 @@ The 11 real users seeded into the system (multi-role — a person can hold more 
 | Nabeel Khan | Head of Partnerships & Strategic Growth | `nabeel.khan@traceconsultingltd.com` | **Employee** | `Trace-HRIS-Nabeel-2026!` |
 | Moudud Ahmmed Sujan | Head of External Affairs | `moudud.sujan@traceconsultingltd.com` | **Employee** | `Trace-HRIS-Moudud-2026!` |
 | Ahmed Julker Nine | Research and Policy Analyst | `ahmed.nine@traceconsultingltd.com` | **Employee** | `Trace-HRIS-Ahmed-2026!` |
+| Tahsina Shiva | IT Project Manager | `tahsina.shiva@traceconsultingltd.com` | **Employee** | `Trace-HRIS-Tahsina-2026!` |
 
 **Notification routing under the multi-role model:** any leave request notifies **anyone with the HR role** (Saifullah + Tama). Fuad, who is Admin-only, retains the power to approve but gets no notifications or emails. Saifullah gets both because he holds Admin + HR.
 
@@ -308,7 +309,7 @@ company-wide reports.
 
 Return to the dashboard as any user. Summarize:
 
-- **4 roles, 11 users, 4 modules** — leave, attendance, holidays, employees
+- **4 roles, 12 users, 4 modules** — leave, attendance, holidays, employees
 - **Everything is audited.** Every action, every IP, every browser.
 - **Everything is email-notified.** No more "did you see my request?"
 - **Everything is mobile-responsive.** Demo on your phone if you want.

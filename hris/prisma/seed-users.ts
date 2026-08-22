@@ -164,4 +164,16 @@ export const SEED_USERS: SeedUser[] = [
     avatarPath: '/Ahmed_Julker_Nine.png',
     password: 'Trace-HRIS-Ahmed-2026!',
   },
+  {
+    email: 'tahsina.shiva@traceconsultingltd.com',
+    fullName: 'Tahsina Shiva',
+    firstName: 'Tahsina',
+    lastName: 'Shiva',
+    roles: ['EMPLOYEE'],
+    department: 'Technology',
+    designation: 'IT Project Manager',
+    employeeIdCode: 'TRACE-108',
+    avatarPath: '/Tahsina_Shiva.png',
+    password: 'Trace-HRIS-Tahsina-2026!',
+  },
 ];
