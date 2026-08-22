@@ -72,20 +72,25 @@ export function CalendarPage() {
             (r) => r.status === 'APPROVED' && iso >= r.startDate && iso <= r.endDate
           );
           const att = attendance.find((a) => a.date === iso);
+          const statusClass =
+            holiday ? 'calpg-cell-holiday' :
+            leave ? 'calpg-cell-leave' :
+            att?.status === 'HALF_DAY' ? 'calpg-cell-halfday' :
+            att?.status === 'PRESENT' ? 'calpg-cell-present' :
+            att?.status === 'ABSENT' ? 'calpg-cell-absent' :
+            '';
           return (
             <div
               key={iso}
               className={cx(
                 'calpg-cell',
+                statusClass,
                 !isSameMonth(d, month) && 'calpg-cell-out',
                 isToday(d) && 'calpg-cell-today'
               )}
             >
               <div className="calpg-cell-head">
                 <span>{d.getDate()}</span>
-                {holiday && <span className="calpg-cell-dot" style={{ background: 'var(--color-leave-holiday)' }} />}
-                {leave && !holiday && <span className="calpg-cell-dot" style={{ background: 'var(--color-leave-casual)' }} />}
-                {att?.status === 'PRESENT' && !holiday && !leave && <span className="calpg-cell-dot" style={{ background: 'var(--color-success)' }} />}
               </div>
               <div className="calpg-cell-body">
                 {holiday && <Badge variant="holiday">{holiday.name}</Badge>}
@@ -98,10 +103,11 @@ export function CalendarPage() {
       </motion.div>
 
       <div className="calpg-legend">
-        <span><i style={{ background: 'var(--color-success)' }} />Present</span>
-        <span><i style={{ background: 'var(--color-leave-casual)' }} />Leave</span>
-        <span><i style={{ background: 'var(--color-leave-holiday)' }} />Public holiday</span>
-        <span><i style={{ background: 'var(--color-bg-muted)' }} />Weekend</span>
+        <span><i className="calpg-legend-present" />Present</span>
+        <span><i className="calpg-legend-leave" />Leave</span>
+        <span><i className="calpg-legend-holiday" />Public holiday</span>
+        <span><i className="calpg-legend-halfday" />Half-day</span>
+        <span><i className="calpg-legend-weekend" />Weekend</span>
       </div>
 
       <div className="card calpg-upcoming">

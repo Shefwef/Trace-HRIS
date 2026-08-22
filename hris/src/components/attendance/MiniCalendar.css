@@ -73,11 +73,44 @@
   outline-offset: -2px;
 }
 .mcal-cell-num { font-size: var(--text-sm); }
-.mcal-cell-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
+
+/* status-tinted cells — soft background, colored border on the left edge */
+.mcal-cell-present {
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: var(--color-text-primary);
 }
+.mcal-cell-present:hover {
+  background: color-mix(in srgb, var(--color-success) 22%, transparent);
+}
+.mcal-cell-leave {
+  background: color-mix(in srgb, var(--color-leave-casual) 16%, transparent);
+  color: var(--color-text-primary);
+}
+.mcal-cell-leave:hover {
+  background: color-mix(in srgb, var(--color-leave-casual) 24%, transparent);
+}
+.mcal-cell-holiday {
+  background: color-mix(in srgb, var(--color-leave-holiday) 16%, transparent);
+  color: var(--color-text-primary);
+}
+.mcal-cell-holiday:hover {
+  background: color-mix(in srgb, var(--color-leave-holiday) 24%, transparent);
+}
+.mcal-cell-halfday {
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  color: var(--color-text-primary);
+}
+.mcal-cell-halfday:hover {
+  background: color-mix(in srgb, var(--color-warning) 24%, transparent);
+}
+.mcal-cell-absent {
+  background: color-mix(in srgb, var(--color-danger) 14%, transparent);
+  color: var(--color-text-primary);
+}
+.mcal-cell-absent:hover {
+  background: color-mix(in srgb, var(--color-danger) 22%, transparent);
+}
+
 .mcal-legend {
   display: flex;
   flex-wrap: wrap;
@@ -94,8 +127,12 @@
   gap: 6px;
 }
 .mcal-legend i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
   display: inline-block;
 }
+.mcal-legend-present { background: color-mix(in srgb, var(--color-success) 24%, transparent); border: 1px solid color-mix(in srgb, var(--color-success) 40%, transparent); }
+.mcal-legend-leave { background: color-mix(in srgb, var(--color-leave-casual) 24%, transparent); border: 1px solid color-mix(in srgb, var(--color-leave-casual) 40%, transparent); }
+.mcal-legend-holiday { background: color-mix(in srgb, var(--color-leave-holiday) 24%, transparent); border: 1px solid color-mix(in srgb, var(--color-leave-holiday) 40%, transparent); }
+.mcal-legend-halfday { background: color-mix(in srgb, var(--color-warning) 24%, transparent); border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent); }

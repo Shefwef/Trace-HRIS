@@ -86,9 +86,37 @@
   opacity: 0.4;
 }
 .calpg-cell-today {
-  background: var(--color-info-light);
   border-color: var(--color-brand-secondary);
+  box-shadow: 0 0 0 1px var(--color-brand-secondary) inset;
 }
+
+/* status-tinted full backgrounds — visible but never loud */
+.calpg-cell-present {
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 30%, var(--color-border-default));
+}
+.calpg-cell-present:hover { background: color-mix(in srgb, var(--color-success) 18%, transparent); }
+.calpg-cell-leave {
+  background: color-mix(in srgb, var(--color-leave-casual) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-leave-casual) 32%, var(--color-border-default));
+}
+.calpg-cell-leave:hover { background: color-mix(in srgb, var(--color-leave-casual) 20%, transparent); }
+.calpg-cell-holiday {
+  background: color-mix(in srgb, var(--color-leave-holiday) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-leave-holiday) 32%, var(--color-border-default));
+}
+.calpg-cell-holiday:hover { background: color-mix(in srgb, var(--color-leave-holiday) 20%, transparent); }
+.calpg-cell-halfday {
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning) 32%, var(--color-border-default));
+}
+.calpg-cell-halfday:hover { background: color-mix(in srgb, var(--color-warning) 20%, transparent); }
+.calpg-cell-absent {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-danger) 30%, var(--color-border-default));
+}
+.calpg-cell-absent:hover { background: color-mix(in srgb, var(--color-danger) 18%, transparent); }
+
 .calpg-cell-head {
   display: flex;
   justify-content: space-between;
@@ -96,11 +124,6 @@
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   color: var(--color-text-primary);
-}
-.calpg-cell-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
 }
 .calpg-cell-body {
   display: flex;
@@ -129,10 +152,16 @@
   gap: 6px;
 }
 .calpg-legend i {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: inline-block;
 }
+.calpg-legend-present { background: color-mix(in srgb, var(--color-success) 20%, transparent); border: 1px solid color-mix(in srgb, var(--color-success) 40%, transparent); }
+.calpg-legend-leave { background: color-mix(in srgb, var(--color-leave-casual) 22%, transparent); border: 1px solid color-mix(in srgb, var(--color-leave-casual) 40%, transparent); }
+.calpg-legend-holiday { background: color-mix(in srgb, var(--color-leave-holiday) 22%, transparent); border: 1px solid color-mix(in srgb, var(--color-leave-holiday) 40%, transparent); }
+.calpg-legend-halfday { background: color-mix(in srgb, var(--color-warning) 22%, transparent); border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent); }
+.calpg-legend-weekend { background: var(--color-bg-muted); border: 1px solid var(--color-border-default); }
 
 .calpg-upcoming {
   padding: var(--space-5);

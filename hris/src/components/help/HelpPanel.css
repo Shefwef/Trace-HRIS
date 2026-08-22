@@ -134,6 +134,19 @@
 }
 .help-msg-bubble p { margin: 0; }
 .help-msg-bubble p + p { margin-top: 6px; }
+.help-msg-bubble strong { font-weight: var(--weight-semibold); }
+.help-msg-bubble code {
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--color-brand-primary);
+}
+.help-msg-user .help-msg-bubble code {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
 
 .help-msg-loading {
   display: flex;
@@ -196,18 +209,25 @@
 .help-input {
   flex: 1;
   resize: none;
-  padding: 10px 14px;
+  padding: 10px 12px;
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-md);
-  background: var(--color-bg-subtle);
+  background: var(--color-bg-surface);
   color: var(--color-text-primary);
   font-family: inherit;
-  font-size: var(--text-sm);
+  font-size: 13px;
   line-height: 1.5;
   min-height: 40px;
   max-height: 160px;
   outline: none;
   transition: border var(--transition-fast), box-shadow var(--transition-fast);
+}
+.help-input::placeholder {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .help-input:focus {
   border-color: var(--color-border-focus);

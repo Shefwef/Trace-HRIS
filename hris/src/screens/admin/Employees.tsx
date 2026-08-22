@@ -47,13 +47,25 @@ export function EmployeesPage() {
         </Button>
       </div>
 
-      <div className="lreq-search" style={{ maxWidth: 420 }}>
-        <Search size={14} />
+      <div className="empg-search">
+        <Search size={16} className="empg-search-icon" />
         <input
-          placeholder="Search by name, ID, email or department…"
+          className="empg-search-input"
+          placeholder="Search by name, employee ID, email, or department"
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          aria-label="Search employees"
         />
+        {q && (
+          <button
+            type="button"
+            className="empg-search-clear"
+            onClick={() => setQ('')}
+            aria-label="Clear search"
+          >
+            ×
+          </button>
+        )}
       </div>
 
       {isLoading && <div className="muted">Loading employees…</div>}

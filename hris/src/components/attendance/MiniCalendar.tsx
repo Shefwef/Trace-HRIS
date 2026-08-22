@@ -14,15 +14,14 @@ type DayInfo = {
   holidayName?: string;
 };
 
-function statusColor(s?: DayInfo['status']): string {
+function statusClass(s?: DayInfo['status']): string {
   switch (s) {
-    case 'PRESENT': return 'var(--color-success)';
-    case 'ABSENT': return 'var(--color-danger)';
-    case 'LEAVE': return 'var(--color-leave-casual)';
-    case 'HOLIDAY': return 'var(--color-leave-holiday)';
-    case 'HALF_DAY': return 'var(--color-warning)';
-    case 'WEEKEND': return 'var(--color-bg-muted)';
-    default: return 'transparent';
+    case 'PRESENT': return 'mcal-cell-present';
+    case 'ABSENT': return 'mcal-cell-absent';
+    case 'LEAVE': return 'mcal-cell-leave';
+    case 'HOLIDAY': return 'mcal-cell-holiday';
+    case 'HALF_DAY': return 'mcal-cell-halfday';
+    default: return '';
   }
 }
 
@@ -91,6 +90,7 @@ export function MiniCalendar() {
             key={d.date.toISOString()}
             className={cx(
               'mcal-cell',
+              statusClass(d.status),
               !isSameMonth(d.date, month) && 'mcal-cell-out',
               isToday(d.date) && 'mcal-cell-today'
             )}
@@ -99,23 +99,24 @@ export function MiniCalendar() {
                 ? `Holiday: ${d.holidayName}`
                 : d.status === 'LEAVE'
                 ? 'On leave'
+                : d.status === 'HALF_DAY'
+                ? 'Half day'
                 : d.status === 'PRESENT'
                 ? 'Present'
+                : d.status === 'ABSENT'
+                ? 'Absent'
                 : ''
             }
           >
             <span className="mcal-cell-num">{d.date.getDate()}</span>
-            {d.status && d.status !== 'FUTURE' && d.status !== 'WEEKEND' && (
-              <span className="mcal-cell-dot" style={{ background: statusColor(d.status) }} />
-            )}
           </div>
         ))}
       </motion.div>
       <div className="mcal-legend">
-        <span><i style={{ background: 'var(--color-success)' }} />Present</span>
-        <span><i style={{ background: 'var(--color-leave-casual)' }} />Leave</span>
-        <span><i style={{ background: 'var(--color-leave-holiday)' }} />Holiday</span>
-        <span><i style={{ background: 'var(--color-warning)' }} />Half-day</span>
+        <span><i className="mcal-legend-present" />Present</span>
+        <span><i className="mcal-legend-leave" />Leave</span>
+        <span><i className="mcal-legend-holiday" />Holiday</span>
+        <span><i className="mcal-legend-halfday" />Half-day</span>
       </div>
     </div>
   );

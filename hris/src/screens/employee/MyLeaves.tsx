@@ -43,9 +43,6 @@ export function MyLeaves() {
           <h1>My leave requests</h1>
           <p className="muted">Everything you've applied for, in one place.</p>
         </div>
-        <Button variant="primary" leadingIcon={<Plus size={16} />} onClick={() => setApplyOpen(true)}>
-          Apply for Leave
-        </Button>
       </div>
 
       <div className="myleaves-tabs">

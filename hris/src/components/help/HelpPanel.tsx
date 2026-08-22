@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Bot, X, Send, MessageCircle, RefreshCw } from 'lucide-react';
 import './HelpPanel.css';
@@ -7,6 +7,27 @@ import './HelpPanel.css';
 interface ChatMsg {
   role: 'user' | 'assistant';
   content: string;
+}
+
+/**
+ * Tiny inline-markdown renderer for chat bubbles. Handles the two things
+ * Gemini actually emits inside a line: **bold** and `code`. Everything
+ * else stays literal so we can't accidentally execute HTML.
+ */
+function renderInline(line: string): ReactNode {
+  const parts: ReactNode[] = [];
+  const re = /\*\*(.+?)\*\*|`([^`]+)`/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let i = 0;
+  while ((m = re.exec(line)) !== null) {
+    if (m.index > last) parts.push(<Fragment key={`t${i++}`}>{line.slice(last, m.index)}</Fragment>);
+    if (m[1] !== undefined) parts.push(<strong key={`b${i++}`}>{m[1]}</strong>);
+    else if (m[2] !== undefined) parts.push(<code key={`c${i++}`}>{m[2]}</code>);
+    last = re.lastIndex;
+  }
+  if (last < line.length) parts.push(<Fragment key={`t${i++}`}>{line.slice(last)}</Fragment>);
+  return parts.length > 0 ? parts : line;
 }
 
 const SUGGESTED_PROMPTS = [
@@ -147,7 +168,7 @@ export function HelpPanel() {
                     )}
                     <div className="help-msg-bubble">
                       {m.content.split('\n').map((line, li) => (
-                        <p key={li}>{line || ' '}</p>
+                        <p key={li}>{line ? renderInline(line) : ' '}</p>
                       ))}
                     </div>
                   </div>
@@ -193,7 +214,7 @@ export function HelpPanel() {
                 <textarea
                   ref={inputRef}
                   className="help-input"
-                  placeholder="Ask about the app or general HR concepts…"
+                  placeholder="Ask about Trace HRIS…"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
