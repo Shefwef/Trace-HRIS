@@ -3,6 +3,7 @@ import { createClerkClient } from '@clerk/backend';
 import { prisma } from '@/lib/db';
 import { requireAuth, canApprove, parseBody, err } from '@/lib/api';
 import { InviteEmployeeSchema } from '@/lib/validation';
+import { primaryRole, validateRoleAssignment } from '@/lib/roles';
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
 
@@ -10,11 +11,17 @@ const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
 export async function POST(req: Request) {
   const [actor, error] = await requireAuth(req);
   if (error) return error;
-  if (!canApprove(actor.role))
+  if (!canApprove(actor))
     return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can invite employees.');
 
   const [input, badReq] = await parseBody(req, InviteEmployeeSchema);
   if (badReq) return badReq;
+
+  // Hierarchy check: the actor can only invite with roles they're allowed to grant.
+  const invalid = validateRoleAssignment(actor, input.roles);
+  if (invalid) return err(403, 'ROLE_ELEVATION_FORBIDDEN', invalid);
+  const dedupedRoles = Array.from(new Set(input.roles));
+  const primary = primaryRole(dedupedRoles);
 
   // Check for existing user by email (in Clerk or in our DB)
   const existingDb = await prisma.user.findUnique({ where: { email: input.email } });
@@ -35,7 +42,8 @@ export async function POST(req: Request) {
     password: initialPassword,
     skipPasswordChecks: true,
     publicMetadata: {
-      role: input.role,
+      role: primary,
+      roles: dedupedRoles,
       department: input.department,
       designation: input.designation,
       employeeIdCode: input.employeeIdCode,
@@ -51,7 +59,8 @@ export async function POST(req: Request) {
       id: clerkUser.id,
       fullName: `${input.firstName} ${input.lastName}`.trim(),
       email: input.email,
-      role: input.role,
+      role: primary,
+      roles: dedupedRoles,
       department: input.department,
       designation: input.designation,
       employeeIdCode: input.employeeIdCode,
@@ -76,7 +85,7 @@ export async function POST(req: Request) {
       targetId: clerkUser.id,
       metadata: {
         email: input.email,
-        role: input.role,
+        roles: dedupedRoles,
         department: input.department,
       },
     },

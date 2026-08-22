@@ -14,7 +14,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             className="auth-brand-logo"
           />
           <div>
-            <div className="auth-brand-name">HRIS</div>
+            <div className="auth-brand-name">Trace HRIS</div>
             <div className="auth-brand-tag">People, simplified.</div>
           </div>
         </div>

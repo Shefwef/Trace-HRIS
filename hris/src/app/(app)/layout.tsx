@@ -14,6 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         fullName: user.fullName,
         email: user.email,
         role: user.role,
+        roles: user.roles?.length ? user.roles : [user.role],
         department: user.department ?? '',
         designation: user.designation ?? '',
         employeeIdCode: user.employeeIdCode ?? '',

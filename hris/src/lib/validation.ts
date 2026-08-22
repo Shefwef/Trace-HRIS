@@ -97,7 +97,11 @@ export const InviteEmployeeSchema = z.object({
   email: z.email(),
   firstName: z.string().min(1).max(80),
   lastName: z.string().min(1).max(80),
-  role: z.enum(['ADMIN', 'HR', 'EMPLOYEE']),
+  /** One or more roles to grant on creation. Must be non-empty. */
+  roles: z
+    .array(z.enum(['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE']))
+    .min(1)
+    .max(4),
   department: z.string().min(1).max(120),
   designation: z.string().min(1).max(120),
   employeeIdCode: z.string().min(1).max(50),
@@ -108,7 +112,12 @@ export type InviteEmployeeInput = z.infer<typeof InviteEmployeeSchema>;
 
 export const UpdateEmployeeSchema = z.object({
   fullName: z.string().min(2).max(160).optional(),
-  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE']).optional(),
+  /** Full role set. If provided, must contain at least one role. */
+  roles: z
+    .array(z.enum(['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE']))
+    .min(1)
+    .max(4)
+    .optional(),
   department: z.string().max(120).optional(),
   designation: z.string().max(120).optional(),
   employeeIdCode: z.string().max(50).optional(),

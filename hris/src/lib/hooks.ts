@@ -97,7 +97,7 @@ export interface ExtraWorkSummary {
 }
 
 export interface UserSummary {
-  id: string; fullName: string; email: string; role: string;
+  id: string; fullName: string; email: string; role: string; roles: string[];
   department: string | null; designation: string | null;
   employeeIdCode: string | null; avatarUrl: string | null;
 }
@@ -653,7 +653,8 @@ export interface InviteEmployeePayload {
   email: string;
   firstName: string;
   lastName: string;
-  role: 'ADMIN' | 'HR' | 'EMPLOYEE';
+  /** Role set to grant on creation. Must be non-empty. */
+  roles: ('SUPER_ADMIN' | 'ADMIN' | 'HR' | 'EMPLOYEE')[];
   department: string;
   designation: string;
   employeeIdCode: string;
@@ -674,7 +675,8 @@ export function useInviteEmployee() {
 
 export interface UpdateEmployeePayload {
   fullName?: string;
-  role?: 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'EMPLOYEE';
+  /** Full role set (multi-role model). Must be non-empty. */
+  roles?: ('SUPER_ADMIN' | 'ADMIN' | 'HR' | 'EMPLOYEE')[];
   department?: string;
   designation?: string;
   employeeIdCode?: string;

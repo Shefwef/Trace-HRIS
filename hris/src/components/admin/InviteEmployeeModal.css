@@ -62,3 +62,57 @@
   margin-top: 4px;
 }
 .inv-cred-highlight strong { color: var(--color-warning); }
+
+
+.inv-signin-note {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--color-info-light);
+  border-left: 3px solid var(--color-brand-secondary);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  line-height: 1.55;
+}
+.inv-signin-note strong {
+  display: block;
+  color: var(--color-brand-primary);
+  margin-bottom: 4px;
+}
+
+
+.inv-roles-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.inv-role-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  user-select: none;
+  transition: border var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+.inv-role-check input {
+  accent-color: var(--color-brand-primary);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  margin: 0;
+}
+.inv-role-check:hover {
+  border-color: var(--color-brand-secondary);
+}
+.inv-role-check.is-checked {
+  background: color-mix(in srgb, var(--color-brand-primary) 8%, var(--color-bg-surface));
+  border-color: color-mix(in srgb, var(--color-brand-primary) 40%, var(--color-border-default));
+  color: var(--color-brand-primary);
+}

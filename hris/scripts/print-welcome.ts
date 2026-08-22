@@ -8,6 +8,7 @@
  *   TARGET_EMAIL=res.anik@traceconsultingltd.com npx tsx --env-file=.env.local scripts/print-welcome.ts
  */
 import { SEED_USERS } from '../prisma/seed-users';
+import { primaryRole } from '../src/lib/roles';
 
 const target = process.env.TARGET_EMAIL?.toLowerCase();
 if (!target) {
@@ -22,6 +23,7 @@ if (!u) {
 }
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://trace-hris.vercel.app';
+const primary = primaryRole(u.roles);
 
 const roleTour: Record<string, string> = {
   EMPLOYEE:
@@ -43,13 +45,13 @@ YOUR LOGIN CREDENTIALS
   Portal:   ${appUrl}
   Email:    ${u.email}
   Password: ${u.password}
-  Role:     ${u.role}
+  Roles:    ${u.roles.join(', ')}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Please change your password on first sign-in — click your avatar in the top right → Account settings → Security.
 
 What you can do here:
-In Trace HRIS you can ${roleTour[u.role] ?? 'use the app.'}
+In Trace HRIS you can ${roleTour[primary] ?? 'use the app.'}
 
 First things to try:
   1. Sign in and click the little bot icon in the bottom-right — it can answer any question about the app.

@@ -9,6 +9,7 @@
 import { Resend } from 'resend';
 import { PrismaClient } from '@prisma/client';
 import { SEED_USERS } from '../prisma/seed-users';
+import { primaryRole } from '../src/lib/roles';
 
 const target = process.env.TARGET_EMAIL?.toLowerCase();
 if (!target) {
@@ -26,7 +27,8 @@ function escape(s: string): string {
 function renderWelcomeHtml(u: {
   fullName: string;
   firstName: string;
-  role: string;
+  primaryRole: string;
+  roles: string[];
   email: string;
   password: string;
   designation: string;
@@ -66,13 +68,13 @@ function renderWelcomeHtml(u: {
   <div style="margin:6px 0;font-size:14px;"><strong style="color:#4a5568;">Portal:</strong> <a href="${escape(u.appUrl)}" style="color:${BRAND_PRIMARY};">${escape(u.appUrl)}</a></div>
   <div style="margin:6px 0;font-size:14px;"><strong style="color:#4a5568;">Email:</strong> ${escape(u.email)}</div>
   <div style="margin:6px 0;font-size:14px;"><strong style="color:#4a5568;">Initial password:</strong> <code style="background:#edf2f7;padding:3px 8px;border-radius:4px;font-family:'SF Mono',Menlo,monospace;font-size:13px;">${escape(u.password)}</code></div>
-  <div style="margin:6px 0;font-size:14px;"><strong style="color:#4a5568;">Role:</strong> ${escape(u.role)}</div>
+  <div style="margin:6px 0;font-size:14px;"><strong style="color:#4a5568;">Roles:</strong> ${escape(u.roles.join(", "))}</div>
 </div>
 
 <p style="margin:16px 0;"><strong>Please change your password on first sign-in</strong> — click your avatar in the top right → <em>Account settings</em> → security.</p>
 
 <div style="margin:24px 0 12px;font-size:16px;font-weight:600;color:#2d3748;">What you can do here</div>
-<p style="margin:0 0 12px;color:#4a5568;">As a <strong>${escape(u.role)}</strong>, you can ${roleTour[u.role] ?? 'use the app.'}</p>
+<p style="margin:0 0 12px;color:#4a5568;">As a <strong>${escape(u.primaryRole)}</strong>, you can ${roleTour[u.primaryRole] ?? 'use the app.'}</p>
 
 <div style="margin:24px 0 12px;font-size:16px;font-weight:600;color:#2d3748;">First things to try</div>
 <ol style="margin:8px 0 16px 22px;padding:0;color:#2d3748;">
@@ -121,7 +123,8 @@ async function main() {
   const html = renderWelcomeHtml({
     fullName: u.fullName,
     firstName: u.firstName,
-    role: u.role,
+    primaryRole: primaryRole(u.roles),
+    roles: u.roles,
     email: u.email,
     password: u.password,
     designation: u.designation,

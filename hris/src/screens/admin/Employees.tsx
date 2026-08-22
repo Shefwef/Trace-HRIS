@@ -34,6 +34,18 @@ const ROLE_LABEL: Record<AppRole, string> = {
   EMPLOYEE: 'Employee',
 };
 
+const ROLE_BADGE_VARIANT: Record<AppRole, 'info' | 'replacement' | 'success' | 'default'> = {
+  SUPER_ADMIN: 'success',
+  ADMIN: 'info',
+  HR: 'replacement',
+  EMPLOYEE: 'default',
+};
+
+/** Union of two role sets, preserving hierarchy order. */
+function toggleRole(current: AppRole[], role: AppRole): AppRole[] {
+  return current.includes(role) ? current.filter((r) => r !== role) : [...current, role];
+}
+
 export function EmployeesPage() {
   const currentUser = useCurrentUser();
   const { data: users = [], isLoading } = useUsers();
@@ -52,7 +64,7 @@ export function EmployeesPage() {
         // Hide the actor from their own list; you can't edit yourself here.
         .filter((u) => u.id !== currentUser?.id)
         // HR shouldn't be able to see (or accidentally edit) SUPER_ADMIN rows.
-        .filter((u) => !(currentUser?.role === 'HR' && u.role === 'SUPER_ADMIN'))
+        .filter((u) => !(currentUser?.role === 'HR' && (u.roles ?? [u.role]).includes('SUPER_ADMIN')))
         .filter((u) => {
           if (!q.trim()) return true;
           const n = q.trim().toLowerCase();
@@ -66,14 +78,26 @@ export function EmployeesPage() {
     [users, q, currentUser]
   );
 
-  function changeRole(id: string, next: AppRole) {
+  function updateRoles(id: string, nextRoles: AppRole[]) {
+    if (nextRoles.length === 0) {
+      addToast({
+        kind: 'error',
+        title: 'At least one role required',
+        body: 'A user must have at least one role. Add another before removing this one.',
+      });
+      return;
+    }
     updateEmployee.mutate(
-      { id, patch: { role: next } },
+      { id, patch: { roles: nextRoles } },
       {
         onSuccess: () =>
-          addToast({ kind: 'success', title: 'Role updated', body: `Set to ${ROLE_LABEL[next]}` }),
+          addToast({
+            kind: 'success',
+            title: 'Roles updated',
+            body: nextRoles.map((r) => ROLE_LABEL[r]).join(' · '),
+          }),
         onError: (e: Error) =>
-          addToast({ kind: 'error', title: 'Could not update role', body: e.message }),
+          addToast({ kind: 'error', title: 'Could not update roles', body: e.message }),
       },
     );
   }
@@ -127,7 +151,7 @@ export function EmployeesPage() {
       ) : (
         <div className="empg-grid">
           {filtered.map((u) => {
-            const badgeVariant = u.role === 'ADMIN' ? 'info' : u.role === 'HR' ? 'replacement' : 'default';
+            const currentRoles = ((u.roles?.length ? u.roles : [u.role]) as AppRole[]);
             return (
               <div key={u.id} className="empg-card card">
                 <div className="empg-card-top">
@@ -137,7 +161,11 @@ export function EmployeesPage() {
                     <div className="empg-role">{u.designation}</div>
                     <div className="empg-dept">
                       {u.department && <Badge>{u.department}</Badge>}
-                      <Badge variant={badgeVariant}>{u.role.toLowerCase()}</Badge>
+                      {currentRoles.map((r) => (
+                        <Badge key={r} variant={ROLE_BADGE_VARIANT[r]}>
+                          {ROLE_LABEL[r]}
+                        </Badge>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -146,32 +174,35 @@ export function EmployeesPage() {
                   <span className="empg-mail"><Mail size={12} /> {u.email}</span>
                 </div>
                 {canEditRoles && (
-                  <div className="empg-card-role">
-                    <label>
+                  <div className="empg-card-roles">
+                    <div className="empg-card-roles-label">
                       <ShieldCheck size={12} />
-                      Role
-                    </label>
-                    <select
-                      value={u.role}
-                      disabled={updateEmployee.isPending}
-                      onChange={(e) => {
-                        const next = e.target.value as AppRole;
-                        if (next === u.role) return;
-                        changeRole(u.id, next);
-                      }}
-                    >
-                      {(() => {
-                        // Always include the user's current role, even if the
-                        // actor couldn't newly assign it — so the dropdown
-                        // shows the true current state.
-                        const opts = Array.from(new Set([u.role as AppRole, ...canAssign]));
-                        return opts.map((r) => (
-                          <option key={r} value={r}>
-                            {ROLE_LABEL[r]}
-                          </option>
-                        ));
-                      })()}
-                    </select>
+                      Roles <span className="empg-card-roles-hint">(tick to grant)</span>
+                    </div>
+                    <div className="empg-card-roles-grid">
+                      {(['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] as AppRole[]).map((r) => {
+                        const checked = currentRoles.includes(r);
+                        // Locked if the actor can't grant this role AND the user
+                        // already has it — we don't hide it (so state is visible)
+                        // but you can't toggle it.
+                        const locked = !canAssign.includes(r);
+                        return (
+                          <label
+                            key={r}
+                            className={`empg-role-check ${checked ? 'is-checked' : ''} ${locked ? 'is-locked' : ''}`}
+                            title={locked ? 'You are not allowed to grant or revoke this role.' : undefined}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={locked || updateEmployee.isPending}
+                              onChange={() => updateRoles(u.id, toggleRole(currentRoles, r))}
+                            />
+                            <span>{ROLE_LABEL[r]}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
                 <div className="empg-card-actions">

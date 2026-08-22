@@ -7,7 +7,10 @@ export interface SessionUser {
   id: string;
   fullName: string;
   email: string;
+  /** Highest-ranked role (SUPER_ADMIN > ADMIN > HR > EMPLOYEE) — for display. */
   role: Role;
+  /** Full set of granted roles. Use this for permission checks. */
+  roles: Role[];
   department: string;
   designation: string;
   employeeIdCode: string;

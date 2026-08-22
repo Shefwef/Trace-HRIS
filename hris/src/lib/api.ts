@@ -54,8 +54,23 @@ export async function requireRole(
   return [user, null];
 }
 
-export function canApprove(role: Role): boolean {
-  return role === 'ADMIN' || role === 'HR' || role === 'SUPER_ADMIN';
+/**
+ * Whether the given actor has review power over leave, holidays,
+ * settings and employee mutations. Accepts either a bare Role (legacy
+ * callsites) or a full user-like object under the multi-role model.
+ * When passed an object it checks the user's `roles` array first,
+ * falling back to the denormalized `role` field.
+ */
+export function canApprove(
+  userOrRole: Role | { role: Role; roles?: Role[] | null },
+): boolean {
+  const roles: readonly Role[] =
+    typeof userOrRole === 'string'
+      ? [userOrRole]
+      : userOrRole.roles && userOrRole.roles.length > 0
+        ? userOrRole.roles
+        : [userOrRole.role];
+  return roles.includes('ADMIN') || roles.includes('HR') || roles.includes('SUPER_ADMIN');
 }
 
 /** Validate a JSON request body against a Zod schema. */

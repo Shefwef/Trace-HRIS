@@ -182,6 +182,80 @@
   margin-top: 4px;
 }
 
+/* Multi-role checkbox group. A user can hold more than one role at once
+   (e.g. a COO who is both ADMIN and HR). Each checkbox toggles one role
+   in the set. At least one role is always required. */
+.empg-card-roles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+}
+.empg-card-roles-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  font-weight: var(--weight-semibold);
+}
+.empg-card-roles-hint {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
+  margin-left: 2px;
+}
+.empg-card-roles-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.empg-role-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  user-select: none;
+  transition: border var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+.empg-role-check input {
+  accent-color: var(--color-brand-primary);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  margin: 0;
+}
+.empg-role-check:hover:not(.is-locked) {
+  border-color: var(--color-brand-secondary);
+}
+.empg-role-check.is-checked {
+  background: color-mix(in srgb, var(--color-brand-primary) 8%, var(--color-bg-surface));
+  border-color: color-mix(in srgb, var(--color-brand-primary) 40%, var(--color-border-default));
+  color: var(--color-brand-primary);
+}
+.empg-role-check.is-locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.empg-role-check.is-locked input {
+  cursor: not-allowed;
+}
+
+/* Legacy single-select role field kept below for reference / migration.
+   Not used under the multi-role model. */
 /* Role field — a proper form group inside the card, not a floating row.
    Label sits above the dropdown, both wrapped in a subtle boxed container
    so it reads as one considered element instead of two loose bits. */

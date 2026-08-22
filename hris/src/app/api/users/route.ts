@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     where: { isActive: true },
     orderBy: { fullName: 'asc' },
     select: {
-      id: true, fullName: true, email: true, role: true,
+      id: true, fullName: true, email: true, role: true, roles: true,
       department: true, designation: true, employeeIdCode: true, avatarUrl: true,
     },
   });

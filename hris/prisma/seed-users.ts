@@ -5,7 +5,8 @@ export interface SeedUser {
   fullName: string;
   firstName: string;
   lastName: string;
-  role: Role;
+  /** Full set of granted roles. First entry is the display primary. */
+  roles: Role[];
   department: string;
   designation: string;
   employeeIdCode: string;
@@ -18,6 +19,14 @@ export interface SeedUser {
  * list for full re-seeds (destructive — resets passwords, prunes strays).
  * `scripts/add-employee.ts` uses it for targeted, non-destructive additions.
  *
+ * Role sets under the multi-role model:
+ *   Shefayat  → [SUPER_ADMIN]           technical owner
+ *   Fuad      → [ADMIN]                 CEO, max non-technical power, no HR notifications
+ *   Saifullah → [ADMIN, HR]             COO, gets HR notifications + admin power
+ *   Tama      → [HR]                    People Operations
+ *   Tanvir    → [EMPLOYEE]              general staff
+ *   Rubayat   → [EMPLOYEE]              general staff
+ *
  * When adding a new hire: append them here, commit, then run
  *   TARGET_EMAIL=<their-email> npx tsx scripts/add-employee.ts
  * to sync just them into Clerk + Postgres without touching anyone else.
@@ -28,7 +37,7 @@ export const SEED_USERS: SeedUser[] = [
     fullName: 'Shefadib (Super Admin)',
     firstName: 'Shefadib',
     lastName: 'Admin',
-    role: 'SUPER_ADMIN',
+    roles: ['SUPER_ADMIN'],
     department: 'Engineering',
     designation: 'System Administrator',
     employeeIdCode: 'SUPER-001',
@@ -40,7 +49,7 @@ export const SEED_USERS: SeedUser[] = [
     fullName: 'Fuad M Khalid Hossen',
     firstName: 'Fuad',
     lastName: 'Hossen',
-    role: 'ADMIN',
+    roles: ['ADMIN'],
     department: 'Executive',
     designation: 'Chief Executive Officer',
     employeeIdCode: 'TRACE-001',
@@ -52,7 +61,7 @@ export const SEED_USERS: SeedUser[] = [
     fullName: 'Abu Saleh Muhammad Saifullah',
     firstName: 'Abu Saleh',
     lastName: 'Saifullah',
-    role: 'HR',
+    roles: ['ADMIN', 'HR'],
     department: 'People Operations',
     designation: 'Director & Chief Operating Officer',
     employeeIdCode: 'TRACE-002',
@@ -64,7 +73,7 @@ export const SEED_USERS: SeedUser[] = [
     fullName: 'Umme Mahbuba Tama',
     firstName: 'Umme',
     lastName: 'Tama',
-    role: 'HR',
+    roles: ['HR'],
     department: 'People Operations',
     designation: 'Research Associate',
     employeeIdCode: 'TRACE-003',
@@ -76,7 +85,7 @@ export const SEED_USERS: SeedUser[] = [
     fullName: 'Tanvir Kabir',
     firstName: 'Tanvir',
     lastName: 'Kabir',
-    role: 'EMPLOYEE',
+    roles: ['EMPLOYEE'],
     department: 'Communications',
     designation: 'Digital Content and Multimedia Specialist',
     employeeIdCode: 'TRACE-101',
@@ -88,7 +97,7 @@ export const SEED_USERS: SeedUser[] = [
     fullName: 'Rubayat E Shams Anik',
     firstName: 'Rubayat',
     lastName: 'Anik',
-    role: 'EMPLOYEE',
+    roles: ['EMPLOYEE'],
     department: 'Policy & Research',
     designation: 'Policy, Research and Business Development Specialist',
     employeeIdCode: 'TRACE-102',

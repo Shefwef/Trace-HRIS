@@ -16,6 +16,7 @@
 import { createClerkClient } from '@clerk/backend';
 import { PrismaClient } from '@prisma/client';
 import { SEED_USERS } from '../prisma/seed-users';
+import { primaryRole } from '../src/lib/roles';
 
 const target = process.env.TARGET_EMAIL?.toLowerCase();
 if (!target) {
@@ -33,6 +34,8 @@ async function main() {
   const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
   const prisma = new PrismaClient();
 
+  const primary = primaryRole(u.roles);
+
   try {
     console.log(`\n→ Syncing ${u.fullName} (${u.email})...`);
 
@@ -46,7 +49,8 @@ async function main() {
         password: u.password,
         skipPasswordChecks: true,
         publicMetadata: {
-          role: u.role,
+          role: primary,
+          roles: u.roles,
           department: u.department,
           designation: u.designation,
           employeeIdCode: u.employeeIdCode,
@@ -58,7 +62,8 @@ async function main() {
         firstName: u.firstName,
         lastName: u.lastName,
         publicMetadata: {
-          role: u.role,
+          role: primary,
+          roles: u.roles,
           department: u.department,
           designation: u.designation,
           employeeIdCode: u.employeeIdCode,
@@ -76,7 +81,8 @@ async function main() {
         id: clerkUser.id,
         fullName: u.fullName,
         email: u.email,
-        role: u.role,
+        role: primary,
+        roles: u.roles,
         department: u.department,
         designation: u.designation,
         employeeIdCode: u.employeeIdCode,
@@ -84,7 +90,8 @@ async function main() {
       },
       update: {
         fullName: u.fullName,
-        role: u.role,
+        role: primary,
+        roles: u.roles,
         department: u.department,
         designation: u.designation,
         employeeIdCode: u.employeeIdCode,
@@ -107,7 +114,8 @@ async function main() {
     console.log('  Login credentials');
     console.log('═══════════════════════════════════════════════');
     console.log(`  Name:       ${u.fullName}`);
-    console.log(`  Role:       ${u.role}`);
+    console.log(`  Roles:      ${u.roles.join(', ')}`);
+    console.log(`  Primary:    ${primary}`);
     console.log(`  Email:      ${u.email}`);
     console.log(`  Password:   ${u.password}`);
     console.log('═══════════════════════════════════════════════\n');

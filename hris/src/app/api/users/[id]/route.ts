@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import { createClerkClient } from '@clerk/backend';
 import { prisma } from '@/lib/db';
-import { requireAuth, canApprove, parseBody, err } from '@/lib/api';
+import { requireAuth, parseBody, err } from '@/lib/api';
 import { UpdateEmployeeSchema } from '@/lib/validation';
+import { canApproveLeave, primaryRole, validateRoleAssignment } from '@/lib/roles';
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const [actor, error] = await requireAuth(req);
   if (error) return error;
-  if (!canApprove(actor.role))
+  if (!canApproveLeave(actor))
     return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can edit employees.');
 
   const { id } = await ctx.params;
@@ -19,31 +20,33 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const existing = await prisma.user.findUnique({ where: { id } });
   if (!existing) return err(404, 'NOT_FOUND', 'User not found.');
 
-  // Prevent lowering your own role or deactivating yourself
+  // Prevent changing your own role set or deactivating yourself
   if (id === actor.id) {
-    if (input.role && input.role !== actor.role)
-      return err(400, 'SELF_ROLE_CHANGE', 'You cannot change your own role.');
+    if (input.roles) {
+      const currentSet = new Set(existing.roles.length > 0 ? existing.roles : [existing.role]);
+      const nextSet = new Set(input.roles);
+      const changed =
+        currentSet.size !== nextSet.size ||
+        [...currentSet].some((r) => !nextSet.has(r));
+      if (changed)
+        return err(400, 'SELF_ROLE_CHANGE', 'You cannot change your own roles.');
+    }
     if (input.isActive === false)
       return err(400, 'SELF_DEACTIVATE', 'You cannot deactivate yourself.');
   }
 
-  // Role-assignment hierarchy:
-  //   SUPER_ADMIN / ADMIN can assign any role.
-  //   HR can only assign HR or EMPLOYEE — never ADMIN or SUPER_ADMIN.
-  //   (EMPLOYEE never reaches this point — canApprove() above rejects.)
-  if (input.role) {
-    const hrAllowed = ['HR', 'EMPLOYEE'] as const;
-    if (actor.role === 'HR' && !hrAllowed.includes(input.role as typeof hrAllowed[number])) {
-      return err(
-        403,
-        'ROLE_ELEVATION_FORBIDDEN',
-        'HR users can only assign HR or Employee roles. Ask an Admin or Super Admin to promote further.',
-      );
-    }
-    // Guard: don't accidentally demote the only Super Admin
-    if (existing.role === 'SUPER_ADMIN' && input.role !== 'SUPER_ADMIN') {
+  // Role-set hierarchy check
+  if (input.roles) {
+    const invalid = validateRoleAssignment(actor, input.roles);
+    if (invalid) return err(403, 'ROLE_ELEVATION_FORBIDDEN', invalid);
+
+    // Don't strip the last active Super Admin from the system
+    if (existing.roles.includes('SUPER_ADMIN') && !input.roles.includes('SUPER_ADMIN')) {
       const superCount = await prisma.user.count({
-        where: { role: 'SUPER_ADMIN', isActive: true },
+        where: {
+          isActive: true,
+          roles: { has: 'SUPER_ADMIN' },
+        },
       });
       if (superCount <= 1) {
         return err(
@@ -55,11 +58,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     }
   }
 
+  // If roles is being set, dedupe and derive the denormalized `role`
+  // from the highest-ranked entry.
+  const nextRoles = input.roles ? Array.from(new Set(input.roles)) : undefined;
+  const nextPrimary = nextRoles ? primaryRole(nextRoles) : undefined;
+
   const updated = await prisma.user.update({
     where: { id },
     data: {
       fullName: input.fullName,
-      role: input.role,
+      role: nextPrimary,
+      roles: nextRoles,
       department: input.department,
       designation: input.designation,
       employeeIdCode: input.employeeIdCode,
@@ -67,12 +76,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     },
   });
 
-  // Sync role to Clerk metadata so future sessions carry the right role
-  if (input.role) {
+  // Sync roles to Clerk metadata so future sessions carry the right set
+  if (nextRoles) {
     try {
       await clerk.users.updateUser(id, {
         publicMetadata: {
-          role: input.role,
+          role: updated.role,
+          roles: updated.roles,
           department: updated.department,
           designation: updated.designation,
           employeeIdCode: updated.employeeIdCode,
@@ -89,11 +99,19 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       action: 'USER_UPDATED',
       targetType: 'user',
       targetId: id,
-      metadata: Object.fromEntries(
-        Object.entries(input).filter(([, v]) => v !== undefined)
-      ) as unknown as import('@prisma/client').Prisma.InputJsonValue,
+      metadata: {
+        ...Object.fromEntries(
+          Object.entries(input).filter(([, v]) => v !== undefined),
+        ),
+        previousRoles: existing.roles,
+      } as unknown as import('@prisma/client').Prisma.InputJsonValue,
     },
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    id: updated.id,
+    role: updated.role,
+    roles: updated.roles,
+  });
 }

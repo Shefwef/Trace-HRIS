@@ -105,7 +105,14 @@ model User {
   id               String   @id
   fullName         String
   email            String   @unique
+  /// Denormalized "primary" role — always the highest-ranked entry in `roles`.
+  /// Kept in sync by the server whenever roles are updated. Used for display,
+  /// badges and the top-bar. Reads should prefer `roles` for permission checks.
   role             Role
+  /// Full set of granted roles. Source of truth for permissions and
+  /// notification routing. Users can hold multiple roles simultaneously
+  /// (e.g. a COO with ADMIN + HR). Must contain at least one role.
+  roles            Role[]   @default([])
   department       String?
   designation      String?
   employeeIdCode   String?  @unique

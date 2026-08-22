@@ -12,11 +12,13 @@
 import { createClerkClient } from '@clerk/backend';
 import { PrismaClient } from '@prisma/client';
 import { SEED_USERS, type SeedUser } from './seed-users';
+import { primaryRole } from '../src/lib/roles';
 
 const prisma = new PrismaClient();
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
 
 async function findOrCreateClerkUser(u: SeedUser) {
+  const primary = primaryRole(u.roles);
   const existing = await clerk.users.getUserList({ emailAddress: [u.email] });
   if (existing.data.length > 0) {
     const clerkUser = existing.data[0];
@@ -28,7 +30,8 @@ async function findOrCreateClerkUser(u: SeedUser) {
       password: u.password,
       skipPasswordChecks: true,
       publicMetadata: {
-        role: u.role,
+        role: primary,
+        roles: u.roles,
         department: u.department,
         designation: u.designation,
         employeeIdCode: u.employeeIdCode,
@@ -45,7 +48,8 @@ async function findOrCreateClerkUser(u: SeedUser) {
     password: u.password,
     skipPasswordChecks: true,
     publicMetadata: {
-      role: u.role,
+      role: primary,
+      roles: u.roles,
       department: u.department,
       designation: u.designation,
       employeeIdCode: u.employeeIdCode,
@@ -58,6 +62,7 @@ async function upsertDbUser(clerkId: string, u: SeedUser) {
   const year = new Date().getFullYear();
   const cycleStartDate = new Date(year, 0, 1);
   const cycleEndDate = new Date(year, 11, 31);
+  const primary = primaryRole(u.roles);
 
   await prisma.user.upsert({
     where: { id: clerkId },
@@ -65,7 +70,8 @@ async function upsertDbUser(clerkId: string, u: SeedUser) {
       id: clerkId,
       fullName: u.fullName,
       email: u.email,
-      role: u.role,
+      role: primary,
+      roles: u.roles,
       department: u.department,
       designation: u.designation,
       employeeIdCode: u.employeeIdCode,
@@ -73,7 +79,8 @@ async function upsertDbUser(clerkId: string, u: SeedUser) {
     },
     update: {
       fullName: u.fullName,
-      role: u.role,
+      role: primary,
+      roles: u.roles,
       department: u.department,
       designation: u.designation,
       employeeIdCode: u.employeeIdCode,
