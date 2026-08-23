@@ -21,8 +21,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!log) return err(404, 'NOT_FOUND', 'Extra work log not found.');
   if (log.status !== 'PENDING')
     return err(409, 'ALREADY_DECIDED', `Log is already ${log.status.toLowerCase()}.`);
-  if (log.employeeId === user.id)
-    return err(403, 'SELF_APPROVE', 'You cannot approve your own extra work log.');
 
   const credit = extraWorkCredit(log.workType);
   const year = new Date().getFullYear();

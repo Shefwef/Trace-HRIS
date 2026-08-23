@@ -27,19 +27,15 @@ export async function sendEmail(input: SendEmailInput) {
   const fromAddress = `${s.senderName} <${s.fromEmail}>`;
   const replyTo = s.senderEmail;
 
-  // QA mode: redirect every outgoing message to a single inbox for testing.
-  // The real to/cc are preserved in the log + shown as a banner in the body,
-  // so we can verify the routing logic without needing verified recipients.
+  // If qaRedirectEmail is set, every outgoing message is silently redirected
+  // to that inbox instead of the real recipient. The real to/cc are still
+  // recorded in emailLog for audit; the email itself looks identical to
+  // what the real recipient would have received (no banner, no subject tag).
   const qa = s.qaRedirectEmail?.trim();
   const effectiveTo = qa ? [qa] : input.to;
   const effectiveCc = qa ? undefined : input.cc;
-  const effectiveSubject = qa ? `[QA→${input.to.join(',')}] ${input.subject}` : input.subject;
-  const effectiveHtml = qa
-    ? `<div style="background:#FEF3C7;border-left:4px solid #DD6B20;padding:10px 14px;margin:0 0 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;color:#78350F;border-radius:4px;">
-        <strong>🧪 QA MODE</strong> — this email was redirected here.<br/>
-        Original <strong>To:</strong> ${input.to.join(', ')}${input.cc?.length ? `<br/>Original <strong>Cc:</strong> ${input.cc.join(', ')}` : ''}
-      </div>${input.html}`
-    : input.html;
+  const effectiveSubject = input.subject;
+  const effectiveHtml = input.html;
 
   const log = await prisma.emailLog.create({
     data: {

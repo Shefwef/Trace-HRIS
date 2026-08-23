@@ -108,7 +108,7 @@ export function leaveSubmittedEmail(input: {
     ${p(`Please review and approve or reject at your earliest convenience.`)}
   `;
   return {
-    subject: `Leave request — ${input.employeeName} · ${input.leaveType} · ${input.period}`,
+    subject: `Leave request - ${input.employeeName} · ${input.leaveType} · ${input.period}`,
     html: shell({
       title: 'New leave request',
       senderName: s.senderName,
@@ -175,7 +175,7 @@ export function leaveDecisionEmail(input: {
     ${details}
   `;
   return {
-    subject: `Leave ${approved ? 'approved' : 'rejected'} — ${input.leaveType} · ${input.period}`,
+    subject: `Leave ${approved ? 'approved' : 'rejected'} - ${input.leaveType} · ${input.period}`,
     html: shell({
       title: approved ? 'Your leave was approved' : 'Your leave was rejected',
       senderName: s.senderName,
@@ -203,7 +203,7 @@ export function extraWorkSubmittedEmail(input: {
     ${kv('Reason', input.reason)}
   `;
   return {
-    subject: `Extra work log — ${input.employeeName} · ${input.workDate}`,
+    subject: `Extra work log - ${input.employeeName} · ${input.workDate}`,
     html: shell({
       title: 'New extra work log',
       senderName: s.senderName,
@@ -228,9 +228,9 @@ export function holidayNoticeEmail(input: {
     ${p(`We wish you a wonderful ${input.holidayName}! 🎉`)}
   `;
   return {
-    subject: `Holiday notice — ${input.holidayName} · ${input.holidayDate}`,
+    subject: `Holiday notice - ${input.holidayName} · ${input.holidayDate}`,
     html: shell({
-      title: `Holiday notice — ${input.holidayName}`,
+      title: `Holiday notice - ${input.holidayName}`,
       senderName: s.senderName,
       content,
       ctaLabel: 'Open HRIS calendar',
@@ -262,7 +262,7 @@ export function extraWorkDecisionEmail(input: {
     ${input.note ? `<div style="margin-top:14px;padding:12px 14px;background:${approved ? '#f0fff4' : '#fff5f5'};border-radius:8px;border-left:3px solid ${approved ? '#38a169' : '#e53e3e'};color:#4a5568;font-size:14px;line-height:1.55;"><strong style="color:#1a202c;">Note from ${escape(input.reviewerName)}:</strong><br/>${escape(input.note)}</div>` : ''}
   `;
   return {
-    subject: `Extra work ${approved ? 'approved' : 'rejected'} — ${input.workDate}`,
+    subject: `Extra work ${approved ? 'approved' : 'rejected'} - ${input.workDate}`,
     html: shell({
       title: approved ? 'Extra work approved' : 'Extra work rejected',
       senderName: s.senderName,

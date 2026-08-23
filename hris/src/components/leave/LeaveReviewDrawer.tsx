@@ -132,7 +132,7 @@ export function LeaveReviewDrawer({ requestId, onClose }: Props) {
         : bp.replacementLeft)
     : 0;
   const currentAfter = currentBefore - (finalDuration - (modify ? 0 : 0));
-  // For modified approvals the pending was reserved as `requestedDuration` — so
+  // For modified approvals the pending was reserved as `requestedDuration` - so
   // the "if approved" balance impact is (currentBefore + requestedDuration_pending - finalDuration).
   // Simplification below shows: "if approved, balance becomes X".
   const projected = currentBefore + (modify ? requestedDuration - finalDuration : 0) - finalDuration + (modify ? finalDuration : 0);
@@ -251,7 +251,7 @@ export function LeaveReviewDrawer({ requestId, onClose }: Props) {
                 {!modify ? (
                   <div className="lrd-alloc-preview">
                     <p>
-                      Approve as requested — <strong>{requestedDuration} day{requestedDuration === 1 ? '' : 's'}</strong>. Click <em>Modify</em> to change days to half, drop days, or extend.
+                      Approve as requested - <strong>{requestedDuration} day{requestedDuration === 1 ? '' : 's'}</strong>. Click <em>Modify</em> to change days to half, drop days, or extend.
                     </p>
                   </div>
                 ) : (
@@ -326,8 +326,8 @@ export function LeaveReviewDrawer({ requestId, onClose }: Props) {
                     onChange={(e) => setNote(e.target.value)}
                     placeholder={
                       isModified
-                        ? 'e.g. Only approving as one full + one half — team release this week.'
-                        : 'e.g. Enjoy your break — coverage is confirmed.'
+                        ? 'e.g. Only approving as one full + one half - team release this week.'
+                        : 'e.g. Enjoy your break - coverage is confirmed.'
                     }
                     rows={3}
                   />

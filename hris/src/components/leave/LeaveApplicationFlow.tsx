@@ -623,7 +623,7 @@ function StepDetails({
 }
 
 function StepSend({
-  channels, toggle, adminNames, adminEmails,
+  channels, toggle,
 }: {
   channels: NotificationChannel[];
   toggle: (c: NotificationChannel) => void;
@@ -639,7 +639,7 @@ function StepSend({
           onClick={() => toggle('EMAIL')}
           icon={<Mail size={20} />}
           label="Email"
-          desc="Sent to HR and leadership inboxes"
+          desc="Sent to HR"
         />
         <ChannelBox
           active={channels.includes('IN_APP')}
@@ -649,22 +649,11 @@ function StepSend({
           desc="Delivered inside HRIS instantly"
         />
       </div>
-      <div className="laf-recipients">
-        <div className="laf-recipients-title">Will be sent to</div>
-        {channels.includes('EMAIL') && (
-          <div className="laf-recipients-list">
-            📧 {adminEmails.join(', ')}
-          </div>
-        )}
-        {channels.includes('IN_APP') && (
-          <div className="laf-recipients-list">
-            💬 {adminNames.join(', ')}
-          </div>
-        )}
-        {channels.length === 0 && (
-          <div className="laf-inline-error">Select at least one channel.</div>
-        )}
-      </div>
+      {channels.length === 0 && (
+        <div className="laf-inline-error" style={{ marginTop: 12 }}>
+          Select at least one channel.
+        </div>
+      )}
     </div>
   );
 }
