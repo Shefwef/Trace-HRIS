@@ -78,7 +78,7 @@ export function Sidebar() {
           />
         </div>
         <div className="sidebar-brand-text">
-          <div className="sidebar-brand-name">HRIS</div>
+          <div className="sidebar-brand-name">Trace HRIS</div>
           <div className="sidebar-brand-tag">People, simplified.</div>
         </div>
         <button className="sidebar-close" onClick={closeMobile} aria-label="Close menu">
@@ -115,7 +115,7 @@ export function Sidebar() {
         <div className="sidebar-help">
           <div className="sidebar-help-title">Need help?</div>
           <div className="sidebar-help-body">
-            Reach out to HR at <a href="mailto:hr@company.com">hr@company.com</a>
+            Reach out to HR at <a href="mailto:asmsaifullah@traceconsultingltd.com">asmsaifullah@traceconsultingltd.com</a>
           </div>
         </div>
       </div>

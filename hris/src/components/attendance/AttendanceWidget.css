@@ -10,6 +10,9 @@
   position: relative;
   overflow: hidden;
 }
+@media (max-width: 1440px) {
+  .atw { padding: var(--space-5); gap: var(--space-3); }
+}
 @media (max-width: 640px) {
   .atw { padding: var(--space-5); border-radius: var(--radius-lg); }
 }
@@ -79,7 +82,7 @@
 }
 .atw-timer {
   font-family: var(--font-mono);
-  font-size: clamp(40px, 9vw, 56px);
+  font-size: clamp(32px, 5vw, 48px);
   font-weight: var(--weight-bold);
   letter-spacing: -0.02em;
   line-height: 1;

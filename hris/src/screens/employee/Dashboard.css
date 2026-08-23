@@ -14,9 +14,18 @@
   font-size: var(--text-3xl);
   letter-spacing: -0.02em;
   max-width: 640px;
+  line-height: 1.15;
+}
+/* Tighter density on laptop-sized viewports so more fits above the fold. */
+@media (max-width: 1440px) {
+  .edash { gap: var(--space-5); }
+  .edash-hero h1 { font-size: var(--text-2xl); max-width: 560px; }
+}
+@media (max-width: 1200px) {
+  .edash-hero h1 { font-size: var(--text-xl); }
 }
 @media (max-width: 640px) {
-  .edash-hero h1 { font-size: var(--text-2xl); }
+  .edash-hero h1 { font-size: var(--text-lg); }
   .edash-hero .btn { width: 100%; }
   .edash-hero { flex-direction: column; align-items: stretch; }
 }
@@ -30,6 +39,9 @@
   grid-template-columns: minmax(0, 2.15fr) minmax(0, 1fr);
   gap: var(--space-6);
 }
+@media (max-width: 1440px) {
+  .edash-grid { gap: var(--space-4); }
+}
 @media (max-width: 1100px) {
   .edash-grid { grid-template-columns: 1fr; }
 }
@@ -38,6 +50,9 @@
   flex-direction: column;
   gap: var(--space-6);
   min-width: 0;
+}
+@media (max-width: 1440px) {
+  .edash-col-left, .edash-col-right { gap: var(--space-4); }
 }
 .edash-section {
   display: flex;

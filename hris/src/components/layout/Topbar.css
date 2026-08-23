@@ -11,6 +11,11 @@
   z-index: 30;
   gap: var(--space-3);
 }
+/* Shorter topbar + smaller greeting on laptop-scale viewports. */
+@media (max-width: 1440px) {
+  .topbar { height: 60px; padding: 0 var(--space-6); }
+  .topbar-greet { font-size: var(--text-base); }
+}
 .topbar-left {
   display: flex;
   align-items: center;
