@@ -9,7 +9,8 @@
   padding: var(--space-12);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
+  gap: var(--space-8);
   background: linear-gradient(135deg, #2c5282 0%, #3182ce 55%, #63b3ed 100%);
   color: white;
   overflow: hidden;
@@ -28,22 +29,64 @@
 .auth-brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 18px;
   position: relative;
   z-index: 1;
+  max-width: 520px;
+}
+.auth-brand-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.12);
+  padding: 6px;
+  backdrop-filter: blur(2px);
+  box-shadow: 0 8px 24px rgba(15, 30, 60, 0.25);
+  flex-shrink: 0;
+  object-fit: contain;
 }
 .auth-brand-name {
   font-family: var(--font-display);
   font-weight: var(--weight-bold);
-  font-size: var(--text-2xl);
+  font-size: 40px;
   letter-spacing: -0.02em;
   color: white;
+  line-height: 1;
 }
-.auth-brand-tag { font-size: var(--text-xs); color: rgba(255,255,255,0.75); margin-top: -4px; }
-.auth-hero { position: relative; z-index: 1; max-width: 480px; }
-.auth-hero h1 { color: white; font-size: 44px; line-height: 1.1; letter-spacing: -0.02em; margin-bottom: var(--space-4); }
-.auth-hero p { color: rgba(255,255,255,0.85); font-size: var(--text-base); line-height: 1.6; }
-.auth-right { display: flex; align-items: center; justify-content: center; padding: var(--space-8); }
+.auth-brand-tag {
+  font-size: var(--text-sm);
+  color: rgba(255, 255, 255, 0.82);
+  margin-top: 6px;
+  letter-spacing: 0.01em;
+}
+.auth-hero {
+  position: relative;
+  z-index: 1;
+  max-width: 520px;
+}
+.auth-hero h1 {
+  color: white;
+  font-size: 44px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-4);
+}
+.auth-hero p {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--text-base);
+  line-height: 1.6;
+}
+.auth-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+}
+@media (max-width: 1200px) {
+  .auth-brand-name { font-size: 34px; }
+  .auth-brand-logo { width: 64px; height: 64px; }
+  .auth-hero h1 { font-size: 36px; }
+}
 @media (max-width: 900px) {
   .auth-shell { grid-template-columns: 1fr; }
   .auth-left { display: none; }
