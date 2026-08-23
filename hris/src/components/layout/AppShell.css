@@ -11,21 +11,24 @@
 }
 .shell-content {
   flex: 1;
-  padding: var(--space-8);
+  /* Extra bottom padding leaves permanent clearance for the fixed 'Ask HRIS'
+     chatbot FAB (~56px tall) at the bottom-right so it never masks the last
+     card on any page. */
+  padding: var(--space-8) var(--space-8) 96px;
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
 }
 /* 14" / 16" laptop range - tighter padding so cards get more room. */
 @media (max-width: 1440px) {
-  .shell-content { padding: var(--space-6); }
+  .shell-content { padding: var(--space-6) var(--space-6) 96px; }
 }
 @media (max-width: 1280px) {
-  .shell-content { padding: var(--space-5); }
+  .shell-content { padding: var(--space-5) var(--space-5) 88px; }
 }
 @media (max-width: 900px) {
-  .shell-content { padding: var(--space-5); }
+  .shell-content { padding: var(--space-5) var(--space-5) 88px; }
 }
 @media (max-width: 640px) {
-  .shell-content { padding: var(--space-4) var(--space-3); }
+  .shell-content { padding: var(--space-4) var(--space-3) 80px; }
 }

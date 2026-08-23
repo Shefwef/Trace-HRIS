@@ -128,9 +128,18 @@
   word-wrap: break-word;
   overflow-wrap: anywhere;
 }
-.help-msg-user .help-msg-bubble {
+.help-msg-user .help-msg-bubble,
+.help-msg-user .help-msg-bubble p,
+.help-msg-user .help-msg-bubble strong,
+.help-msg-user .help-msg-bubble em,
+.help-msg-user .help-msg-bubble a {
   background: var(--color-brand-primary);
-  color: white;
+  color: #ffffff !important;
+}
+.help-msg-user .help-msg-bubble p,
+.help-msg-user .help-msg-bubble strong,
+.help-msg-user .help-msg-bubble em {
+  background: transparent;
 }
 .help-msg-bubble p { margin: 0; }
 .help-msg-bubble p + p { margin-top: 6px; }

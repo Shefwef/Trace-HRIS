@@ -125,6 +125,12 @@
 .sidebar-help-body {
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+.sidebar-help-body a {
+  color: var(--color-brand-secondary);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Mobile drawer */
