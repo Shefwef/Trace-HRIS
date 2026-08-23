@@ -34,7 +34,7 @@ const employeeNav = [
 
 const adminNav = [
   { to: '/admin', label: 'Admin Home', icon: <Home size={18} /> },
-  { to: '/admin/requests', label: 'Leave Requests', icon: <Inbox size={18} /> },
+  { to: '/admin/requests', label: 'Requests', icon: <Inbox size={18} /> },
   { to: '/admin/employees', label: 'Employees', icon: <Users size={18} /> },
   { to: '/admin/holidays', label: 'Holiday Manager', icon: <CalendarDays size={18} /> },
   { to: '/admin/settings', label: 'Settings', icon: <Settings size={18} /> },
