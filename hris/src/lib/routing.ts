@@ -21,17 +21,18 @@ export interface ApprovalRecipients {
 
 export function approvalRecipients(applicant: User, allUsers: User[]): ApprovalRecipients {
   const active = allUsers.filter((u) => u.isActive);
-  const hr = active.filter((u) => hasRole(u, 'HR') && u.id !== applicant.id);
+  // Notify every HR-role holder INCLUDING the applicant if they happen to
+  // hold HR themselves. This handles the multi-role case (e.g. a COO who is
+  // both Admin and HR applying for their own leave), and also covers the
+  // Super Admin QA scenario where a single account holds every role.
+  const hr = active.filter((u) => hasRole(u, 'HR'));
 
   if (hr.length > 0) {
     return { to: hr, cc: [] };
   }
 
-  // Rescue path: no active HR user available. Notify Super Admin only so
-  // the request doesn't fall through the cracks. Admin-only users stay
-  // silent per policy.
-  const rescue = active.filter(
-    (u) => u.id !== applicant.id && hasRole(u, 'SUPER_ADMIN'),
-  );
+  // Rescue path: no active HR user at all. Notify Super Admin so the
+  // request doesn't fall through the cracks. Admin-only users stay silent.
+  const rescue = active.filter((u) => hasRole(u, 'SUPER_ADMIN'));
   return { to: rescue, cc: [] };
 }

@@ -111,10 +111,19 @@
 }
 .lreq-thead, .lreq-row {
   display: grid;
-  grid-template-columns: 1.5fr 60px 1.2fr 60px 1.5fr 100px 100px;
-  gap: 12px;
+  /* Fixed widths for compact columns so header and row cells always sit at
+     the same pixel position. Employee + Reason flex to fill the middle. */
+  grid-template-columns: minmax(220px, 2fr) 70px 150px 70px minmax(160px, 2fr) 110px 100px;
+  gap: 16px;
   padding: 14px 20px;
   align-items: center;
+}
+.lreq-thead > *,
+.lreq-row > * {
+  min-width: 0;
+  text-align: left;
+  justify-self: start;
+  align-self: center;
 }
 .lreq-thead {
   font-size: 10px;
@@ -133,6 +142,7 @@
   background: none;
   transition: background var(--transition-fast);
   cursor: pointer;
+  width: 100%;
 }
 .lreq-row:last-child { border-bottom: none; }
 .lreq-row:hover { background: var(--color-bg-subtle); }

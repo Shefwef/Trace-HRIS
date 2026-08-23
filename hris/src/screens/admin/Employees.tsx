@@ -67,8 +67,9 @@ export function EmployeesPage() {
       users
         // Hide the actor from their own list; you can't edit yourself here.
         .filter((u) => u.id !== currentUser?.id)
-        // HR shouldn't be able to see (or accidentally edit) SUPER_ADMIN rows.
-        .filter((u) => !(currentUser?.role === 'HR' && (u.roles ?? [u.role]).includes('SUPER_ADMIN')))
+        // Super Admin is the technical owner - not listed as a regular
+        // employee in the directory, regardless of who's viewing.
+        .filter((u) => !(u.roles ?? [u.role]).includes('SUPER_ADMIN'))
         .filter((u) => {
           if (!q.trim()) return true;
           const n = q.trim().toLowerCase();

@@ -37,7 +37,9 @@ export const SEED_USERS: SeedUser[] = [
     fullName: 'Shefadib (Super Admin)',
     firstName: 'Shefadib',
     lastName: 'Admin',
-    roles: ['SUPER_ADMIN'],
+    // Super Admin holds every role for QA purposes so a single sign-in can
+    // exercise every notification/approval path end-to-end.
+    roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'],
     department: 'Engineering',
     designation: 'System Administrator',
     employeeIdCode: 'SUPER-001',

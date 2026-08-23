@@ -28,8 +28,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!request) return err(404, 'NOT_FOUND', 'Leave request not found.');
   if (request.status !== 'PENDING')
     return err(409, 'ALREADY_DECIDED', `Request is already ${request.status.toLowerCase()}.`);
-  if (request.employeeId === user.id)
-    return err(403, 'SELF_APPROVE', 'You cannot approve your own leave.');
 
   const year = new Date().getFullYear();
   const balance = await prisma.leaveBalance.findUnique({
