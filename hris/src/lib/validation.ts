@@ -45,6 +45,9 @@ export type CreateLeaveInput = z.infer<typeof CreateLeaveSchema>;
 
 export const RejectLeaveSchema = z.object({
   note: z.string().min(4).max(500),
+  /** Optional custom email fields. If provided, override the default template. */
+  emailSubject: z.string().min(3).max(200).optional(),
+  emailBody: z.string().min(10).max(4000).optional(),
 });
 
 export const AllocationEntrySchema = z.object({
@@ -57,6 +60,9 @@ export const ApproveLeaveSchema = z.object({
   /** Optional per-day allocation. If provided, replaces the request's original
    *  duration with the sum of these entries. */
   allocation: z.array(AllocationEntrySchema).min(1).max(60).optional(),
+  /** Optional custom email fields. If provided, override the default template. */
+  emailSubject: z.string().min(3).max(200).optional(),
+  emailBody: z.string().min(10).max(4000).optional(),
 });
 export type AllocationEntry = z.infer<typeof AllocationEntrySchema>;
 

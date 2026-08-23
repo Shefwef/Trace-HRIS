@@ -5,7 +5,7 @@ import { RejectLeaveSchema } from '@/lib/validation';
 import { leaveTypeLabel, formatLeavePeriod } from '@/lib/leave';
 import { notify } from '@/lib/notifications';
 import { sendEmail } from '@/lib/email';
-import { leaveDecisionEmail } from '@/emails/templates';
+import { leaveDecisionEmail, customLeaveEmail } from '@/emails/templates';
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const [user, error] = await requireAuth(req);
@@ -94,19 +94,30 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   });
   if (updated.channels.includes('EMAIL') && employee) {
     const historyUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/leaves`;
-    const { subject, html } = leaveDecisionEmail(
-      {
-        employeeName: employee.fullName,
-        leaveType: leaveTypeLabel(updated.leaveType),
-        period,
-        duration: durationLabel,
-        decision: 'REJECTED',
-        reviewerName: user.fullName,
-        note: input.note,
-        historyUrl,
-      },
-      { senderName: settings.senderName }
-    );
+    const useCustom = !!(input.emailSubject && input.emailBody);
+    const { subject, html } = useCustom
+      ? customLeaveEmail(
+          {
+            subject: input.emailSubject!,
+            body: input.emailBody!,
+            decision: 'REJECTED',
+            historyUrl,
+          },
+          { senderName: settings.senderName },
+        )
+      : leaveDecisionEmail(
+          {
+            employeeName: employee.fullName,
+            leaveType: leaveTypeLabel(updated.leaveType),
+            period,
+            duration: durationLabel,
+            decision: 'REJECTED',
+            reviewerName: user.fullName,
+            note: input.note,
+            historyUrl,
+          },
+          { senderName: settings.senderName },
+        );
     void sendEmail({
       to: [employee.email],
       subject,

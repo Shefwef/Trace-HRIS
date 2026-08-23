@@ -42,6 +42,14 @@ export function LeaveReviewDrawer({ requestId, onClose }: Props) {
   const [allocation, setAllocation] = useState<AllocationEntry[]>([]);
   const [newDate, setNewDate] = useState('');
 
+  // Editable email templates for approve / reject. Pre-filled on first open
+  // of each modal; if the reviewer edits either, that overrides the
+  // auto-generated template on send.
+  const [editEmail, setEditEmail] = useState(false);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+  const [emailPrefillKey, setEmailPrefillKey] = useState<string>('');
+
   // Initialize allocation from the request every time we open a new one
   useEffect(() => {
     if (!request) return;
@@ -64,8 +72,43 @@ export function LeaveReviewDrawer({ requestId, onClose }: Props) {
       setShowApprove(false);
       setShowReject(false);
       setModify(false);
+      setEditEmail(false);
+      setEmailSubject('');
+      setEmailBody('');
+      setEmailPrefillKey('');
     }
   }, [requestId]);
+
+  // Build a default email preview when the user toggles the editor open.
+  // Only pre-fill once per (approve|reject) session so ongoing edits stick.
+  function fillDefaultEmail(kind: 'APPROVE' | 'REJECT') {
+    if (!request || !request.employee) return;
+    const key = `${request.id}:${kind}`;
+    if (emailPrefillKey === key) return;
+    const period = request.startDate === request.endDate
+      ? fmtDate(request.startDate, 'd MMM yyyy')
+      : `${fmtDate(request.startDate, 'd MMM')} - ${fmtDate(request.endDate, 'd MMM yyyy')}`;
+    const durationLabel = `${modify ? computeDurationFromAllocation(allocation) : request.durationDays} day${(modify ? computeDurationFromAllocation(allocation) : Number(request.durationDays)) === 1 ? '' : 's'}`;
+    if (kind === 'APPROVE') {
+      setEmailSubject(`Leave approved - ${leaveTypeLabel(request.leaveType)} - ${period}`);
+      setEmailBody(
+        `Hi ${request.employee.fullName},\n\n` +
+        `Your ${leaveTypeLabel(request.leaveType).toLowerCase()} for ${period} (${durationLabel}) has been approved.\n\n` +
+        (note ? `Note: ${note}\n\n` : '') +
+        `Best regards,\nHR - Trace HRIS`
+      );
+    } else {
+      setEmailSubject(`Leave rejected - ${leaveTypeLabel(request.leaveType)} - ${period}`);
+      setEmailBody(
+        `Hi ${request.employee.fullName},\n\n` +
+        `We're unable to approve your ${leaveTypeLabel(request.leaveType).toLowerCase()} request for ${period} (${durationLabel}).\n\n` +
+        (rejectReason ? `Reason: ${rejectReason}\n\n` : '') +
+        `Please talk to HR if you have questions.\n\n` +
+        `Best regards,\nHR - Trace HRIS`
+      );
+    }
+    setEmailPrefillKey(key);
+  }
 
   const finalDuration = useMemo(
     () => (modify ? computeDurationFromAllocation(allocation) : request?.durationDays ?? 0),
@@ -345,10 +388,14 @@ export function LeaveReviewDrawer({ requestId, onClose }: Props) {
                     id: request.id,
                     note: note || undefined,
                     allocation: isModified ? allocation : undefined,
+                    emailSubject: editEmail && emailSubject.trim() ? emailSubject.trim() : undefined,
+                    emailBody: editEmail && emailBody.trim() ? emailBody.trim() : undefined,
                   },
                   {
                     onSuccess: () => {
                       setShowApprove(false);
+                      setEditEmail(false);
+                      setEmailPrefillKey('');
                       onClose();
                     },
                   }
@@ -377,6 +424,16 @@ export function LeaveReviewDrawer({ requestId, onClose }: Props) {
             <strong>{employee.fullName}&apos;s</strong>{' '}{leaveTypeLabel(request.leaveType).toLowerCase()} balance. They&apos;ll be notified immediately.
           </p>
         )}
+        <EmailEditor
+          kind="APPROVE"
+          open={editEmail}
+          setOpen={(v) => { setEditEmail(v); if (v) fillDefaultEmail('APPROVE'); }}
+          subject={emailSubject}
+          setSubject={setEmailSubject}
+          body={emailBody}
+          setBody={setEmailBody}
+          onReset={() => { setEmailPrefillKey(''); fillDefaultEmail('APPROVE'); }}
+        />
       </Modal>
 
       <Modal
@@ -392,11 +449,18 @@ export function LeaveReviewDrawer({ requestId, onClose }: Props) {
               loading={reject.isPending}
               onClick={() => {
                 reject.mutate(
-                  { id: request.id, note: rejectReason.trim() },
+                  {
+                    id: request.id,
+                    note: rejectReason.trim(),
+                    emailSubject: editEmail && emailSubject.trim() ? emailSubject.trim() : undefined,
+                    emailBody: editEmail && emailBody.trim() ? emailBody.trim() : undefined,
+                  },
                   {
                     onSuccess: () => {
                       setShowReject(false);
                       setRejectReason('');
+                      setEditEmail(false);
+                      setEmailPrefillKey('');
                       onClose();
                     },
                   }
@@ -413,11 +477,85 @@ export function LeaveReviewDrawer({ requestId, onClose }: Props) {
             rows={4}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="e.g. Team release week — please pick a different range."
+            placeholder="e.g. Team release week - please pick a different range."
             autoFocus
           />
         </Field>
+        <EmailEditor
+          kind="REJECT"
+          open={editEmail}
+          setOpen={(v) => { setEditEmail(v); if (v) fillDefaultEmail('REJECT'); }}
+          subject={emailSubject}
+          setSubject={setEmailSubject}
+          body={emailBody}
+          setBody={setEmailBody}
+          onReset={() => { setEmailPrefillKey(''); fillDefaultEmail('REJECT'); }}
+        />
       </Modal>
     </>
+  );
+}
+
+/**
+ * Collapsible email editor for approve/reject modals. Pre-fills a plain-text
+ * template that the reviewer can edit. When open+non-empty, the drawer
+ * submits the custom subject+body which overrides the auto template.
+ */
+function EmailEditor({
+  kind,
+  open,
+  setOpen,
+  subject,
+  setSubject,
+  body,
+  setBody,
+  onReset,
+}: {
+  kind: 'APPROVE' | 'REJECT';
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  subject: string;
+  setSubject: (v: string) => void;
+  body: string;
+  setBody: (v: string) => void;
+  onReset: () => void;
+}) {
+  const label = kind === 'APPROVE' ? 'approval' : 'rejection';
+  return (
+    <div style={{ marginTop: 16, borderTop: '1px dashed var(--color-border-default)', paddingTop: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+          <Mail size={14} />
+          {open
+            ? `Editing the ${label} email that will be sent.`
+            : `Default ${label} email will be sent.`}
+        </div>
+        <Button
+          size="sm"
+          variant={open ? 'ghost' : 'secondary'}
+          leadingIcon={<Pencil size={12} />}
+          onClick={() => setOpen(!open)}
+        >
+          {open ? 'Use default template' : 'Edit email'}
+        </Button>
+      </div>
+      {open && (
+        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Field label="Subject" required>
+            <TextInput value={subject} onChange={(e) => setSubject(e.target.value)} />
+          </Field>
+          <Field label="Body" hint="Plain text. Blank lines become paragraphs. The Trace branding is added automatically.">
+            <TextArea
+              rows={9}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+            />
+          </Field>
+          <div>
+            <Button size="sm" variant="ghost" onClick={onReset}>Reset to default</Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

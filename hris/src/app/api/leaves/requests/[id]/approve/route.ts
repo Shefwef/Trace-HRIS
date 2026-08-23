@@ -12,7 +12,7 @@ import {
 } from '@/lib/leave';
 import { notify } from '@/lib/notifications';
 import { sendEmail } from '@/lib/email';
-import { leaveDecisionEmail } from '@/emails/templates';
+import { leaveDecisionEmail, customLeaveEmail } from '@/emails/templates';
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const [user, error] = await requireAuth(req);
@@ -168,23 +168,35 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   });
   if (updated.channels.includes('EMAIL') && employee) {
     const historyUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/leaves`;
-    const noteBody = wasModified
-      ? `${input.note ? input.note + '\n\n' : ''}Approved allocation:\n${allocationSummary}`
-      : input.note;
-    const { subject, html } = leaveDecisionEmail(
-      {
-        employeeName: employee.fullName,
-        leaveType: leaveTypeLabel(updated.leaveType),
-        period,
-        duration: durationLabel,
-        decision: 'APPROVED',
-        reviewerName: user.fullName,
-        note: noteBody,
-        remainingBalance: `${remaining} day${remaining === 1 ? '' : 's'}`,
-        historyUrl,
-      },
-      { senderName: settings.senderName }
-    );
+    // Prefer the reviewer's edited email (subject + body) when provided;
+    // otherwise fall back to the auto-generated template.
+    const useCustom = !!(input.emailSubject && input.emailBody);
+    const { subject, html } = useCustom
+      ? customLeaveEmail(
+          {
+            subject: input.emailSubject!,
+            body: input.emailBody!,
+            decision: 'APPROVED',
+            historyUrl,
+          },
+          { senderName: settings.senderName },
+        )
+      : leaveDecisionEmail(
+          {
+            employeeName: employee.fullName,
+            leaveType: leaveTypeLabel(updated.leaveType),
+            period,
+            duration: durationLabel,
+            decision: 'APPROVED',
+            reviewerName: user.fullName,
+            note: wasModified
+              ? `${input.note ? input.note + '\n\n' : ''}Approved allocation:\n${allocationSummary}`
+              : input.note,
+            remainingBalance: `${remaining} day${remaining === 1 ? '' : 's'}`,
+            historyUrl,
+          },
+          { senderName: settings.senderName },
+        );
     void sendEmail({
       to: [employee.email],
       subject,

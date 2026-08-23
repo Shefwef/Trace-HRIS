@@ -43,7 +43,10 @@ export function MiniCalendar() {
   gridEnd.setDate(gridEnd.getDate() + (6 - last.getDay()));
 
   const days: DayInfo[] = eachDayOfInterval({ start: gridStart, end: gridEnd }).map((d) => {
-    const iso = d.toISOString().slice(0, 10);
+    // Use local date components (not toISOString - that shifts by TZ offset
+    // and causes calendar cells to align to UTC dates instead of the local
+    // ones the user sees, showing leaves on the wrong day.)
+    const iso = format(d, 'yyyy-MM-dd');
     const weekday = d.getDay();
     const isWeekend = weekday === 0 || weekday === 6;
     const holiday = holidays.find((h) => h.date === iso);

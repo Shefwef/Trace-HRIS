@@ -31,7 +31,8 @@ export function computeDurationDays(input: CreateLeaveInput): number {
   const cur = new Date(start);
   while (cur <= end) {
     const dow = cur.getUTCDay(); // 0 = Sun, 6 = Sat
-    if (dow !== 0 && dow !== 6) days += 1;
+    // Bangladesh work week is Sun-Thu; weekends are Fri (5) and Sat (6).
+    if (dow !== 5 && dow !== 6) days += 1;
     cur.setUTCDate(cur.getUTCDate() + 1);
   }
   return days;

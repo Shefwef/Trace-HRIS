@@ -64,7 +64,9 @@ export function CalendarPage() {
           </div>
         ))}
         {days.map((d) => {
-          const iso = d.toISOString().slice(0, 10);
+          // Local-date ISO so leave cells align to the day the user sees,
+          // not the day UTC happens to hold at midnight local time.
+          const iso = format(d, 'yyyy-MM-dd');
           const weekday = d.getDay();
           const isWeekend = weekday === 0 || weekday === 6;
           const holiday = holidays.find((h) => h.date === iso);

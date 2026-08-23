@@ -332,7 +332,7 @@ model SystemSettings {
   standardHoursPerDay       Int      @default(8)
   workStartTime             String   @default("09:00")
   workEndTime               String   @default("17:00")
-  workDaysBitmask           Int      @default(62) // Mon-Fri = bits 1-5
+  workDaysBitmask           Int      @default(31) // Sun-Thu = bits 0-4 (Bangladesh work week)
   overtimeThresholdMinutes  Int      @default(480)
   updatedAt                 DateTime @updatedAt
 

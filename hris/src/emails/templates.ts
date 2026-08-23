@@ -119,6 +119,33 @@ export function leaveSubmittedEmail(input: {
   };
 }
 
+/**
+ * Wrap a user-authored plaintext body in the branded email shell. Turns each
+ * blank-line block into a paragraph and preserves line breaks. Used by the
+ * "Edit email" flow in the leave review drawer.
+ */
+export function customLeaveEmail(input: {
+  subject: string;
+  body: string;
+  decision: 'APPROVED' | 'REJECTED';
+  historyUrl: string;
+}, s: Skin) {
+  const paragraphs = input.body
+    .split(/\n\n+/)
+    .map((block) => p(block.trim()))
+    .join('');
+  return {
+    subject: input.subject,
+    html: shell({
+      title: input.decision === 'APPROVED' ? 'Your leave was approved' : 'Your leave was rejected',
+      senderName: s.senderName,
+      content: paragraphs,
+      ctaLabel: 'View my leaves',
+      ctaHref: input.historyUrl,
+    }),
+  };
+}
+
 export function leaveDecisionEmail(input: {
   employeeName: string;
   leaveType: string;

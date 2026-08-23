@@ -264,14 +264,17 @@ export interface ApproveLeavePayload {
   id: string;
   note?: string;
   allocation?: Array<{ date: string; slot: 'FULL' | 'HALF_MORNING' | 'HALF_AFTERNOON' }>;
+  /** Optional custom email overriding the auto-template. */
+  emailSubject?: string;
+  emailBody?: string;
 }
 export function useApproveLeave() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, note, allocation }: ApproveLeavePayload) =>
+    mutationFn: ({ id, note, allocation, emailSubject, emailBody }: ApproveLeavePayload) =>
       api(`/api/leaves/requests/${id}/approve`, {
         method: 'POST',
-        body: JSON.stringify({ note, allocation }),
+        body: JSON.stringify({ note, allocation, emailSubject, emailBody }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leaves'] });
@@ -281,13 +284,19 @@ export function useApproveLeave() {
   });
 }
 
+export interface RejectLeavePayload {
+  id: string;
+  note: string;
+  emailSubject?: string;
+  emailBody?: string;
+}
 export function useRejectLeave() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, note }: { id: string; note: string }) =>
+    mutationFn: ({ id, note, emailSubject, emailBody }: RejectLeavePayload) =>
       api(`/api/leaves/requests/${id}/reject`, {
         method: 'POST',
-        body: JSON.stringify({ note }),
+        body: JSON.stringify({ note, emailSubject, emailBody }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leaves'] });
