@@ -69,6 +69,12 @@
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--space-4);
 }
+@media (max-width: 1280px) {
+  .rpts-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-3); }
+}
+@media (max-width: 640px) {
+  .rpts-grid { grid-template-columns: 1fr; }
+}
 .rpts-card {
   padding: var(--space-5);
   display: flex;

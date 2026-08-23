@@ -11,10 +11,29 @@
 }
 .empg-card-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
   padding-top: 12px;
   border-top: 1px dashed var(--color-border-default);
   margin-top: auto;
+}
+
+/* Roles modal — same checkbox chip style as before, just lives in a
+   dialog now instead of on every card. */
+.empg-modal-desc {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.empg-modal-roles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+@media (max-width: 480px) {
+  .empg-modal-roles { grid-template-columns: 1fr; }
 }
 
 .empg-search {
@@ -89,8 +108,16 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  min-height: 320px;
+  min-height: 236px;
   transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+}
+@media (max-width: 1280px) {
+  .empg-card { padding: var(--space-4); min-height: 220px; }
+  .empg-grid { gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+}
+@media (max-width: 640px) {
+  .empg-card { min-height: 200px; }
+  .empg-grid { grid-template-columns: 1fr; }
 }
 .empg-card:hover {
   transform: translateY(-2px);

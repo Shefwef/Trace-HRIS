@@ -6,6 +6,13 @@
   flex-direction: column;
   flex-shrink: 0;
 }
+/* Slightly narrower sidebar on typical laptop widths so content gets room. */
+@media (max-width: 1440px) {
+  .sidebar { width: 216px; }
+}
+@media (max-width: 1200px) {
+  .sidebar { width: 200px; }
+}
 .sidebar-desktop {
   position: sticky;
   top: 0;

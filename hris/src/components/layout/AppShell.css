@@ -16,6 +16,13 @@
   width: 100%;
   margin: 0 auto;
 }
+/* 14" / 16" laptop range - tighter padding so cards get more room. */
+@media (max-width: 1440px) {
+  .shell-content { padding: var(--space-6); }
+}
+@media (max-width: 1280px) {
+  .shell-content { padding: var(--space-5); }
+}
 @media (max-width: 900px) {
   .shell-content { padding: var(--space-5); }
 }

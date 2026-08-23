@@ -54,6 +54,10 @@ export function EmployeesPage() {
   const [q, setQ] = useState('');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [deactivateId, setDeactivateId] = useState<string | null>(null);
+  const [rolesEditId, setRolesEditId] = useState<string | null>(null);
+  const [pendingRoles, setPendingRoles] = useState<AppRole[]>([]);
+
+  const rolesEditUser = rolesEditId ? users.find((u) => u.id === rolesEditId) : null;
 
   const canAssign = assignableRoles(currentUser?.role);
   const canEditRoles = canAssign.length > 0;
@@ -179,39 +183,20 @@ export function EmployeesPage() {
                   <span className="mono">{u.employeeIdCode ?? '—'}</span>
                   <span className="empg-mail"><Mail size={12} /> {u.email}</span>
                 </div>
-                {canEditRoles && (
-                  <div className="empg-card-roles">
-                    <div className="empg-card-roles-label">
-                      <ShieldCheck size={12} />
-                      Roles <span className="empg-card-roles-hint">(tick to grant)</span>
-                    </div>
-                    <div className="empg-card-roles-grid">
-                      {(['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] as AppRole[]).map((r) => {
-                        const checked = currentRoles.includes(r);
-                        // Locked if the actor can't grant this role AND the user
-                        // already has it — we don't hide it (so state is visible)
-                        // but you can't toggle it.
-                        const locked = !canAssign.includes(r);
-                        return (
-                          <label
-                            key={r}
-                            className={`empg-role-check ${checked ? 'is-checked' : ''} ${locked ? 'is-locked' : ''}`}
-                            title={locked ? 'You are not allowed to grant or revoke this role.' : undefined}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              disabled={locked || updateEmployee.isPending}
-                              onChange={() => updateRoles(u.id, toggleRole(currentRoles, r))}
-                            />
-                            <span>{ROLE_LABEL[r]}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
                 <div className="empg-card-actions">
+                  {canEditRoles && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      leadingIcon={<ShieldCheck size={12} />}
+                      onClick={() => {
+                        setRolesEditId(u.id);
+                        setPendingRoles(currentRoles);
+                      }}
+                    >
+                      Manage roles
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -257,6 +242,54 @@ export function EmployeesPage() {
           Their history and audit trail remain intact. You can reactivate them from the same
           record later.
         </p>
+      </Modal>
+
+      <Modal
+        open={!!rolesEditId}
+        onClose={() => setRolesEditId(null)}
+        title={rolesEditUser ? `Manage roles - ${rolesEditUser.fullName}` : 'Manage roles'}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setRolesEditId(null)}>Cancel</Button>
+            <Button
+              variant="primary"
+              loading={updateEmployee.isPending}
+              disabled={pendingRoles.length === 0}
+              onClick={() => {
+                if (!rolesEditId) return;
+                updateRoles(rolesEditId, pendingRoles);
+                setRolesEditId(null);
+              }}
+            >
+              Save roles
+            </Button>
+          </>
+        }
+      >
+        <p className="empg-modal-desc">
+          A person can hold more than one role at once. You must keep at least one role granted.
+        </p>
+        <div className="empg-modal-roles">
+          {(['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] as AppRole[]).map((r) => {
+            const checked = pendingRoles.includes(r);
+            const locked = !canAssign.includes(r);
+            return (
+              <label
+                key={r}
+                className={`empg-role-check ${checked ? 'is-checked' : ''} ${locked ? 'is-locked' : ''}`}
+                title={locked ? 'You are not allowed to grant or revoke this role.' : undefined}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={locked}
+                  onChange={() => setPendingRoles(toggleRole(pendingRoles, r))}
+                />
+                <span>{ROLE_LABEL[r]}</span>
+              </label>
+            );
+          })}
+        </div>
       </Modal>
     </div>
   );

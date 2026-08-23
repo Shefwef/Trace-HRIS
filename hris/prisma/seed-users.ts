@@ -16,7 +16,7 @@ export interface SeedUser {
 
 /**
  * Source of truth for who exists in the system. `prisma/seed.ts` uses this
- * list for full re-seeds (destructive — resets passwords, prunes strays).
+ * list for full re-seeds (destructive - resets passwords, prunes strays).
  * `scripts/add-employee.ts` uses it for targeted, non-destructive additions.
  *
  * Role sets under the multi-role model:
@@ -111,7 +111,7 @@ export const SEED_USERS: SeedUser[] = [
     lastName: 'Afrin',
     roles: ['EMPLOYEE'],
     department: 'Laboratory Operations',
-    designation: 'Technical Lead — Laboratory Operations',
+    designation: 'Technical Lead - Laboratory Operations',
     employeeIdCode: 'TRACE-103',
     avatarPath: '/Mimma_Afrin.png',
     password: 'Trace-HRIS-Mimma-2026!',
