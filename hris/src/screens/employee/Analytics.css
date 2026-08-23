@@ -126,18 +126,42 @@
 .ahm-swatch.ahm-idle { background: var(--color-bg-muted); border-color: var(--color-border-default); }
 .ahm-swatch.ahm-future { background: repeating-linear-gradient(45deg, var(--color-bg-muted) 0 4px, var(--color-bg-subtle) 4px 8px); border-color: var(--color-border-default); }
 
+/* Header row - hour labels sit at the LEFT edge of each cell (i.e. at
+   the start of that hour). The trailing "5:00 PM" end-of-shift marker
+   sits inside the last cell's column but justified to the right edge. */
+.ahm-hours-row {
+  display: grid;
+  gap: 4px;
+  position: relative;
+}
 .ahm-grid {
   display: grid;
   gap: 4px;
 }
 .ahm-corner { }
-.ahm-hour-label {
+.ahm-hour-label,
+.ahm-hour-label-end {
   font-size: 10px;
   color: var(--color-text-muted);
-  text-align: center;
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.04em;
-  padding-bottom: 4px;
+  letter-spacing: 0.02em;
+  padding-bottom: 6px;
+  white-space: nowrap;
+}
+.ahm-hour-label {
+  text-align: left;
+  padding-left: 2px;
+}
+.ahm-hour-label-end {
+  /* Trailing end-of-shift marker (5:00 PM). Sits in the last hour cell
+     column but is right-aligned so it visually caps the timeline. */
+  position: absolute;
+  right: 0;
+  bottom: 6px;
+  color: var(--color-brand-primary);
+  font-weight: var(--weight-bold);
+  padding-left: 6px;
+  border-left: 2px solid var(--color-brand-primary);
 }
 .ahm-day-label {
   font-size: var(--text-xs);
@@ -181,6 +205,7 @@
   border: 1px solid var(--color-border-default);
 }
 @media (max-width: 640px) {
-  .ahm-hour-label { font-size: 9px; }
+  .ahm-hour-label,
+  .ahm-hour-label-end { font-size: 9px; }
   .ahm-cell { height: 28px; }
 }
