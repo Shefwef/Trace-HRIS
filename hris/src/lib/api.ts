@@ -70,7 +70,58 @@ export function canApprove(
       : userOrRole.roles && userOrRole.roles.length > 0
         ? userOrRole.roles
         : [userOrRole.role];
-  return roles.includes('ADMIN') || roles.includes('HR') || roles.includes('SUPER_ADMIN');
+  return (
+    roles.includes('ADMIN') ||
+    roles.includes('HR') ||
+    roles.includes('SUPER_ADMIN') ||
+    roles.includes('LINE_MANAGER')
+  );
+}
+
+/**
+ * Hierarchical authorization for approve/reject actions.
+ * Returns null if allowed, or a human-readable message if forbidden.
+ *
+ * Rules:
+ *   SUPER_ADMIN / ADMIN -> can approve/reject any request
+ *   HR                  -> can approve/reject except ADMIN or SUPER_ADMIN applicant
+ *   LINE_MANAGER        -> only where applicant.lineManagerId === actor.id
+ *   EMPLOYEE            -> cannot approve
+ *
+ * Self-approval/rejection is always forbidden (handled separately).
+ */
+export function canApproveRequest(
+  actor: { id: string; role: Role; roles?: Role[] | null },
+  applicant: { id: string; role: Role; roles?: Role[] | null; lineManagerId?: string | null },
+): string | null {
+  const actorRoles: readonly Role[] =
+    actor.roles && actor.roles.length > 0 ? actor.roles : [actor.role];
+  const applicantRoles: readonly Role[] =
+    applicant.roles && applicant.roles.length > 0 ? applicant.roles : [applicant.role];
+
+  // SUPER_ADMIN or ADMIN can approve anyone
+  if (actorRoles.includes('SUPER_ADMIN') || actorRoles.includes('ADMIN')) {
+    return null;
+  }
+
+  // HR can approve anyone except ADMIN or SUPER_ADMIN applicants
+  if (actorRoles.includes('HR')) {
+    if (applicantRoles.includes('ADMIN') || applicantRoles.includes('SUPER_ADMIN')) {
+      return 'HR cannot approve or reject requests from Admin or Super Admin users.';
+    }
+    return null;
+  }
+
+  // LINE_MANAGER can only approve their direct reports
+  if (actorRoles.includes('LINE_MANAGER')) {
+    if (applicant.lineManagerId === actor.id) {
+      return null;
+    }
+    return 'Line Managers can only approve or reject requests from their assigned team members.';
+  }
+
+  // EMPLOYEE cannot approve
+  return 'You do not have permission to approve or reject requests.';
 }
 
 /** Validate a JSON request body against a Zod schema. */
