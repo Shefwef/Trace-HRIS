@@ -16,6 +16,7 @@ import {
   Settings,
   Cog,
   ScrollText,
+  Shield,
   X,
 } from 'lucide-react';
 import { useCurrentUser } from '@/lib/session';
@@ -40,8 +41,18 @@ const adminNav = [
   { to: '/admin/settings', label: 'Settings', icon: <Settings size={18} /> },
 ];
 
+/**
+ * Line Managers get a single review entry point — they approve their own team's
+ * leave and extra work, but hold none of the directory/holiday/settings powers
+ * that the full Administration section exposes.
+ */
+const lineManagerNav = [
+  { to: '/admin/requests', label: 'Team Requests', icon: <Inbox size={18} /> },
+];
+
 const superNav = [
   { to: '/admin/system', label: 'System Config', icon: <Cog size={18} /> },
+  { to: '/admin/permissions', label: 'Permissions', icon: <Shield size={18} /> },
   { to: '/admin/audit', label: 'Audit Logs', icon: <ScrollText size={18} /> },
 ];
 
@@ -64,7 +75,11 @@ export function Sidebar() {
 
   if (!user) return null;
 
-  const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'HR';
+  const roles = user.roles?.length ? user.roles : [user.role];
+  const isAdmin = roles.includes('ADMIN') || roles.includes('SUPER_ADMIN') || roles.includes('HR');
+  // A pure Line Manager gets the team review queue only; someone who also holds
+  // HR/Admin already sees Requests inside the full Administration section.
+  const isLineManagerOnly = !isAdmin && roles.includes('LINE_MANAGER');
 
   const nav = (
     <>
@@ -96,6 +111,15 @@ export function Sidebar() {
           <>
             <div className="sidebar-section">Administration</div>
             {adminNav.map((item) => (
+              <NavItem key={item.to} to={item.to} label={item.label} icon={item.icon} />
+            ))}
+          </>
+        )}
+
+        {isLineManagerOnly && (
+          <>
+            <div className="sidebar-section">My Team</div>
+            {lineManagerNav.map((item) => (
               <NavItem key={item.to} to={item.to} label={item.label} icon={item.icon} />
             ))}
           </>
