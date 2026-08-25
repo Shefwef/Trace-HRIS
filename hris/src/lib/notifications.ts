@@ -21,3 +21,17 @@ export async function notifyMany(inputs: CreateNotificationInput[]) {
   const data: Prisma.NotificationCreateManyInput[] = inputs;
   return prisma.notification.createMany({ data });
 }
+
+/** Check a permission before creating the notification. */
+export async function notifyIfPermitted(
+  recipient: { id: string; role: any; roles?: any[] | null },
+  permissionKey: string,
+  input: Omit<CreateNotificationInput, 'recipientId'>
+) {
+  const { checkPermission } = await import('./permissions');
+  const hasPerm = await checkPermission(recipient, permissionKey);
+  if (hasPerm) {
+    return notify({ ...input, recipientId: recipient.id });
+  }
+  return null;
+}
