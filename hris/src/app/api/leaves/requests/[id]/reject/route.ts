@@ -1,17 +1,19 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireAuth, canApprove, err, parseBody } from '@/lib/api';
+import { requireAuth, canApproveRequest, err, parseBody } from '@/lib/api';
+import { checkPermission } from '@/lib/permissions';
 import { RejectLeaveSchema } from '@/lib/validation';
 import { leaveTypeLabel, formatLeavePeriod } from '@/lib/leave';
-import { notify } from '@/lib/notifications';
+import { notifyIfPermitted } from '@/lib/notifications';
 import { sendEmail } from '@/lib/email';
 import { leaveDecisionEmail, customLeaveEmail } from '@/emails/templates';
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const [user, error] = await requireAuth(req);
   if (error) return error;
-  if (!canApprove(user.role))
-    return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can reject.');
+
+  const hasPerm = await checkPermission(user, 'leave.reject');
+  if (!hasPerm) return err(403, 'FORBIDDEN', 'You do not have permission to reject leaves.');
 
   const { id } = await ctx.params;
   const [input, badReq] = await parseBody(req, RejectLeaveSchema);
@@ -21,6 +23,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!request) return err(404, 'NOT_FOUND', 'Leave request not found.');
   if (request.status !== 'PENDING')
     return err(409, 'ALREADY_DECIDED', `Request is already ${request.status.toLowerCase()}.`);
+
+  // Self-rejection guard (reinstated for production)
+  if (user.id === request.employeeId)
+    return err(403, 'SELF_REJECT', 'You cannot reject your own leave request.');
+
+  // Hierarchical authorization check
+  const applicant = await prisma.user.findUnique({ where: { id: request.employeeId } });
+  if (!applicant) return err(500, 'APPLICANT_MISSING', 'Applicant user not found.');
+  const hierarchyError = canApproveRequest(user, applicant);
+  if (hierarchyError) return err(403, 'HIERARCHY_VIOLATION', hierarchyError);
 
   const year = new Date().getFullYear();
   const balance = await prisma.leaveBalance.findUnique({
@@ -78,8 +90,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
   const employee = await prisma.user.findUnique({ where: { id: updated.employeeId } });
 
-  await notify({
-    recipientId: updated.employeeId,
+  await notifyIfPermitted(applicant, 'notifications.leave_decision', {
     type: 'LEAVE_REJECTED',
     title: 'Your leave was rejected',
     body: `${user.fullName} declined your ${leaveTypeLabel(updated.leaveType)} for ${period}. Reason: ${input.note}`,

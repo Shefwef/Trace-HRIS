@@ -11,8 +11,12 @@ import { leaveSubmittedEmail } from '@/emails/templates';
 /**
  * GET /api/leaves/requests
  *   ?scope=mine (default) — own leave requests
- *   ?scope=all           — admin/HR only: all requests, newest first
- *   ?scope=pending       — admin/HR only: PENDING requests
+ *   ?scope=all           — reviewers only: all requests, newest first
+ *   ?scope=pending       — reviewers only: PENDING requests
+ *
+ * Admin / HR / Super Admin see every request. A Line Manager sees only the
+ * requests of their assigned direct reports, which mirrors the authorization
+ * rule enforced in canApproveRequest() on the approve/reject routes.
  */
 export async function GET(req: Request) {
   const [user, error] = await requireAuth(req);
@@ -22,11 +26,19 @@ export async function GET(req: Request) {
   const scope = url.searchParams.get('scope') ?? 'mine';
 
   if (scope === 'all' || scope === 'pending') {
-    if (!['ADMIN', 'HR', 'SUPER_ADMIN'].includes(user.role))
-      return err(403, 'FORBIDDEN', 'Only admins and HR can view all requests.');
+    const roles = user.roles.length > 0 ? user.roles : [user.role];
+    const isFullReviewer =
+      roles.includes('ADMIN') || roles.includes('HR') || roles.includes('SUPER_ADMIN');
+    const isLineManager = roles.includes('LINE_MANAGER');
+    if (!isFullReviewer && !isLineManager)
+      return err(403, 'FORBIDDEN', 'You do not have permission to view other requests.');
 
     const requests = await prisma.leaveRequest.findMany({
-      where: scope === 'pending' ? { status: 'PENDING' } : {},
+      where: {
+        ...(scope === 'pending' ? { status: 'PENDING' as const } : {}),
+        // Team-scoped for Line Managers who hold no wider reviewer role
+        ...(isFullReviewer ? {} : { employee: { lineManagerId: user.id } }),
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         employee: {
@@ -139,7 +151,7 @@ export async function POST(req: Request) {
 
   // Fan out notifications + emails (outside DB tx; failures logged but don't roll back)
   const allUsers = await prisma.user.findMany({ where: { isActive: true } });
-  const { to, cc } = approvalRecipients(user, allUsers);
+  const { to, cc } = await approvalRecipients(user, allUsers, 'notifications.leave_pending');
   const period = formatLeavePeriod(
     input.startDate,
     input.endDate,
