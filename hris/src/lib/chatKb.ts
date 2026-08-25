@@ -6,17 +6,23 @@
 export const APP_KNOWLEDGE_BASE = `
 # Trace HRIS — how this app works
 
-## Roles (4)
-- **Super Admin** — technical owner (currently: shefadib@gmail.com). Full access, sees audit logs and /admin/system.
+## Roles (5)
+- **Super Admin** — technical owner (currently: shefadib@gmail.com). Full access, sees audit logs, system settings, and configures the runtime Permission Matrix (/admin/permissions).
 - **Admin** — CEO/CTO. Approves/rejects, gets CC'd on Employee leave requests. Also can apply for leave.
-- **HR** — People Operations (currently Abu Saleh + Umme). Approve/reject, invite employees, manage holidays and settings.
+- **HR** — People Operations. Approve/reject, invite employees, manage holidays and settings.
+- **Line Manager** — Direct team supervisors. Can view team reports and approve/reject leave requests from direct reports.
 - **Employee** — general staff. Apply for leave, clock in/out, log extra work, view own analytics.
 
 ## Approval routing (server-enforced)
-- Employee submits → notifies BOTH HR users, CCs the CEO.
-- HR submits → other HR + CEO, CCs Super Admin.
-- Admin submits → Super Admin + HR.
-- Super Admin submits → HR + CEO.
+- Employee submits → notifies Line Manager (if assigned) + HR + Super Admin.
+- Line Manager submits → HR + Super Admin.
+- HR submits → Super Admin + other HR.
+- Admin submits → Super Admin.
+- Super Admin submits → HR.
+
+## Permission Matrix
+- Super Admin can configure runtime permissions for each role via \`/admin/permissions\`.
+- Toggles actions (e.g. \`leave.approve\`, \`employee.deactivate\`, \`settings.edit\`) and notification preferences.
 
 ## Leave types
 - **Casual (CL)** — 12 days per cycle
