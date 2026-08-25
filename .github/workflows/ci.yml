@@ -46,3 +46,8 @@ jobs:
 
       - name: Build (prisma generate + next build)
         run: npm run build
+
+      # Runs after the build so `tsc` can resolve the route-type validators
+      # that `next build` generates under .next/types.
+      - name: Typecheck (tsc --noEmit)
+        run: npm run typecheck
