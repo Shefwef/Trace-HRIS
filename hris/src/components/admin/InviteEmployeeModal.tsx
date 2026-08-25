@@ -14,14 +14,14 @@ interface Props {
   onClose: () => void;
 }
 
-type Role = 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'EMPLOYEE';
+type Role = 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'LINE_MANAGER' | 'EMPLOYEE';
 
 // Which roles the inviter can grant on this new account. Mirrors the
 // server-side hierarchy in /api/users/[id]/route.ts.
 function invitableRoles(actorRole: string | undefined): Role[] {
   if (actorRole === 'SUPER_ADMIN' || actorRole === 'ADMIN')
-    return ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'];
-  if (actorRole === 'HR') return ['HR', 'EMPLOYEE'];
+    return ['SUPER_ADMIN', 'ADMIN', 'HR', 'LINE_MANAGER', 'EMPLOYEE'];
+  if (actorRole === 'HR') return ['HR', 'LINE_MANAGER', 'EMPLOYEE'];
   return [];
 }
 
@@ -29,6 +29,7 @@ const ROLE_LABEL: Record<Role, string> = {
   SUPER_ADMIN: 'Super Admin',
   ADMIN: 'Admin (CEO/CTO)',
   HR: 'HR',
+  LINE_MANAGER: 'Line Manager',
   EMPLOYEE: 'Employee',
 };
 

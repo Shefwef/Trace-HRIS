@@ -19,6 +19,117 @@
   margin-top: auto;
 }
 
+/* Shown on the viewer's own card, where every action is blocked server-side. */
+.empg-self-note {
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 4px 0;
+}
+
+/* Phase 7 Employees Tab and Modal Additions */
+.empg-filters {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.empg-tabs {
+  display: flex;
+  gap: 8px;
+  background: var(--color-bg-subtle);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-default);
+}
+.empg-tab {
+  padding: 6px 16px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.empg-tab:hover {
+  color: var(--color-text-primary);
+}
+.empg-tab.active {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.empg-card-deactivated {
+  opacity: 0.65;
+  filter: grayscale(1);
+}
+.empg-card-deactivated:hover {
+  opacity: 0.8;
+  filter: grayscale(0.5);
+}
+
+.empg-team-info, .empg-lm-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-primary);
+  margin-top: 4px;
+}
+.empg-team-info strong, .empg-lm-info strong {
+  font-weight: var(--weight-semibold);
+}
+
+/* Team Assignment Modal */
+.empg-team-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 350px;
+  overflow-y: auto;
+  padding: 4px;
+  margin-top: 12px;
+}
+.empg-team-check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.empg-team-check:hover {
+  border-color: var(--color-brand-secondary);
+  background: var(--color-bg-subtle);
+}
+.empg-team-check.is-checked {
+  border-color: var(--color-brand-primary);
+  background: color-mix(in srgb, var(--color-brand-primary) 5%, transparent);
+}
+.empg-team-member {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+.empg-team-member-info {
+  display: flex;
+  flex-direction: column;
+}
+.empg-team-member-info .name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+}
+.empg-team-member-info .desig {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
 /* Roles modal — same checkbox chip style as before, just lives in a
    dialog now instead of on every card. */
 .empg-modal-desc {
@@ -124,10 +235,6 @@
   box-shadow: var(--shadow-md);
 }
 
-/* Reserve a consistent block for the top identity area so single-line
-   designations (e.g. "Research Associate") don't collapse the card while
-   longer ones (2-line specialist titles) don't push everything below out
-   of alignment. Grid rows: name → designation → badges. */
 .empg-card-top {
   display: flex;
   gap: 12px;
@@ -152,8 +259,6 @@
   font-size: var(--text-sm);
   color: var(--color-text-secondary);
   line-height: 1.35;
-  /* Reserve exactly 2 lines of vertical space so 1-line and 2-line
-     designations sit at the same block height across cards. */
   min-height: calc(var(--text-sm) * 1.35 * 2);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -209,9 +314,6 @@
   margin-top: 4px;
 }
 
-/* Multi-role checkbox group. A user can hold more than one role at once
-   (e.g. a COO who is both ADMIN and HR). Each checkbox toggles one role
-   in the set. At least one role is always required. */
 .empg-card-roles {
   display: flex;
   flex-direction: column;
@@ -281,11 +383,6 @@
   cursor: not-allowed;
 }
 
-/* Legacy single-select role field kept below for reference / migration.
-   Not used under the multi-role model. */
-/* Role field — a proper form group inside the card, not a floating row.
-   Label sits above the dropdown, both wrapped in a subtle boxed container
-   so it reads as one considered element instead of two loose bits. */
 .empg-card-role {
   display: flex;
   flex-direction: column;
@@ -322,7 +419,6 @@
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  /* Chevron rendered as an inline SVG so every browser looks identical */
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234A5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
   background-repeat: no-repeat;
   background-position: right 10px center;

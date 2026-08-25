@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { Search, Mail, UserPlus, UserX, ShieldCheck } from 'lucide-react';
+import { Search, Mail, UserPlus, UserX, ShieldCheck, Users, RefreshCw } from 'lucide-react';
 import { useUsers, useUpdateEmployee } from '@/lib/hooks';
 import { initials, avatarColorFor, useCurrentUser } from '@/lib/session';
 import { useStore } from '@/lib/store';
@@ -10,20 +10,18 @@ import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { InviteEmployeeModal } from '../../components/admin/InviteEmployeeModal';
+import { cx } from '../../lib/utils';
 import './Employees.css';
 
-type AppRole = 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'EMPLOYEE';
+type AppRole = 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'LINE_MANAGER' | 'EMPLOYEE';
 
 /**
  * Which roles the current actor is allowed to assign.
- *   SUPER_ADMIN / ADMIN → all four roles.
- *   HR                  → HR + EMPLOYEE only.
- *   EMPLOYEE            → nothing (this page is HR+ only anyway).
  */
 function assignableRoles(actorRole: string | undefined): AppRole[] {
   if (actorRole === 'SUPER_ADMIN' || actorRole === 'ADMIN')
-    return ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'];
-  if (actorRole === 'HR') return ['HR', 'EMPLOYEE'];
+    return ['SUPER_ADMIN', 'ADMIN', 'HR', 'LINE_MANAGER', 'EMPLOYEE'];
+  if (actorRole === 'HR') return ['HR', 'LINE_MANAGER', 'EMPLOYEE'];
   return [];
 }
 
@@ -31,13 +29,15 @@ const ROLE_LABEL: Record<AppRole, string> = {
   SUPER_ADMIN: 'Super Admin',
   ADMIN: 'Admin',
   HR: 'HR',
+  LINE_MANAGER: 'Line Manager',
   EMPLOYEE: 'Employee',
 };
 
-const ROLE_BADGE_VARIANT: Record<AppRole, 'info' | 'replacement' | 'success' | 'default'> = {
+const ROLE_BADGE_VARIANT: Record<AppRole, 'info' | 'replacement' | 'success' | 'default' | 'warning'> = {
   SUPER_ADMIN: 'success',
   ADMIN: 'info',
   HR: 'replacement',
+  LINE_MANAGER: 'warning',
   EMPLOYEE: 'default',
 };
 
@@ -48,28 +48,41 @@ function toggleRole(current: AppRole[], role: AppRole): AppRole[] {
 
 export function EmployeesPage() {
   const currentUser = useCurrentUser();
-  const { data: users = [], isLoading } = useUsers();
+  // Fetch all users including deactivated so we can show tabs
+  const { data: users = [], isLoading } = useUsers({ includeDeactivated: true });
   const updateEmployee = useUpdateEmployee();
   const addToast = useStore((s) => s.addToast);
+
   const [q, setQ] = useState('');
+  const [tab, setTab] = useState<'ACTIVE' | 'DEACTIVATED' | 'ALL'>('ACTIVE');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [deactivateId, setDeactivateId] = useState<string | null>(null);
+  const [reactivateId, setReactivateId] = useState<string | null>(null);
   const [rolesEditId, setRolesEditId] = useState<string | null>(null);
   const [pendingRoles, setPendingRoles] = useState<AppRole[]>([]);
+  const [teamAssignId, setTeamAssignId] = useState<string | null>(null);
+  const [pendingTeam, setPendingTeam] = useState<Set<string>>(new Set());
 
   const rolesEditUser = rolesEditId ? users.find((u) => u.id === rolesEditId) : null;
+  const teamAssignUser = teamAssignId ? users.find((u) => u.id === teamAssignId) : null;
 
   const canAssign = assignableRoles(currentUser?.role);
   const canEditRoles = canAssign.length > 0;
+  // HR, Admin, Super Admin can assign teams
+  const canAssignTeam = canAssign.length > 0;
 
   const filtered = useMemo(
     () =>
       users
-        // Hide the actor from their own list; you can't edit yourself here.
-        .filter((u) => u.id !== currentUser?.id)
-        // Super Admin is the technical owner - not listed as a regular
-        // employee in the directory, regardless of who's viewing.
-        .filter((u) => !(u.roles ?? [u.role]).includes('SUPER_ADMIN'))
+        // Apply tab filter
+        .filter((u) => {
+          if (tab === 'ACTIVE') return u.isActive;
+          if (tab === 'DEACTIVATED') return !u.isActive;
+          return true;
+        })
+        // Everyone is listed, including Super Admins and the viewer themselves.
+        // The viewer's own card is rendered read-only further down, because the
+        // API rejects self role-changes and self-deactivation anyway.
         .filter((u) => {
           if (!q.trim()) return true;
           const n = q.trim().toLowerCase();
@@ -80,31 +93,83 @@ export function EmployeesPage() {
             (u.employeeIdCode ?? '').toLowerCase().includes(n)
           );
         }),
-    [users, q, currentUser]
+    [users, q, tab]
   );
+
+  // Compute team sizes for badge display
+  const teamSizes = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const u of users) {
+      if (u.isActive && u.lineManagerId) {
+        counts.set(u.lineManagerId, (counts.get(u.lineManagerId) || 0) + 1);
+      }
+    }
+    return counts;
+  }, [users]);
+
+  // Candidates for team assignment. Anyone may report to a Line Manager,
+  // including a Super Admin. Other Line Managers are excluded so the picker
+  // can't create a reporting cycle.
+  const teamCandidates = useMemo(() => {
+    if (!teamAssignUser) return [];
+    return users.filter(
+      (u) =>
+        u.isActive &&
+        u.id !== teamAssignUser.id &&
+        !(u.roles?.length ? u.roles : [u.role]).includes('LINE_MANAGER'),
+    );
+  }, [users, teamAssignUser]);
 
   function updateRoles(id: string, nextRoles: AppRole[]) {
     if (nextRoles.length === 0) {
-      addToast({
-        kind: 'error',
-        title: 'At least one role required',
-        body: 'A user must have at least one role. Add another before removing this one.',
-      });
+      addToast({ kind: 'error', title: 'At least one role required' });
       return;
     }
     updateEmployee.mutate(
       { id, patch: { roles: nextRoles } },
       {
-        onSuccess: () =>
-          addToast({
-            kind: 'success',
-            title: 'Roles updated',
-            body: nextRoles.map((r) => ROLE_LABEL[r]).join(' · '),
-          }),
-        onError: (e: Error) =>
-          addToast({ kind: 'error', title: 'Could not update roles', body: e.message }),
+        onSuccess: () => addToast({ kind: 'success', title: 'Roles updated' }),
+        onError: (e: Error) => addToast({ kind: 'error', title: 'Could not update roles', body: e.message }),
       },
     );
+  }
+
+  function handleSaveTeam() {
+    if (!teamAssignId) return;
+
+    // Find who was added and removed
+    const currentTeam = new Set(users.filter(u => u.lineManagerId === teamAssignId).map(u => u.id));
+    const added = [...pendingTeam].filter(id => !currentTeam.has(id));
+    const removed = [...currentTeam].filter(id => !pendingTeam.has(id));
+
+    let pendingCount = added.length + removed.length;
+    let errCount = 0;
+
+    const finalize = () => {
+      pendingCount--;
+      if (pendingCount === 0) {
+        setTeamAssignId(null);
+        if (errCount > 0) addToast({ kind: 'error', title: 'Some team assignments failed' });
+        else addToast({ kind: 'success', title: 'Team updated successfully' });
+      }
+    };
+
+    if (pendingCount === 0) {
+      setTeamAssignId(null);
+      return;
+    }
+
+    added.forEach(id => {
+      updateEmployee.mutate({ id, patch: { lineManagerId: teamAssignId } }, {
+        onSuccess: finalize, onError: () => { errCount++; finalize(); }
+      });
+    });
+
+    removed.forEach(id => {
+      updateEmployee.mutate({ id, patch: { lineManagerId: null } }, {
+        onSuccess: finalize, onError: () => { errCount++; finalize(); }
+      });
+    });
   }
 
   return (
@@ -119,25 +184,31 @@ export function EmployeesPage() {
         </Button>
       </div>
 
-      <div className="empg-search">
-        <Search size={16} className="empg-search-icon" />
-        <input
-          className="empg-search-input"
-          placeholder="Search by name, employee ID, email, or department"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          aria-label="Search employees"
-        />
-        {q && (
-          <button
-            type="button"
-            className="empg-search-clear"
-            onClick={() => setQ('')}
-            aria-label="Clear search"
-          >
-            ×
+      <div className="empg-filters">
+        <div className="empg-tabs">
+          <button className={cx('empg-tab', tab === 'ACTIVE' && 'active')} onClick={() => setTab('ACTIVE')}>
+            Active
           </button>
-        )}
+          <button className={cx('empg-tab', tab === 'DEACTIVATED' && 'active')} onClick={() => setTab('DEACTIVATED')}>
+            Deactivated
+          </button>
+          <button className={cx('empg-tab', tab === 'ALL' && 'active')} onClick={() => setTab('ALL')}>
+            All
+          </button>
+        </div>
+        <div className="empg-search">
+          <Search size={16} className="empg-search-icon" />
+          <input
+            className="empg-search-input"
+            placeholder="Search by name, employee ID, email, or department"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            aria-label="Search employees"
+          />
+          {q && (
+            <button type="button" className="empg-search-clear" onClick={() => setQ('')} aria-label="Clear search">×</button>
+          )}
+        </div>
       </div>
 
       {isLoading && <div className="muted">Loading employees…</div>}
@@ -157,8 +228,14 @@ export function EmployeesPage() {
         <div className="empg-grid">
           {filtered.map((u) => {
             const currentRoles = ((u.roles?.length ? u.roles : [u.role]) as AppRole[]);
+            const isLM = currentRoles.includes('LINE_MANAGER');
+            const teamSize = teamSizes.get(u.id) || 0;
+            // You can't change your own roles or deactivate yourself — the API
+            // returns SELF_ROLE_CHANGE / SELF_DEACTIVATE — so the card is read-only.
+            const isSelf = u.id === currentUser?.id;
+
             return (
-              <div key={u.id} className="empg-card card">
+              <div key={u.id} className={cx('empg-card card', !u.isActive && 'empg-card-deactivated')}>
                 <div className="empg-card-top">
                   <Avatar
                     initials={initials(u.fullName)}
@@ -171,6 +248,7 @@ export function EmployeesPage() {
                     <div className="empg-name">{u.fullName}</div>
                     <div className="empg-role">{u.designation}</div>
                     <div className="empg-dept">
+                      {isSelf && <Badge variant="info">You</Badge>}
                       {u.department && <Badge>{u.department}</Badge>}
                       {currentRoles.map((r) => (
                         <Badge key={r} variant={ROLE_BADGE_VARIANT[r]}>
@@ -181,31 +259,71 @@ export function EmployeesPage() {
                   </div>
                 </div>
                 <div className="empg-card-body">
-                  <span className="mono">{u.employeeIdCode ?? '—'}</span>
-                  <span className="empg-mail"><Mail size={12} /> {u.email}</span>
+                  <div className="empg-info-row mono">{u.employeeIdCode ?? '—'}</div>
+                  <div className="empg-info-row empg-mail"><Mail size={12} /> {u.email}</div>
+
+                  {isLM && u.isActive && (
+                     <div className="empg-info-row empg-team-info">
+                       <Users size={12} /> Team size: <strong>{teamSize}</strong>
+                     </div>
+                  )}
+                  {u.lineManager && u.isActive && !isLM && (
+                     <div className="empg-info-row empg-lm-info">
+                       <ShieldCheck size={12} /> Manager: <strong>{u.lineManager.fullName}</strong>
+                     </div>
+                  )}
                 </div>
                 <div className="empg-card-actions">
-                  {canEditRoles && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      leadingIcon={<ShieldCheck size={12} />}
-                      onClick={() => {
-                        setRolesEditId(u.id);
-                        setPendingRoles(currentRoles);
-                      }}
-                    >
-                      Manage roles
-                    </Button>
+                  {isSelf ? (
+                    <span className="muted empg-self-note">
+                      Ask another admin to change your own roles or status.
+                    </span>
+                  ) : (
+                    <>
+                      {canEditRoles && u.isActive && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          leadingIcon={<ShieldCheck size={12} />}
+                          onClick={() => { setRolesEditId(u.id); setPendingRoles(currentRoles); }}
+                        >
+                          Roles
+                        </Button>
+                      )}
+                      {canAssignTeam && isLM && u.isActive && (
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           leadingIcon={<Users size={12} />}
+                           onClick={() => {
+                             setTeamAssignId(u.id);
+                             setPendingTeam(new Set(users.filter(x => x.lineManagerId === u.id).map(x => x.id)));
+                           }}
+                         >
+                           Assign team
+                         </Button>
+                      )}
+                      {u.isActive ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          leadingIcon={<UserX size={12} />}
+                          onClick={() => setDeactivateId(u.id)}
+                        >
+                          Deactivate
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          leadingIcon={<RefreshCw size={12} />}
+                          onClick={() => setReactivateId(u.id)}
+                        >
+                          Reactivate
+                        </Button>
+                      )}
+                    </>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    leadingIcon={<UserX size={12} />}
-                    onClick={() => setDeactivateId(u.id)}
-                  >
-                    Deactivate
-                  </Button>
                 </div>
               </div>
             );
@@ -246,6 +364,32 @@ export function EmployeesPage() {
       </Modal>
 
       <Modal
+        open={!!reactivateId}
+        onClose={() => setReactivateId(null)}
+        title="Reactivate employee?"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setReactivateId(null)}>Cancel</Button>
+            <Button
+              variant="primary"
+              loading={updateEmployee.isPending}
+              onClick={() => {
+                if (!reactivateId) return;
+                updateEmployee.mutate(
+                  { id: reactivateId, patch: { isActive: true } },
+                  { onSuccess: () => setReactivateId(null) }
+                );
+              }}
+            >
+              Reactivate
+            </Button>
+          </>
+        }
+      >
+        <p>This user will be able to sign in again and appear in active employee lists.</p>
+      </Modal>
+
+      <Modal
         open={!!rolesEditId}
         onClose={() => setRolesEditId(null)}
         title={rolesEditUser ? `Manage roles - ${rolesEditUser.fullName}` : 'Manage roles'}
@@ -271,7 +415,7 @@ export function EmployeesPage() {
           A person can hold more than one role at once. You must keep at least one role granted.
         </p>
         <div className="empg-modal-roles">
-          {(['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] as AppRole[]).map((r) => {
+          {(['SUPER_ADMIN', 'ADMIN', 'HR', 'LINE_MANAGER', 'EMPLOYEE'] as AppRole[]).map((r) => {
             const checked = pendingRoles.includes(r);
             const locked = !canAssign.includes(r);
             return (
@@ -290,6 +434,59 @@ export function EmployeesPage() {
               </label>
             );
           })}
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!teamAssignId}
+        onClose={() => setTeamAssignId(null)}
+        title={teamAssignUser ? `Assign team to ${teamAssignUser.fullName}` : 'Assign team'}
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setTeamAssignId(null)}>Cancel</Button>
+            <Button
+              variant="primary"
+              loading={updateEmployee.isPending}
+              onClick={handleSaveTeam}
+            >
+              Save team
+            </Button>
+          </>
+        }
+      >
+        <p className="empg-modal-desc">
+          Select the employees that will report to this Line Manager. The Line Manager will approve their leaves and extra work.
+        </p>
+        <div className="empg-team-list">
+          {teamCandidates.length === 0 ? (
+            <div className="muted">No eligible employees found.</div>
+          ) : (
+            teamCandidates.map(u => {
+              const checked = pendingTeam.has(u.id);
+              return (
+                <label key={u.id} className={`empg-team-check ${checked ? 'is-checked' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) => {
+                      const next = new Set(pendingTeam);
+                      if (e.target.checked) next.add(u.id);
+                      else next.delete(u.id);
+                      setPendingTeam(next);
+                    }}
+                  />
+                  <div className="empg-team-member">
+                    <Avatar initials={initials(u.fullName)} color={avatarColorFor(u.id)} size="sm" imageUrl={u.avatarUrl} />
+                    <div className="empg-team-member-info">
+                      <div className="name">{u.fullName}</div>
+                      <div className="desig">{u.designation}</div>
+                    </div>
+                  </div>
+                </label>
+              );
+            })
+          )}
         </div>
       </Modal>
     </div>
