@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
-import { requireAuth, parseBody, err, canApprove } from '@/lib/api';
+import { requireAuth, parseBody, err } from '@/lib/api';
+import { checkPermission } from '@/lib/permissions';
 import { UpdateHolidaySchema } from '@/lib/validation';
 import { serialize } from '../route';
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const [user, error] = await requireAuth(req);
   if (error) return error;
-  if (!canApprove(user.role))
-    return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can update holidays.');
+
+  const hasPerm = await checkPermission(user, 'holiday.edit');
+  if (!hasPerm) return err(403, 'FORBIDDEN', 'You do not have permission to update holidays.');
 
   const { id } = await ctx.params;
   const [input, badReq] = await parseBody(req, UpdateHolidaySchema);
@@ -47,8 +49,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const [user, error] = await requireAuth(req);
   if (error) return error;
-  if (!canApprove(user.role))
-    return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can delete holidays.');
+
+  const hasPerm = await checkPermission(user, 'holiday.delete');
+  if (!hasPerm) return err(403, 'FORBIDDEN', 'You do not have permission to delete holidays.');
 
   const { id } = await ctx.params;
   const existing = await prisma.holiday.findUnique({ where: { id } });

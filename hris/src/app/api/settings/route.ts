@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireAuth, canApprove, parseBody, err } from '@/lib/api';
+import { requireAuth, parseBody, err } from '@/lib/api';
+import { checkPermission } from '@/lib/permissions';
 import { UpdateSettingsSchema } from '@/lib/validation';
 
 function serialize(s: {
@@ -38,11 +39,19 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   const [user, error] = await requireAuth(req);
   if (error) return error;
-  if (!canApprove(user.role))
-    return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can edit settings.');
+
+  const hasPerm = await checkPermission(user, 'settings.edit');
+  if (!hasPerm) return err(403, 'FORBIDDEN', 'You do not have permission to edit system settings.');
 
   const [input, badReq] = await parseBody(req, UpdateSettingsSchema);
   if (badReq) return badReq;
+
+  if (input.qaRedirectEmail !== undefined) {
+    const hasQaPerm = await checkPermission(user, 'settings.edit_qa_redirect');
+    if (!hasQaPerm) {
+      return err(403, 'FORBIDDEN', 'You do not have permission to edit the QA redirect email.');
+    }
+  }
 
   const before = await prisma.systemSettings.upsert({
     where: { id: 'singleton' },

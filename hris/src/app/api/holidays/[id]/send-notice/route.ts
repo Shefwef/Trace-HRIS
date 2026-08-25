@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireAuth, err, canApprove } from '@/lib/api';
+import { requireAuth, err } from '@/lib/api';
+import { checkPermission } from '@/lib/permissions';
 import { notifyMany } from '@/lib/notifications';
 import { sendEmail } from '@/lib/email';
 import { holidayNoticeEmail } from '@/emails/templates';
@@ -14,8 +15,9 @@ import { holidayNoticeEmail } from '@/emails/templates';
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const [user, error] = await requireAuth(req);
   if (error) return error;
-  if (!canApprove(user.role))
-    return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can send holiday notices.');
+
+  const hasPerm = await checkPermission(user, 'holiday.send_notice');
+  if (!hasPerm) return err(403, 'FORBIDDEN', 'You do not have permission to send holiday notices.');
 
   const { id } = await ctx.params;
   const holiday = await prisma.holiday.findUnique({ where: { id } });
@@ -32,8 +34,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     recipients = allUsers.filter((u) => holiday.customRecipientIds.includes(u.id));
   // ALL — everyone (excluding SUPER_ADMIN if you'd like; keeping inclusive for now)
 
+  // Filter recipients by the notification permission
+  const finalRecipients = [];
+  for (const r of recipients) {
+    if (await checkPermission(r, 'notifications.holiday_notice')) {
+      finalRecipients.push(r);
+    }
+  }
+  recipients = finalRecipients;
+
   if (recipients.length === 0)
-    return err(400, 'NO_RECIPIENTS', 'No recipients matched the current selection.');
+    return err(400, 'NO_RECIPIENTS', 'No recipients matched the current selection, or all users have notifications disabled.');
 
   const settings = await prisma.systemSettings.upsert({
     where: { id: 'singleton' },

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireAuth, parseBody, err, canApprove } from '@/lib/api';
+import { requireAuth, parseBody, err } from '@/lib/api';
+import { checkPermission } from '@/lib/permissions';
 import { CreateHolidaySchema } from '@/lib/validation';
 
 /**
@@ -25,16 +26,16 @@ export async function GET(req: Request) {
     orderBy: { date: 'asc' },
     include: { createdBy: { select: { id: true, fullName: true } } },
   });
-
   return NextResponse.json(holidays.map(serialize));
 }
 
-/** POST /api/holidays — create a new holiday (HR/Admin/Super Admin only). */
+/** POST /api/holidays — create a new holiday. */
 export async function POST(req: Request) {
   const [user, error] = await requireAuth(req);
   if (error) return error;
-  if (!canApprove(user.role))
-    return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can create holidays.');
+
+  const hasPerm = await checkPermission(user, 'holiday.create');
+  if (!hasPerm) return err(403, 'FORBIDDEN', 'You do not have permission to create holidays.');
 
   const [input, badReq] = await parseBody(req, CreateHolidaySchema);
   if (badReq) return badReq;
