@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClerkClient } from '@clerk/backend';
 import { prisma } from '@/lib/db';
-import { requireAuth, canApprove, parseBody, err } from '@/lib/api';
+import { requireAuth, parseBody, err } from '@/lib/api';
+import { checkPermission } from '@/lib/permissions';
 import { InviteEmployeeSchema } from '@/lib/validation';
 import { primaryRole, validateRoleAssignment } from '@/lib/roles';
 
@@ -11,8 +12,9 @@ const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
 export async function POST(req: Request) {
   const [actor, error] = await requireAuth(req);
   if (error) return error;
-  if (!canApprove(actor))
-    return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can invite employees.');
+
+  const hasPerm = await checkPermission(actor, 'employee.invite');
+  if (!hasPerm) return err(403, 'FORBIDDEN', 'You do not have permission to invite employees.');
 
   const [input, badReq] = await parseBody(req, InviteEmployeeSchema);
   if (badReq) return badReq;
@@ -65,6 +67,7 @@ export async function POST(req: Request) {
       designation: input.designation,
       employeeIdCode: input.employeeIdCode,
       cycleStartMonth: input.cycleStartMonth,
+      lineManagerId: input.lineManagerId,
     },
   });
 

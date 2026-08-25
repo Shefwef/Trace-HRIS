@@ -2,20 +2,36 @@ import { NextResponse } from 'next/server';
 import { createClerkClient } from '@clerk/backend';
 import { prisma } from '@/lib/db';
 import { requireAuth, parseBody, err } from '@/lib/api';
+import { checkPermission } from '@/lib/permissions';
 import { UpdateEmployeeSchema } from '@/lib/validation';
-import { canApproveLeave, primaryRole, validateRoleAssignment } from '@/lib/roles';
+import { primaryRole, validateRoleAssignment } from '@/lib/roles';
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const [actor, error] = await requireAuth(req);
   if (error) return error;
-  if (!canApproveLeave(actor))
-    return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can edit employees.');
 
   const { id } = await ctx.params;
   const [input, badReq] = await parseBody(req, UpdateEmployeeSchema);
   if (badReq) return badReq;
+
+  // Granular permission checks
+  const canRole = await checkPermission(actor, 'employee.assign_role');
+  const canDeactivate = await checkPermission(actor, 'employee.deactivate');
+  const canAssignLM = await checkPermission(actor, 'employee.assign_line_manager');
+
+  if (input.roles !== undefined && !canRole)
+    return err(403, 'FORBIDDEN', 'You do not have permission to assign roles.');
+  if (input.isActive !== undefined && !canDeactivate)
+    return err(403, 'FORBIDDEN', 'You do not have permission to deactivate employees.');
+  if (input.lineManagerId !== undefined && !canAssignLM)
+    return err(403, 'FORBIDDEN', 'You do not have permission to assign line managers.');
+
+  // If they are just updating name/department/etc, ensure they have at least one employee management perm
+  if (!canRole && !canDeactivate && !canAssignLM) {
+    return err(403, 'FORBIDDEN', 'You do not have permission to edit employees.');
+  }
 
   const existing = await prisma.user.findUnique({ where: { id } });
   if (!existing) return err(404, 'NOT_FOUND', 'User not found.');
@@ -58,6 +74,27 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     }
   }
 
+  // If assigning a line manager, verify they exist and hold the LINE_MANAGER role
+  if (input.lineManagerId) {
+    const lm = await prisma.user.findUnique({ where: { id: input.lineManagerId } });
+    if (!lm) return err(404, 'NOT_FOUND', 'Line manager not found.');
+    if (!lm.roles.includes('LINE_MANAGER') && !lm.roles.includes('SUPER_ADMIN')) {
+       // Super Admin can be a line manager in QA, but otherwise must have LINE_MANAGER role
+      return err(400, 'INVALID_LINE_MANAGER', 'The assigned user does not hold the Line Manager role.');
+    }
+  }
+
+  // Handle deactivation tracking fields
+  let deactivatedAt = undefined;
+  let deactivatedById = undefined;
+  if (input.isActive === false && existing.isActive === true) {
+    deactivatedAt = new Date();
+    deactivatedById = actor.id;
+  } else if (input.isActive === true && existing.isActive === false) {
+    deactivatedAt = null;
+    deactivatedById = null;
+  }
+
   // If roles is being set, dedupe and derive the denormalized `role`
   // from the highest-ranked entry.
   const nextRoles = input.roles ? Array.from(new Set(input.roles)) : undefined;
@@ -73,6 +110,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       designation: input.designation,
       employeeIdCode: input.employeeIdCode,
       isActive: input.isActive,
+      lineManagerId: input.lineManagerId !== undefined ? input.lineManagerId : undefined,
+      deactivatedAt: deactivatedAt !== undefined ? deactivatedAt : undefined,
+      deactivatedById: deactivatedById !== undefined ? deactivatedById : undefined,
     },
   });
 

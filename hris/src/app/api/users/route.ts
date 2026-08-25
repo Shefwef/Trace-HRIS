@@ -8,12 +8,17 @@ export async function GET(req: Request) {
   const [, error] = await requireAuth(req);
   if (error) return error;
 
+  const url = new URL(req.url);
+  const includeDeactivated = url.searchParams.get('includeDeactivated') === 'true';
+
   const users = await prisma.user.findMany({
-    where: { isActive: true },
+    where: includeDeactivated ? {} : { isActive: true },
     orderBy: { fullName: 'asc' },
     select: {
       id: true, fullName: true, email: true, role: true, roles: true,
       department: true, designation: true, employeeIdCode: true, avatarUrl: true,
+      isActive: true, lineManagerId: true,
+      lineManager: { select: { id: true, fullName: true } },
     },
   });
   return NextResponse.json(users);
