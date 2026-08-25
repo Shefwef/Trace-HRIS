@@ -1,10 +1,12 @@
 /**
- * Seed the 5 real users into Clerk + Postgres — each with a known initial
- * password so you can share credentials, and they can reset from Clerk's UI
- * later.
+ * Full re-seed: push every user in `prisma/seed-users.ts` into Clerk + Postgres,
+ * each with a known initial password so credentials can be shared and reset from
+ * Clerk's UI later. Also seeds SystemSettings and the RolePermission defaults.
  *
- * Idempotent: existing Clerk users get their metadata refreshed and password
- * re-applied. Mock/demo users that don't match the allowlist are removed.
+ * DESTRUCTIVE. Re-applies the hardcoded password to every existing account
+ * (`skipPasswordChecks: true`) and deletes any Clerk/Postgres user whose email
+ * is not in the allowlist. To refresh roles, photos and permissions WITHOUT
+ * touching passwords or pruning anyone, run `npm run db:sync-roles` instead.
  *
  * Usage:
  *   npm run db:seed
@@ -13,6 +15,7 @@ import { createClerkClient } from '@clerk/backend';
 import { PrismaClient } from '@prisma/client';
 import { SEED_USERS, type SeedUser } from './seed-users';
 import { primaryRole } from '../src/lib/roles';
+import { seedPermissionDefaults } from '../src/lib/permissions';
 
 const prisma = new PrismaClient();
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
@@ -151,11 +154,19 @@ async function main() {
 
   console.log('\nSeeding users:');
   for (const u of SEED_USERS) {
-    console.log(`\n• ${u.fullName} (${u.role})`);
+    const roleLabel = u.roles ? u.roles.join('+') : 'EMPLOYEE';
+    console.log(`\n• ${u.fullName} (${roleLabel})`);
     const clerkUser = await findOrCreateClerkUser(u);
     await upsertDbUser(clerkUser.id, u);
     console.log(`  ✓ Postgres user upserted`);
   }
+
+  // Role permission defaults — idempotent, only inserts combos that are missing.
+  // Without this a fresh database has an empty role_permissions table and the
+  // Permissions screen falls back to DEFAULT_MATRIX with nothing stored to edit.
+  console.log('\nSeeding role permission defaults:');
+  const seededPerms = await seedPermissionDefaults();
+  console.log(`  ✓ ${seededPerms} new permission row(s) created`);
 
   console.log('\n✅ Seed complete!\n');
   console.log('═══════════════════════════════════════════════════════════════');
@@ -164,7 +175,8 @@ async function main() {
   console.log('  Sign-in URL:    http://localhost:3000/sign-in');
   console.log('  Sign-in URL:    <your-production-domain>/sign-in\n');
   for (const u of SEED_USERS) {
-    console.log(`  ${u.role.padEnd(11)}  ${u.fullName}`);
+    const roleLabel = u.roles ? u.roles.join('+') : 'EMPLOYEE';
+    console.log(`  ${roleLabel.padEnd(16)}  ${u.fullName}`);
     console.log(`               Email:     ${u.email}`);
     console.log(`               Password:  ${u.password}`);
     console.log('');

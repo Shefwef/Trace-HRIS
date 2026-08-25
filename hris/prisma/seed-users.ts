@@ -1,17 +1,21 @@
 import type { Role } from '@prisma/client';
 
 export interface SeedUser {
-  email: string;
-  fullName: string;
   firstName: string;
   lastName: string;
-  /** Full set of granted roles. First entry is the display primary. */
+  fullName: string;
+  email: string;
+  /** Initial plaintext password for the Clerk account. */
+  password?: string;
+  /**
+   * One or more roles from the 5-role hierarchy:
+   * SUPER_ADMIN, ADMIN, HR, LINE_MANAGER, EMPLOYEE
+   */
   roles: Role[];
   department: string;
   designation: string;
   employeeIdCode: string;
-  avatarPath: string;
-  password: string;
+  avatarPath: string; // e.g., "/Tanvir_Kabir.jpg"
 }
 
 /**
@@ -20,12 +24,18 @@ export interface SeedUser {
  * `scripts/add-employee.ts` uses it for targeted, non-destructive additions.
  *
  * Role sets under the multi-role model:
- *   Shefayat  → [SUPER_ADMIN]           technical owner
- *   Fuad      → [ADMIN]                 CEO, max non-technical power, no HR notifications
- *   Saifullah → [ADMIN, HR]             COO, gets HR notifications + admin power
- *   Tama      → [HR]                    People Operations
- *   Tanvir    → [EMPLOYEE]              general staff
- *   Rubayat   → [EMPLOYEE]              general staff
+ *   Shefadib  → [SUPER_ADMIN, ADMIN, HR, EMPLOYEE]  technical owner; holds every
+ *                                                   role so one sign-in can drive
+ *                                                   the full submit → approve loop
+ *   Fuad      → [ADMIN]        CEO, max non-technical power, no HR notifications
+ *   Saifullah → [ADMIN, HR]    COO, gets HR notifications + admin power
+ *   Tama      → [HR]           People Operations
+ *   everyone else → [EMPLOYEE] general staff (Tanvir, Rubayat, Mimma, Recardo,
+ *                              Nabeel, Moudud, Julker, Tahsina)
+ *
+ * LINE_MANAGER is deliberately absent here: reporting lines are org state, not
+ * seed state. Grant the role and pick the team from Employees → Roles /
+ * Assign team, which writes `users.lineManagerId` through PATCH /api/users/[id].
  *
  * When adding a new hire: append them here, commit, then run
  *   TARGET_EMAIL=<their-email> npx tsx scripts/add-employee.ts

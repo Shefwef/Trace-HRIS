@@ -17,6 +17,7 @@ import { createClerkClient } from '@clerk/backend';
 import { PrismaClient } from '@prisma/client';
 import { SEED_USERS } from '../prisma/seed-users';
 import { primaryRole } from '../src/lib/roles';
+import { seedPermissionDefaults } from '../src/lib/permissions';
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
 const prisma = new PrismaClient();
@@ -133,6 +134,11 @@ async function main() {
     });
     console.log(' ✓');
   }
+
+  // Seed RolePermission defaults (idempotent — only inserts missing combos)
+  console.log('\n→ Seeding role permission defaults…');
+  const seeded = await seedPermissionDefaults();
+  console.log(`  ${seeded} new permission row(s) created.`);
 
   await prisma.$disconnect();
   console.log('\n✅ Sync complete.');
