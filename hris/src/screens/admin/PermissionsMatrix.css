@@ -1,0 +1,135 @@
+.perm-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.perm-matrix-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.perm-matrix-head h1 {
+  font-size: var(--text-3xl);
+  letter-spacing: -0.02em;
+}
+
+.perm-grid-wrapper {
+  overflow-x: auto;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+}
+
+.perm-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: var(--text-sm);
+}
+
+.perm-table th, .perm-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.perm-table th {
+  background: var(--color-bg-subtle);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.perm-col-label {
+  min-width: 250px;
+}
+
+.perm-col-role {
+  text-align: center;
+  width: 120px;
+}
+
+.perm-group-header td {
+  background: color-mix(in srgb, var(--color-bg-subtle) 50%, transparent);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--text-base);
+  padding-top: 24px;
+  border-bottom: 2px solid var(--color-border-default);
+}
+
+.perm-row:hover td {
+  background: var(--color-bg-subtle);
+}
+
+.perm-cell-label {
+  color: var(--color-text-primary);
+  font-weight: var(--weight-medium);
+}
+
+.perm-cell-check {
+  text-align: center;
+}
+
+/* Custom Checkbox Toggle */
+.perm-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 2px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.perm-toggle input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.perm-toggle:hover:not(.is-locked) {
+  border-color: var(--color-brand-secondary);
+}
+
+.perm-toggle.is-on {
+  background: var(--color-brand-primary);
+  border-color: var(--color-brand-primary);
+}
+
+.perm-toggle.is-on::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.perm-toggle.is-locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--color-bg-subtle);
+}
+.perm-toggle.is-locked.is-on {
+  background: var(--color-border-default);
+  border-color: var(--color-border-default);
+}
