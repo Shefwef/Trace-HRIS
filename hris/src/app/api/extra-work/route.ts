@@ -11,7 +11,11 @@ import { extraWorkSubmittedEmail } from '@/emails/templates';
 /**
  * GET /api/extra-work
  *   ?scope=mine (default) — own extra work logs
- *   ?scope=all / pending  — admin/HR only
+ *   ?scope=all / pending  — reviewers only
+ *
+ * Admin / HR / Super Admin see every log. A Line Manager sees only their
+ * assigned direct reports' logs, matching canApproveRequest() on the
+ * approve/reject routes.
  */
 export async function GET(req: Request) {
   const [user, error] = await requireAuth(req);
@@ -21,10 +25,18 @@ export async function GET(req: Request) {
   const scope = url.searchParams.get('scope') ?? 'mine';
 
   if (scope === 'all' || scope === 'pending') {
-    if (!['ADMIN', 'HR', 'SUPER_ADMIN'].includes(user.role))
-      return err(403, 'FORBIDDEN', 'Only admins and HR can view all extra work logs.');
+    const roles = user.roles.length > 0 ? user.roles : [user.role];
+    const isFullReviewer =
+      roles.includes('ADMIN') || roles.includes('HR') || roles.includes('SUPER_ADMIN');
+    const isLineManager = roles.includes('LINE_MANAGER');
+    if (!isFullReviewer && !isLineManager)
+      return err(403, 'FORBIDDEN', 'You do not have permission to view other extra work logs.');
+
     const logs = await prisma.extraWorkLog.findMany({
-      where: scope === 'pending' ? { status: 'PENDING' } : {},
+      where: {
+        ...(scope === 'pending' ? { status: 'PENDING' as const } : {}),
+        ...(isFullReviewer ? {} : { employee: { lineManagerId: user.id } }),
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         employee: {
@@ -82,7 +94,7 @@ export async function POST(req: Request) {
 
   // Fan-out notifications + emails to approvers
   const allUsers = await prisma.user.findMany({ where: { isActive: true } });
-  const { to, cc } = approvalRecipients(user, allUsers);
+  const { to, cc } = await approvalRecipients(user, allUsers, 'notifications.extra_work_pending');
 
   await notifyMany(
     [...to, ...cc].map((u) => ({

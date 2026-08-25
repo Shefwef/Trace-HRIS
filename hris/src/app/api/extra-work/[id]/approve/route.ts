@@ -1,17 +1,19 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireAuth, canApprove, err, parseBody } from '@/lib/api';
+import { requireAuth, canApproveRequest, err, parseBody } from '@/lib/api';
+import { checkPermission } from '@/lib/permissions';
 import { ApproveLeaveSchema } from '@/lib/validation';
 import { extraWorkCredit, extraWorkTypeLabel } from '@/lib/leave';
-import { notify } from '@/lib/notifications';
+import { notifyIfPermitted } from '@/lib/notifications';
 import { sendEmail } from '@/lib/email';
 import { extraWorkDecisionEmail } from '@/emails/templates';
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const [user, error] = await requireAuth(req);
   if (error) return error;
-  if (!canApprove(user.role))
-    return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can approve.');
+
+  const hasPerm = await checkPermission(user, 'extra_work.approve');
+  if (!hasPerm) return err(403, 'FORBIDDEN', 'You do not have permission to approve extra work.');
 
   const { id } = await ctx.params;
   const [input, badReq] = await parseBody(req, ApproveLeaveSchema);
@@ -21,6 +23,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!log) return err(404, 'NOT_FOUND', 'Extra work log not found.');
   if (log.status !== 'PENDING')
     return err(409, 'ALREADY_DECIDED', `Log is already ${log.status.toLowerCase()}.`);
+
+  // Self-approval guard
+  if (user.id === log.employeeId)
+    return err(403, 'SELF_APPROVE', 'You cannot approve your own extra work log.');
+
+  // Hierarchical authorization check
+  const applicant = await prisma.user.findUnique({ where: { id: log.employeeId } });
+  if (!applicant) return err(500, 'APPLICANT_MISSING', 'Applicant user not found.');
+  const hierarchyError = canApproveRequest(user, applicant);
+  if (hierarchyError) return err(403, 'HIERARCHY_VIOLATION', hierarchyError);
 
   const credit = extraWorkCredit(log.workType);
   const year = new Date().getFullYear();
@@ -68,8 +80,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     create: { id: 'singleton' },
   });
 
-  await notify({
-    recipientId: log.employeeId,
+  await notifyIfPermitted(applicant, 'notifications.leave_decision', {
     type: 'EXTRA_WORK_APPROVED',
     title: 'Your extra work log was approved',
     body: `${user.fullName} approved your extra work day. You've earned ${credit} replacement leave day${credit === 1 ? '' : 's'}.`,

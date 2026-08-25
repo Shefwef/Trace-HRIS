@@ -1,17 +1,19 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireAuth, canApprove, err, parseBody } from '@/lib/api';
+import { requireAuth, canApproveRequest, err, parseBody } from '@/lib/api';
+import { checkPermission } from '@/lib/permissions';
 import { RejectLeaveSchema } from '@/lib/validation';
 import { extraWorkTypeLabel } from '@/lib/leave';
-import { notify } from '@/lib/notifications';
+import { notifyIfPermitted } from '@/lib/notifications';
 import { sendEmail } from '@/lib/email';
 import { extraWorkDecisionEmail } from '@/emails/templates';
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const [user, error] = await requireAuth(req);
   if (error) return error;
-  if (!canApprove(user.role))
-    return err(403, 'FORBIDDEN', 'Only HR, Admin or Super Admin can reject.');
+
+  const hasPerm = await checkPermission(user, 'extra_work.reject');
+  if (!hasPerm) return err(403, 'FORBIDDEN', 'You do not have permission to reject extra work.');
 
   const { id } = await ctx.params;
   const [input, badReq] = await parseBody(req, RejectLeaveSchema);
@@ -21,6 +23,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!log) return err(404, 'NOT_FOUND', 'Extra work log not found.');
   if (log.status !== 'PENDING')
     return err(409, 'ALREADY_DECIDED', `Log is already ${log.status.toLowerCase()}.`);
+
+  // Self-rejection guard
+  if (user.id === log.employeeId)
+    return err(403, 'SELF_REJECT', 'You cannot reject your own extra work log.');
+
+  // Hierarchical authorization check
+  const applicant = await prisma.user.findUnique({ where: { id: log.employeeId } });
+  if (!applicant) return err(500, 'APPLICANT_MISSING', 'Applicant user not found.');
+  const hierarchyError = canApproveRequest(user, applicant);
+  if (hierarchyError) return err(403, 'HIERARCHY_VIOLATION', hierarchyError);
 
   await prisma.$transaction(async (tx) => {
     await tx.extraWorkLog.update({
@@ -50,11 +62,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     create: { id: 'singleton' },
   });
 
-  await notify({
-    recipientId: log.employeeId,
+  await notifyIfPermitted(applicant, 'notifications.leave_decision', {
     type: 'EXTRA_WORK_REJECTED',
     title: 'Your extra work log was rejected',
-    body: `${user.fullName} declined your extra work day. Reason: ${input.note}`,
+    body: `${user.fullName} declined your log for ${log.workDate.toISOString().slice(0, 10)}. Reason: ${input.note}`,
     referenceType: 'extra_work_log',
     referenceId: id,
   });
