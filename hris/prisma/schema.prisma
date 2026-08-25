@@ -18,6 +18,7 @@ enum Role {
   SUPER_ADMIN
   ADMIN
   HR
+  LINE_MANAGER
   EMPLOYEE
 }
 
@@ -120,6 +121,13 @@ model User {
   cycleStartMonth  Int      @default(1)
   cycleStartDay    Int      @default(1)
   isActive         Boolean  @default(true)
+  /// Soft-deactivation tracking. Set when isActive flips to false.
+  deactivatedAt    DateTime?
+  deactivatedById  String?
+  /// Team assignment: LINE_MANAGER self-relation.
+  lineManagerId    String?
+  lineManager      User?    @relation("TeamReports", fields: [lineManagerId], references: [id], onDelete: SetNull)
+  reports          User[]   @relation("TeamReports")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -135,6 +143,7 @@ model User {
 
   @@index([role])
   @@index([email])
+  @@index([lineManagerId])
   @@map("users")
 }
 
@@ -374,4 +383,18 @@ model AuditLog {
   @@index([actorId, createdAt(sort: Desc)])
   @@index([targetType, targetId])
   @@map("audit_log")
+}
+
+/// Runtime permission matrix. Rows are seeded with sensible defaults;
+/// Super Admin can toggle any cell from /admin/permissions.
+model RolePermission {
+  id          String   @id @default(cuid())
+  role        Role
+  permission  String   // e.g. "leave.approve", "notifications.leave_pending"
+  enabled     Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+
+  @@unique([role, permission])
+  @@map("role_permissions")
 }
