@@ -15,9 +15,12 @@ of external services (Clerk, Neon, Resend, Gemini).
 ```bash
 npm install                # runs `prisma generate` via postinstall
 npm run db:deploy          # applies migrations to Neon
-npm run db:seed            # creates the 5 real users in Clerk + Postgres
+npm run db:seed            # creates the 12 seeded users + permission defaults
 npm run dev                # → http://localhost:3000
 ```
+
+On an existing database, prefer `npm run db:sync-roles` over `db:seed` — see the
+table below for why.
 
 ## Scripts
 
@@ -26,11 +29,12 @@ npm run dev                # → http://localhost:3000
 | `npm run dev` | Next.js dev server on port 3000 |
 | `npm run build` | Runs `prisma generate` then `next build` |
 | `npm run start` | Serves the built app |
-| `npm run lint` | Next.js ESLint |
+| `npm run typecheck` | `tsc --noEmit` — the project has no ESLint config; Next 16 removed `next lint` |
 | `npm run db:migrate` | Create a new dev migration |
 | `npm run db:deploy` | Apply migrations (used in CI and prod) |
 | `npm run db:studio` | Open Prisma Studio |
-| `npm run db:seed` | Idempotent seed of the 5 real users |
+| `npm run db:sync-roles` | **Safe refresh.** Syncs role sets, departments, designations and Clerk profile photos for all 12 seeded users, and seeds any missing `role_permissions` rows. Touches no passwords, deletes nobody. |
+| `npm run db:seed` | **Destructive full re-seed.** Everything `db:sync-roles` does, plus it re-applies each user's hardcoded initial password (`skipPasswordChecks: true`) and deletes any Clerk/Postgres user not in the `prisma/seed-users.ts` allowlist. Use on a fresh database only. |
 
 ## Environment variables
 
@@ -47,18 +51,20 @@ See [`.env.example`](./.env.example) for the complete list.
 src/
 ├── app/                    # Next.js App Router
 │   ├── (app)/              # authenticated pages (sidebar shell)
-│   │   ├── admin/          # admin, HR, super-admin only
+│   │   ├── admin/          # Admin/HR/Super Admin; /admin/requests also
+│   │   │                   #   admits Line Managers (team-scoped queue)
 │   │   ├── dashboard/
 │   │   ├── leaves/
 │   │   ├── attendance/
 │   │   └── ...
+│   ├── (auth)/sign-in/     # Clerk catch-all sign-in route
 │   ├── api/                # route handlers
-│   ├── sign-in/
-│   └── layout.tsx
+│   └── layout.tsx          # metadata + viewport exports, PWA registration
 ├── components/             # cross-page UI (widgets, drawers, modals)
 ├── screens/                # page bodies rendered by app/ routes
-├── lib/                    # api helpers, prisma, email, chatKb, ratelimit
-└── middleware.ts           # Clerk + route guards
+├── lib/                    # api helpers, prisma, email, permissions, routing
+└── proxy.ts                # Clerk + route guards (Next 16 renamed this from
+                            #   middleware.ts; the convention, not Clerk's API)
 ```
 
 ## Deployment
@@ -82,7 +88,17 @@ DATABASE_URL=$DIRECT_URL npm run db:deploy
 - **Clerk keys with wrong domain** — publishable and secret keys must belong to
   the same Clerk application. Copy both from the same **API Keys** page.
 - **Sign-in works but no data** — the Clerk user isn't in Postgres. Run
-  `npm run db:seed` (idempotent).
-- **Middleware deprecation warning on `next dev`** — Next 16 renamed
-  `middleware.ts` → `proxy.ts`. Non-breaking; migration will happen with the
-  rest of the Next 17 prep.
+  `npm run db:sync-roles`, which upserts them without touching passwords.
+- **Permissions screen shows checkboxes but no saved state** — `role_permissions`
+  is empty. Both the screen and `checkPermission()` fall back to `DEFAULT_MATRIX`
+  so nothing is broken, but run `npm run db:sync-roles` (or hit **Reset to
+  defaults** on `/admin/permissions`) to materialise the rows.
+- **Signed-out visitor gets a 404 instead of the sign-in page** — Clerk's
+  `auth.protect()` throws a Next `notFound()` unless you pass
+  `unauthenticatedUrl`/`unauthorizedUrl`. Both are set in
+  [`src/proxy.ts`](./src/proxy.ts); don't drop them.
+- **`createRouteMatcher` deprecation warning on `next dev`** — Clerk 7 wants
+  resource-based checks inside each page/route rather than path matching in the
+  proxy. The app already does those checks (`requireUser()` in pages,
+  `requireAuth()` in routes), so the proxy is defense-in-depth. Removing the
+  matcher is queued for the Clerk 8 upgrade.

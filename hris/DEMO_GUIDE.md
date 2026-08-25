@@ -5,22 +5,18 @@
 
 ---
 
-## 1. What is this prototype?
+## 1. What is this system?
 
-This is a **clickable, browser-only prototype** of the HRIS (HR Information
-System) described in `HRIS_Implementation.md`. It looks and feels like the
-finished product. Everything you can click responds, and the data is stitched
-together the way it will be in production — you can apply for a leave as an
-employee, switch to the HR admin's view, approve or reject it, and watch the
-employee's balance and notifications update in real time.
+This is a **full-stack, production-grade HRIS** (HR Information System) built on **Next.js 16 (App Router)**, **Neon Postgres**, **Prisma 6**, **Clerk 7**, **Resend**, and **Google Gemini**.
 
-**What is real in the prototype**
-- Every screen, every color, every animation from the spec
-- The full leave workflow: apply → notify → approve/reject → balance updates
-- Live attendance timer with clock-in / break / clock-out and overtime → replacement-leave conversion
-- Notifications between employees and admins
-- Holiday manager with in-app notice dispatch
-- Analytics charts driven by the same data model
+**Production Capabilities**
+- Multi-role authorization with 5 roles (`SUPER_ADMIN`, `ADMIN`, `HR`, `LINE_MANAGER`, `EMPLOYEE`)
+- Fine-grained, runtime Permission Matrix at `/admin/permissions` with 60-second in-memory caching
+- Direct line-manager reporting hierarchy and direct team management
+- Full PWA support (installable application, offline static asset caching)
+- Live attendance tracking, leave requests, extra work logging, and holiday management
+- Real transactional email delivery via Resend (with QA redirect support)
+- Dynamic server-rendered PDF reports via `@react-pdf/renderer`
 
 **What is not yet real**
 - No database — data resets when the browser tab is closed (except the

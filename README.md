@@ -33,6 +33,7 @@ Live at [trace-hris.vercel.app](https://trace-hris.vercel.app).
 | PDF reports | `@react-pdf/renderer` - server-side, no headless browser |
 | Hosting | Vercel |
 | UI | React 19, Framer Motion, Recharts, Zustand, TanStack Query |
+| Offline / install | PWA - web manifest + service worker, installable on phone and desktop |
 | Language | TypeScript throughout |
 
 **Total monthly infra cost at current scale: $0** - every service is on its free tier.
@@ -64,7 +65,8 @@ Live at [trace-hris.vercel.app](https://trace-hris.vercel.app).
 ### Notifications & email
 - In-app bell with unread badge
 - Every state change (submit, approve, reject, cancel, holiday, invite) fires **both** an in-app notification and an email
-- **QA mode:** Settings → set `qaRedirectEmail` → every outgoing email is routed to that single inbox with a `[QA→original@…]` prefix and a warning banner, preserving the original recipient info for verification. Clear the field to resume normal delivery.
+- Whether a role receives a given notification type is itself a permission - see [Permission matrix](#permission-matrix-super-admin)
+- **QA mode:** Settings → set `qaRedirectEmail` → every outgoing email is *silently* rerouted to that single inbox. No banner, no subject tag: recipients see a message indistinguishable from real delivery, which is the point - you are testing the real thing. The true `to`/`cc` are still recorded in `emailLog` for audit. Clear the field to resume normal delivery.
 
 ### Dashboards & analytics
 - Employee dashboard: three arc rings (Casual/Sick/Replacement), attendance widget, recent activity
@@ -85,10 +87,11 @@ Four branded PDF reports available at `/reports`, downloaded on demand:
 Every PDF embeds the Trace logo, brand blue header, footer with page-of-pages + generation timestamp. Rendered fresh on every download - nothing cached.
 
 ### Admin tools
-- **Employees** - invite, deactivate, **role editor per card** (see hierarchy below), searchable
-- **Requests** - leave inbox with review drawer + modify-allocation panel
+- **Employees** - invite, deactivate/reactivate, **role editor per card** (see hierarchy below), **Assign team** for Line Managers, searchable. Everyone is listed including Super Admins; your own card is read-only.
+- **Requests** - leave and extra-work inbox with review drawer + modify-allocation panel + editable decision email. Team-scoped for Line Managers.
 - **Holidays** - full CRUD + notice dispatch
 - **Settings** - sender email, working hours, standard hours/day, overtime threshold, QA redirect toggle
+- **Permissions** (Super Admin) - live matrix of what each role may do and which notifications it receives
 - **Audit log** (Super Admin) - every action with actor, IP, user-agent, timestamp; filterable
 - **System health** (Super Admin) - DB latency, env-var status, security posture
 
@@ -104,20 +107,45 @@ Every PDF embeds the Trace logo, brand blue header, footer with page-of-pages + 
 
 ## Roles & assignment hierarchy
 
-Four roles, all server-enforced:
+Five roles, all server-enforced. A person can hold several at once - the highest
+one becomes their *primary* role for display and routing. Rank is the order of
+`ROLE_HIERARCHY` in `hris/src/lib/roles.ts`:
 
-- **Super Admin** - technical owner. Full access + `/admin/audit` + `/admin/system`.
-- **Admin** - CEO/CTO. Reviews leave, CC'd on Employee submissions.
-- **HR** - People Operations. Reviews leave, invites employees, manages holidays and settings.
-- **Employee** - general staff. Applies for leave, clocks in/out, logs extra work.
+| Role | What it is |
+|---|---|
+| **Super Admin** | Technical owner. Full access + `/admin/audit` + `/admin/system` + `/admin/permissions`. |
+| **Admin** | CEO/CTO. Reviews leave, CC'd on Employee submissions. |
+| **HR** | People Operations. Reviews leave, invites employees, manages holidays and settings. |
+| **Line Manager** | Reviews leave and extra work **for their own direct reports only**. No directory, holiday or settings powers. |
+| **Employee** | General staff. Applies for leave, clocks in/out, logs extra work. |
+
+### Line Managers
+
+Line Manager is a role plus a reporting line. Grant the role on the Employees
+page, then use **Assign team** on that person's card to pick who reports to them
+(stored as `users.lineManagerId`). Once assigned:
+
+- The manager's sidebar gains a **My Team → Team Requests** entry pointing at
+  `/admin/requests`.
+- That queue is **scoped to their reports** - `GET /api/leaves/requests` and
+  `GET /api/extra-work` filter on `employee.lineManagerId`, so a Line Manager
+  physically cannot load a request from outside their team.
+- They become the first-named reviewer on their reports' submissions (see
+  [Approval routing](#approval-routing-automatic)).
+- Line Managers are excluded from the **Assign team** picker, so the UI cannot
+  create a reporting cycle.
+
+Someone who holds Line Manager *and* HR/Admin sees the full Administration
+section and the unscoped queue - the narrow view is only for a pure Line Manager.
 
 ### Who can assign whom
 
 | Actor | Can assign these roles |
 |---|---|
-| Super Admin | Super Admin · Admin · HR · Employee |
-| Admin | Super Admin · Admin · HR · Employee |
-| HR | HR · Employee (cannot promote to Admin or Super Admin) |
+| Super Admin | Super Admin · Admin · HR · Line Manager · Employee |
+| Admin | Super Admin · Admin · HR · Line Manager · Employee |
+| HR | HR · Line Manager · Employee (cannot promote to Admin or Super Admin) |
+| Line Manager | - (Employees page not visible) |
 | Employee | - (Employees page not visible) |
 
 Safety guards:
@@ -125,14 +153,45 @@ Safety guards:
 - You **cannot deactivate yourself** (400 SELF_DEACTIVATE)
 - You **cannot demote the last active Super Admin** (400 LAST_SUPER_ADMIN - must promote someone else first)
 - HR trying to promote to Admin/Super Admin gets 403 ROLE_ELEVATION_FORBIDDEN
+- A reviewer **cannot approve a request from someone at or above their own rank**
+  (403 HIERARCHY_VIOLATION), and a Line Manager cannot approve outside their team
+- Super Admin permissions are **immutable** - the `/admin/permissions` grid locks
+  that column and `PATCH /api/permissions` rejects it (400 SUPER_ADMIN_LOCKED),
+  so the owner can never lock themselves out
+
+Your own card in the Employees directory is rendered read-only with a **You**
+badge, because all three actions on it would be rejected server-side anyway.
 
 Every role change syncs to Clerk's `publicMetadata` so future sessions carry the correct role.
 
 ---
 
+## Permission matrix (Super Admin)
+
+`/admin/permissions` turns each role's capabilities into runtime configuration
+instead of hardcoded checks. The five roles are fixed - you cannot invent new
+ones - but **what each role may do is editable**.
+
+- **24 permissions** across two categories: 19 *actions* (`leave.approve`,
+  `holiday.delete`, `employee.assign_line_manager`, `audit.view`, …) and
+  5 *notification toggles* (`notifications.leave_pending`, …) that control
+  whether a role receives that kind of notification at all.
+- Stored in the `role_permissions` table, read through `checkPermission()` and
+  `notifyIfPermitted()`, cached in memory with a **60-second TTL** - so a change
+  takes effect within a minute across all server instances without a redeploy.
+- Resolution order: a stored row wins; otherwise the compiled `DEFAULT_MATRIX`
+  applies. An empty table therefore behaves exactly like a fresh install rather
+  than denying everything. The grid renders the same fallback, so it never shows
+  a misleading all-unchecked state.
+- **Reset to defaults** re-seeds the table from `DEFAULT_MATRIX`.
+- The Super Admin column is locked in both the UI and the API.
+
+---
+
 ## Approval routing (automatic)
 
-When any user submits a leave request, the system picks approvers based on the submitter's role:
+The applicant never picks an approver. Routing is derived from the submitter's
+role, then the reporting line is layered on top:
 
 | Submitter | Notified for approval | CC'd |
 |---|---|---|
@@ -141,7 +200,13 @@ When any user submits a leave request, the system picks approvers based on the s
 | Admin (CEO) | Super Admin + HR | - |
 | Super Admin | HR + CEO | - |
 
-At approval time, the reviewer sees a live **balance preview** and can modify the day-by-day allocation before approving. The final approved allocation is stored on the record for audit purposes.
+**On top of that table:** if the applicant has a line manager, that manager is
+**prepended** to the reviewer list - whatever role the applicant holds - and
+becomes the named reviewer on the outgoing email. Deactivated users are filtered
+out of every branch, so a request never routes to someone who can no longer sign
+in.
+
+At approval time, the reviewer sees a live **balance preview** and can modify the day-by-day allocation before approving. The final approved allocation is stored on the record for audit purposes. Reviewers can also edit the approve/reject email body before it goes out.
 
 ---
 
@@ -151,7 +216,7 @@ Multi-role: a person can hold more than one role simultaneously (e.g. a COO who 
 
 | # | Name | Designation | Email | Role set | Initial password |
 |---|---|---|---|---|---|
-| 1 | Shefayat Adib | System Administrator | `shefadib@gmail.com` | Super Admin | `Trace-HRIS-Super-2026!` |
+| 1 | Shefadib (Super Admin) | System Administrator | `shefadib@gmail.com` | Super Admin + Admin + HR + Employee | `Trace-HRIS-Super-2026!` |
 | 2 | Fuad M Khalid Hossen | Chief Executive Officer (CEO) | `fuad.khalid@traceconsultingltd.com` | Admin | `Trace-HRIS-Fuad-2026!` |
 | 3 | Abu Saleh Muhammad Saifullah | Chief Operating Officer (COO) | `asmsaifullah@traceconsultingltd.com` | Admin + HR | `Trace-HRIS-Saifullah-2026!` |
 | 4 | Umme Mahbuba Tama | Research Associate | `umtama@traceconsultingltd.com` | HR | `Trace-HRIS-Tama-2026!` |
@@ -165,6 +230,13 @@ Multi-role: a person can hold more than one role simultaneously (e.g. a COO who 
 | 12 | Tahsina Shiva | IT Project Manager | `tahsina.shiva@traceconsultingltd.com` | Employee | `Trace-HRIS-Tahsina-2026!` |
 
 Initial passwords follow the pattern `Trace-HRIS-<FirstName>-2026!` (upper + lower + digit + symbol, matches the Clerk complexity policy). Every user should change their password on first sign-in via avatar → **Account settings** → Security. Photos live in `hris/public/` and are also uploaded to Clerk profile pictures via `scripts/sync-roles.ts`.
+
+The Super Admin account deliberately holds **all four** of Super Admin, Admin, HR
+and Employee so a single sign-in can drive an entire submit → notify → approve →
+email loop during QA. Strip the extra roles before handing the system over.
+
+`LINE_MANAGER` is not in the seed list on purpose - reporting lines are org state,
+not seed state. Grant the role and pick the team from the Employees page.
 
 ---
 
@@ -198,27 +270,32 @@ Once you have a verified domain on Resend, `scripts/send-welcome.ts` sends the e
 - [x] Cancel own future approved leave
 - [x] Attendance clock-in/out with **instant optimistic UI** (~0ms perceived latency)
 - [x] Breaks, monthly history, overtime tracking
-- [x] Log Extra Work → HR/Admin approval → Replacement leave credit
+- [x] Log Extra Work → HR / Admin / Line Manager approval → Replacement leave credit
 - [x] Biometric-ready attendance endpoint (`source: BIOMETRIC`)
 - [x] Holiday CRUD + Resend notice dispatch
 - [x] In-app notification center + email notifications for every state change
 - [x] **QA email redirect mode** - reroute all outbound mail to one inbox during testing
 - [x] Editable system settings (sender, working hours, overtime threshold, QA toggle)
 - [x] Invite Employee flow with generated initial password
-- [x] Deactivate / reactivate employees (Clerk + Postgres in sync)
-- [x] **Role editor per employee card** with hierarchy enforcement
+- [x] Deactivate / reactivate employees (Clerk + Postgres in sync), with Active / Deactivated / All tabs
+- [x] **Role editor per employee card** with hierarchy enforcement (multi-role)
+- [x] **Line Manager role** - assign a team, get a team-scoped review queue, review your reports' leave and extra work
+- [x] **Runtime permission matrix** at `/admin/permissions` - 24 permissions × 5 roles, 60s TTL cache, reset-to-defaults
 - [x] Employee search (name, ID, email, department) with clear button
 - [x] Audit log viewer at `/admin/audit` (IP + user-agent captured)
 - [x] System health page at `/admin/system` (Super Admin only)
 - [x] Four downloadable PDF reports with Trace branding
 - [x] Analytics page with real charts (leave distribution, hours trend, cumulative leaves)
 - [x] Full calendar + mini-calendar with **status-tinted day cells**
+- [x] Bangladesh work week (Sun-Thu) with local-date handling throughout - no UTC off-by-one
 - [x] Security headers (HSTS, X-Frame, Referrer-Policy, Permissions-Policy)
 - [x] Per-user write rate limiting (30/min via Postgres)
 - [x] Clerk webhook sync (`user.deleted`, `user.updated`)
 - [x] Neon cold-start retry via Prisma `$extends` (300/900/2100 ms backoff)
 - [x] "Ask HRIS" chatbot (Gemini 3.6 Flash, scoped, markdown-aware)
 - [x] Mobile responsive (sidebar drawer, reflowing tables, floating chat)
+- [x] **Installable PWA** (`manifest.json` + service worker)
+- [x] Next.js 16 conventions - `viewport` export for `themeColor`, `proxy.ts` instead of `middleware.ts`
 - [x] GitHub Actions CI (build + typecheck on every push)
 
 ---
@@ -230,7 +307,7 @@ Once you have a verified domain on Resend, `scripts/send-welcome.ts` sends the e
 1. Follow [`hris/SETUP.md`](./hris/SETUP.md) to provision Clerk, Neon, Resend, and Gemini (~20 min including DNS wait).
 2. `cd hris && npm install` (auto-runs `prisma generate` via postinstall).
 3. `npm run db:deploy` - apply migrations to Neon.
-4. `npm run db:seed` - create the 6 real users in Clerk + Postgres.
+4. `npm run db:seed` - create the 12 users in Clerk + Postgres and seed the permission matrix. **Fresh databases only** - on an existing one use `npm run db:sync-roles`, which does the same work without resetting passwords or pruning users.
 5. `npm run dev` - dev server on http://localhost:3000.
 
 **Deploy to production:**
@@ -243,15 +320,18 @@ Full details in [`hris/README.md`](./hris/README.md).
 
 ## Post-launch checklist
 
-Non-blocking items to complete after tomorrow's launch demo - see [`DEMO_GUIDE.md`](./DEMO_GUIDE.md#post-launch-checklist--what-still-needs-to-change) for step-by-step instructions:
+Non-blocking items - see [`DEMO_GUIDE.md`](./DEMO_GUIDE.md#post-launch-checklist--what-still-needs-to-change) for step-by-step instructions:
 
 - [ ] Verify a Trace domain on Resend so emails send from `hris@traceconsultingltd.com` instead of `onboarding@resend.dev`
 - [ ] Add a custom Vercel domain (`hris.traceconsultingltd.com`)
 - [ ] Set `CLERK_WEBHOOK_SIGNING_SECRET` in Vercel so user deletes in Clerk auto-sync to Postgres
 - [ ] Set `GEMINI_API_KEY` in Vercel prod (currently only in local `.env.local`)
+- [ ] Strip the QA-only extra roles from the Super Admin account once real HR users are driving the system
 - [ ] Follow [`BIOMETRIC_INTEGRATION.md`](./BIOMETRIC_INTEGRATION.md) when ready to add the fingerprint scanner
-- [ ] Migrate `hris/src/middleware.ts` → `proxy.ts` (Next.js 16 deprecation - codemod available)
+- [ ] Replace Clerk's deprecated `createRouteMatcher` in `hris/src/proxy.ts` with resource-based checks before the Clerk 8 upgrade
 - [ ] Rotate all API keys quarterly (Clerk, Resend, Gemini)
+- [x] ~~Migrate `hris/src/middleware.ts` → `proxy.ts`~~ (done - Next 16 convention)
+- [x] ~~Add the missing Clerk URL vars to `.env.example`~~ (done - `NEXT_PUBLIC_CLERK_SIGN_IN_URL`, `..._FALLBACK_REDIRECT_URL`, `..._AFTER_SIGN_OUT_URL`)
 
 ---
 

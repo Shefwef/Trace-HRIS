@@ -226,41 +226,50 @@ body, p, td, li  { font-family: var(--font-body); font-weight: var(--weight-regu
 
 ### 3.1 Role Overview
 
+The system operates on a **multi-role model** (`User.roles Role[]` with `User.role` denormalizing the highest-ranked entry). Users can hold multiple roles simultaneously (e.g. an Admin who is also HR).
+
 | Role | Who | Access Level |
 |------|-----|-------------|
-| `SUPER_ADMIN` | Technical owner / system administrator | Full system access including configuration, schema-level settings, audit logs |
-| `ADMIN` | CEO / CTO / other C-level | Operational control: approve/reject leaves, send holiday notices, view all analytics; can also apply for leave (routes to HR + Super Admin) |
-| `HR` | HR Manager, People Operations, Research Associate on the People team | Approve/reject leaves and extra-work logs, manage employees and holidays, send holiday notices; can also apply for leave (routes to the *other* HR user + CEO) |
+| `SUPER_ADMIN` | Technical owner / system administrator | Full system access including runtime Permission Matrix (/admin/permissions), schema settings, audit logs |
+| `ADMIN` | CEO / CTO / C-level | Operational control: approve/reject leaves, send holiday notices, view company analytics |
+| `HR` | HR Manager, People Operations | Approve/reject leaves and extra-work logs, manage employees and holidays, send holiday notices |
+| `LINE_MANAGER` | Direct team supervisor | View team reports, approve/reject leave and extra-work requests from direct reports |
 | `EMPLOYEE` | General staff | Personal dashboard: apply for leave, track attendance, log extra work, view own analytics |
 
 **Approval routing rules (server-side):**
-- **Employee submits** → notifies all HR users; CCs the CEO (Admin).
-- **HR submits** → notifies the *other* HR user + the CEO; CCs the Super Admin.
-- **Admin (CEO) submits** → notifies Super Admin + all HR users.
-- **Super Admin submits** → notifies all HR users + the CEO.
+- **Employee submits** → notifies direct Line Manager (if assigned) + all HR users + Super Admin.
+- **Line Manager submits** → notifies all HR users + Super Admin (excludes other line managers).
+- **HR submits** → notifies all Super Admin + other HR users.
+- **Admin (CEO) submits** → notifies all Super Admin.
+- **Super Admin submits** → notifies all HR users.
 
-### 3.2 Permission Matrix
+### 3.2 Dynamic Permission Matrix
 
-| Feature | SUPER_ADMIN | ADMIN | HR | EMPLOYEE |
-|---------|:-----------:|:-----:|:--:|:--------:|
-| Configure leave year cycle per employee | ✅ | ✅ | ✅ | ❌ |
-| View all employees' leave records | ✅ | ✅ | ✅ | ❌ |
-| View own leave records | ✅ | ✅ | ✅ | ✅ |
-| Apply for leave | ✅ | ✅ | ✅ | ✅ |
-| Approve / Reject leave (incl. modify allocation) | ✅ | ✅ | ✅ | ❌ |
-| Approve / Reject extra-work logs | ✅ | ✅ | ✅ | ❌ |
-| Log attendance (clock in/out) | ✅ | ✅ | ✅ | ✅ |
-| Log extra work day (weekend / holiday) | ✅ | ✅ | ✅ | ✅ |
-| View all attendance records | ✅ | ✅ | ✅ | ❌ |
-| Create / edit holidays | ✅ | ✅ | ✅ | ❌ |
-| Send holiday notifications | ✅ | ✅ | ✅ | ❌ |
-| Configure notification recipients | ✅ | ✅ | ✅ | ❌ |
-| Add / invite / deactivate employees | ✅ | ✅ | ✅ | ❌ |
-| Edit system settings (sender email, work hours, standard hours/day) | ✅ | ✅ | ✅ | ❌ |
-| Download own analytics PDF | ✅ | ✅ | ✅ | ✅ |
-| Download any employee's analytics PDF | ✅ | ✅ | ✅ | ❌ |
-| Modify system-level configurations (Clerk keys, migrations, feature flags) | ✅ | ❌ | ❌ | ❌ |
-| Access audit logs | ✅ | ❌ | ❌ | ❌ |
+The system features a **runtime Permission Matrix** stored in the `RolePermission` database table with a 60-second in-memory cache TTL. Super Admins can toggle individual action and notification permissions per role at `/admin/permissions`.
+
+| Feature | SUPER_ADMIN | ADMIN | HR | LINE_MANAGER | EMPLOYEE | Permission Key |
+|---------|:-----------:|:-----:|:--:|:------------:|:--------:|----------------|
+| View own leave records | ✅ | ✅ | ✅ | ✅ | ✅ | `system.view` |
+| Apply for leave | ✅ | ✅ | ✅ | ✅ | ✅ | `system.view` |
+| Approve leave requests | ✅ | ✅ | ✅ | ✅ (Team) | ❌ | `leave.approve` |
+| Reject leave requests | ✅ | ✅ | ✅ | ✅ (Team) | ❌ | `leave.reject` |
+| Cancel others' leave requests | ✅ | ✅ | ✅ | ❌ | ❌ | `leave.cancel_others` |
+| Approve extra-work logs | ✅ | ✅ | ✅ | ✅ (Team) | ❌ | `extra_work.approve` |
+| Reject extra-work logs | ✅ | ✅ | ✅ | ✅ (Team) | ❌ | `extra_work.reject` |
+| Create holidays | ✅ | ✅ | ✅ | ❌ | ❌ | `holiday.create` |
+| Edit holidays | ✅ | ✅ | ✅ | ❌ | ❌ | `holiday.edit` |
+| Delete holidays | ✅ | ✅ | ✅ | ❌ | ❌ | `holiday.delete` |
+| Send holiday notifications | ✅ | ✅ | ✅ | ❌ | ❌ | `holiday.send_notice` |
+| Invite employees | ✅ | ✅ | ✅ | ❌ | ❌ | `employee.invite` |
+| Deactivate employees | ✅ | ✅ | ✅ | ❌ | ❌ | `employee.deactivate` |
+| Assign employee roles | ✅ | ✅ | ✅ | ❌ | ❌ | `employee.assign_role` |
+| Assign line managers | ✅ | ✅ | ✅ | ❌ | ❌ | `employee.assign_line_manager` |
+| Edit system settings | ✅ | ✅ | ✅ | ❌ | ❌ | `settings.edit` |
+| Edit QA redirect email | ✅ | ❌ | ❌ | ❌ | ❌ | `settings.edit_qa_redirect` |
+| View company reports | ✅ | ✅ | ✅ | ❌ | ❌ | `reports.company` |
+| View team reports | ✅ | ✅ | ✅ | ✅ (Team) | ❌ | `reports.per_employee_others` |
+| View audit logs | ✅ | ❌ | ❌ | ❌ | ❌ | `audit.view` |
+| Access Permission Matrix | ✅ | ❌ | ❌ | ❌ | ❌ | `SUPER_ADMIN` locked |
 
 ---
 
