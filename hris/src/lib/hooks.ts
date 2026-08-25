@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CreateLeaveInput, CreateExtraWorkInput } from './validation';
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
+export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
     headers: {
@@ -100,6 +100,9 @@ export interface UserSummary {
   id: string; fullName: string; email: string; role: string; roles: string[];
   department: string | null; designation: string | null;
   employeeIdCode: string | null; avatarUrl: string | null;
+  isActive: boolean;
+  lineManagerId: string | null;
+  lineManager?: { id: string; fullName: string } | null;
 }
 
 export interface NotificationItem {
@@ -176,11 +179,20 @@ export function useAllExtraWork() {
   });
 }
 
-export function useUsers() {
+export function useUsers(options?: { includeDeactivated?: boolean }) {
+  const qs = options?.includeDeactivated ? '?includeDeactivated=true' : '';
   return useQuery({
-    queryKey: ['users'],
-    queryFn: () => api<UserSummary[]>('/api/users'),
+    queryKey: ['users', options],
+    queryFn: () => api<UserSummary[]>(`/api/users${qs}`),
     staleTime: 5 * 60_000,
+  });
+}
+
+export function useTeamReports(userId: string | null) {
+  return useQuery({
+    queryKey: ['users', userId, 'reports'],
+    queryFn: () => api<UserSummary[]>(`/api/users/${userId}/reports`),
+    enabled: !!userId,
   });
 }
 
@@ -663,7 +675,7 @@ export interface InviteEmployeePayload {
   firstName: string;
   lastName: string;
   /** Role set to grant on creation. Must be non-empty. */
-  roles: ('SUPER_ADMIN' | 'ADMIN' | 'HR' | 'EMPLOYEE')[];
+  roles: ('SUPER_ADMIN' | 'ADMIN' | 'HR' | 'LINE_MANAGER' | 'EMPLOYEE')[];
   department: string;
   designation: string;
   employeeIdCode: string;
@@ -685,11 +697,12 @@ export function useInviteEmployee() {
 export interface UpdateEmployeePayload {
   fullName?: string;
   /** Full role set (multi-role model). Must be non-empty. */
-  roles?: ('SUPER_ADMIN' | 'ADMIN' | 'HR' | 'EMPLOYEE')[];
+  roles?: ('SUPER_ADMIN' | 'ADMIN' | 'HR' | 'LINE_MANAGER' | 'EMPLOYEE')[];
   department?: string;
   designation?: string;
   employeeIdCode?: string;
   isActive?: boolean;
+  lineManagerId?: string | null;
 }
 export function useUpdateEmployee() {
   const qc = useQueryClient();
