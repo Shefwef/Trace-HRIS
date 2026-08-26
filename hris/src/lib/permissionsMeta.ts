@@ -33,6 +33,9 @@ export const ACTION_PERMISSIONS = [
   'work_location.view_team',
   'work_location.view_all',
   'work_location.correct',
+  'biometric.view',
+  'biometric.manage',
+  'biometric.simulate',
 ] as const;
 
 export const NOTIFICATION_PERMISSIONS = [
@@ -75,6 +78,9 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'work_location.view_team': 'View team work locations',
   'work_location.view_all': 'View all work locations',
   'work_location.correct': 'Correct work location records',
+  'biometric.view': 'View biometric devices & punch log',
+  'biometric.manage': 'Register devices & map employees',
+  'biometric.simulate': 'Simulate biometric punches (QA)',
   'notifications.leave_pending': 'Receive leave pending notifications',
   'notifications.leave_decision': 'Receive leave decision notifications',
   'notifications.extra_work_pending': 'Receive extra work pending notifications',
@@ -107,6 +113,10 @@ export const PERMISSION_GROUPS: { label: string; permissions: string[] }[] = [
   {
     label: 'Work Location',
     permissions: ['work_location.change_own', 'work_location.view_team', 'work_location.view_all', 'work_location.correct'],
+  },
+  {
+    label: 'Biometric',
+    permissions: ['biometric.view', 'biometric.manage', 'biometric.simulate'],
   },
   {
     label: 'Notifications',
@@ -147,6 +157,9 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'work_location.view_team': true,
     'work_location.view_all': true,
     'work_location.correct': true,
+    'biometric.view': true,
+    'biometric.manage': true,
+    'biometric.simulate': false,
     // Admin receives no notifications by default (checks pages manually)
     'notifications.leave_pending': false,
     'notifications.leave_decision': false,
@@ -178,6 +191,9 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'work_location.view_team': true,
     'work_location.view_all': true,
     'work_location.correct': true,
+    'biometric.view': true,
+    'biometric.manage': true,
+    'biometric.simulate': false,
     'notifications.leave_pending': true,
     'notifications.leave_decision': true,
     'notifications.extra_work_pending': true,
@@ -208,6 +224,9 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'work_location.view_team': true,  // team only - enforced server-side
     'work_location.view_all': false,
     'work_location.correct': false,
+    'biometric.view': false,
+    'biometric.manage': false,
+    'biometric.simulate': false,
     'notifications.leave_pending': true,
     'notifications.leave_decision': true,
     'notifications.extra_work_pending': true,
@@ -238,6 +257,9 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'work_location.view_team': false,
     'work_location.view_all': false,
     'work_location.correct': false,
+    'biometric.view': false,
+    'biometric.manage': false,
+    'biometric.simulate': false,
     'notifications.leave_pending': false,
     'notifications.leave_decision': true, // own only
     'notifications.extra_work_pending': false,

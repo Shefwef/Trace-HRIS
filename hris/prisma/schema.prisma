@@ -57,6 +57,7 @@ enum AttendanceStatus {
 enum AttendanceSource {
   MANUAL
   BIOMETRIC
+  MOCK
 }
 
 /// Where an employee is physically working. Deliberately separate from
@@ -151,6 +152,9 @@ model User {
   lineManagerId    String?
   lineManager      User?    @relation("TeamReports", fields: [lineManagerId], references: [id], onDelete: SetNull)
   reports          User[]   @relation("TeamReports")
+  /// The numeric ID enrolled on the biometric device (emp_code from ZKBioTime).
+  /// Null until mapped by HR. Unique so two people can't share a fingerprint ID.
+  biometricUserId  String?  @unique
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -476,4 +480,51 @@ model RolePermission {
 
   @@unique([role, permission])
   @@map("role_permissions")
+}
+
+// ─── Biometric integration ────────────────────────────────
+
+model BiometricDevice {
+  id          String    @id @default(cuid())
+  serial      String    @unique
+  alias       String
+  isActive    Boolean   @default(true)
+  lastSeenAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  punches     BiometricPunch[]
+
+  @@map("biometric_devices")
+}
+
+model BiometricPunch {
+  id            String    @id @default(cuid())
+  deviceId      String
+  deviceUserId  String
+  punchedAt     DateTime
+  punchState    String
+  verifyType    Int?
+  employeeId    String?
+  appliedAt     DateTime?
+  rawPayload    Json
+  createdAt     DateTime  @default(now())
+
+  device        BiometricDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, deviceUserId, punchedAt])
+  @@index([employeeId, punchedAt])
+  @@map("biometric_punches")
+}
+
+model BiometricSyncLog {
+  id         String   @id @default(cuid())
+  deviceId   String?
+  startedAt  DateTime @default(now())
+  received   Int      @default(0)
+  applied    Int      @default(0)
+  duplicates Int      @default(0)
+  unmapped   Int      @default(0)
+  error      String?
+
+  @@map("biometric_sync_logs")
 }

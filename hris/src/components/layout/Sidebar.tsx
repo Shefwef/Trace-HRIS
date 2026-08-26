@@ -18,6 +18,7 @@ import {
   ScrollText,
   Shield,
   MapPin,
+  Fingerprint,
   X,
 } from 'lucide-react';
 import { useCurrentUser } from '@/lib/session';
@@ -40,6 +41,7 @@ const adminNav = [
   { to: '/admin/employees', label: 'Employees', icon: <Users size={18} /> },
   { to: '/admin/locations', label: 'Work Locations', icon: <MapPin size={18} /> },
   { to: '/admin/holidays', label: 'Holiday Manager', icon: <CalendarDays size={18} /> },
+  { to: '/admin/biometric', label: 'Biometric', icon: <Fingerprint size={18} /> },
   { to: '/admin/settings', label: 'Settings', icon: <Settings size={18} /> },
 ];
 

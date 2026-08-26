@@ -8,6 +8,7 @@ const isPublicRoute = createRouteMatcher([
   '/',                        // landing
   '/sign-in(.*)',
   '/api/webhooks/(.*)',
+  '/api/biometric/(.*)',      // office agent uses bearer token, not Clerk
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
