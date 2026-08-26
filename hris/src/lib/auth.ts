@@ -39,11 +39,9 @@ export function isAdminTier(role: Role) {
  * Verify the signed-in Clerk user exists in our allowlist (i.e. was created
  * by the seed script or via the admin invite flow).
  *
- * If they're in Clerk but NOT in our Postgres users table, they authenticated
- * via a channel (e.g. Google OAuth) but are not authorized to use HRIS.
- * We redirect them to a friendly "not authorized" page.
- *
- * Called by the app layout — returns null only when there's no session at all.
+ * Returns the full user row so the layout only needs one DB round-trip.
+ * Returns null when there is no session. Redirects to /not-authorized when
+ * the Clerk user has no matching row in Postgres.
  */
 export async function ensureUserInDb() {
   const { userId } = await auth();

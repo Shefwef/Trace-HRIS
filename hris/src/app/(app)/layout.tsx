@@ -1,10 +1,9 @@
-import { ensureUserInDb, getCurrentUser } from '@/lib/auth';
+import { ensureUserInDb } from '@/lib/auth';
 import { AppShell } from '@/components/layout/AppShell';
 import { redirect } from 'next/navigation';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  await ensureUserInDb();
-  const user = await getCurrentUser();
+  const user = await ensureUserInDb();
   if (!user) redirect('/sign-in');
 
   return (

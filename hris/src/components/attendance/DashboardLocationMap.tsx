@@ -48,7 +48,7 @@ export function DashboardLocationMap() {
         <div className="dlm-legend">
           <span>
             <span className="dlm-dot" style={{ background: '#2c5282' }} />
-            Office — {OFFICE_CENTER.lat.toFixed(4)}, {OFFICE_CENTER.lng.toFixed(4)}
+            {OFFICE.name}
           </span>
           {offsite && (
             <span>
@@ -57,9 +57,6 @@ export function DashboardLocationMap() {
             </span>
           )}
         </div>
-        <span className="dlm-hint">
-          Set <code>NEXT_PUBLIC_OFFICE_LAT</code> / <code>NEXT_PUBLIC_OFFICE_LNG</code> in .env.local to fix the pin.
-        </span>
       </div>
     </section>
   );
