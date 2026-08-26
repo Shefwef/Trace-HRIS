@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ArrowRight, CalendarClock, ClipboardList, Plus, TrendingUp, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useCurrentUser } from '@/lib/session';
-import { useBalance, useMyLeaves, useHolidays } from '@/lib/hooks';
+import { useBalance, useMyLeaves, useHolidays, useAttendanceHistory } from '@/lib/hooks';
 import { AttendanceWidget } from '../../components/attendance/AttendanceWidget';
 import { WorkLocationCard } from '../../components/attendance/WorkLocationCard';
 import { DashboardLocationMap } from '../../components/attendance/DashboardLocationMap';
@@ -29,6 +29,31 @@ const leaveVariant: Record<LeaveType, 'casual' | 'sick' | 'replacement'> = {
   REPLACEMENT: 'replacement',
 };
 
+/** Bit-mask for working days: bits 0-4 = Sun-Thu (Bangladesh work week). */
+const WORK_DAYS_MASK = 0b0011111;
+
+function isWorkDay(date: Date): boolean {
+  return (WORK_DAYS_MASK & (1 << date.getDay())) !== 0;
+}
+
+/** Count work days from the 1st of the month up to and including today. */
+function workDaysSoFar(year: number, month: number): number {
+  const now = new Date();
+  const todayY = now.getFullYear();
+  const todayM = now.getMonth() + 1;
+  const todayD = now.getDate();
+  // Cap the end at today when we're in the same year/month.
+  const lastDay =
+    year === todayY && month === todayM
+      ? todayD
+      : new Date(year, month, 0).getDate();
+  let count = 0;
+  for (let d = 1; d <= lastDay; d++) {
+    if (isWorkDay(new Date(year, month - 1, d))) count++;
+  }
+  return count;
+}
+
 export function EmployeeDashboard() {
   const user = useCurrentUser();
   const [applyOpen, setApplyOpen] = useState(false);
@@ -37,11 +62,39 @@ export function EmployeeDashboard() {
   const { data: holidays = [] } = useHolidays();
   const requests = (myLeaves ?? []).slice(0, 4);
 
-  if (!user || !balance) return null;
-
   // Office-local day. A UTC slice would call a 3 AM Dhaka visitor "yesterday"
   // and surface a holiday that has already passed.
   const today = todayISO();
+  const [todayYear, todayMonth] = today.split('-').map(Number);
+  const { data: historyData } = useAttendanceHistory(todayYear, todayMonth);
+
+  const monthStats = useMemo(() => {
+    const records = historyData?.records ?? [];
+    const daysWorked = records.filter((r) => r.clockInTime !== null).length;
+    const overtimeMins = records.reduce((sum, r) => sum + r.overtimeMinutes, 0);
+    const overtimeHours = Math.floor(overtimeMins / 60);
+    const overtimeRemMins = overtimeMins % 60;
+    const overtimeLabel =
+      overtimeMins === 0
+        ? '0h'
+        : overtimeRemMins === 0
+        ? `${overtimeHours}h`
+        : `${overtimeHours}h ${overtimeRemMins}m`;
+
+    const workDays = workDaysSoFar(todayYear, todayMonth);
+    const attendanceRate =
+      workDays > 0 ? Math.round((daysWorked / workDays) * 100) : 0;
+
+    // Approved leave days whose start date falls in the current month.
+    const monthPrefix = `${String(todayYear)}-${String(todayMonth).padStart(2, '0')}`;
+    const leavesTaken = (myLeaves ?? [])
+      .filter((l) => l.status === 'APPROVED' && l.startDate.startsWith(monthPrefix))
+      .reduce((sum, l) => sum + l.durationDays, 0);
+
+    return { daysWorked, overtimeLabel, attendanceRate, leavesTaken };
+  }, [historyData, myLeaves, todayYear, todayMonth]);
+
+  if (!user || !balance) return null;
   const upcomingHoliday = holidays
     .filter((h) => h.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date))[0] ?? null;
@@ -182,19 +235,19 @@ export function EmployeeDashboard() {
             <ul>
               <li>
                 <span>Attendance rate</span>
-                <strong>96%</strong>
+                <strong>{monthStats.attendanceRate}%</strong>
               </li>
               <li>
                 <span>Days worked</span>
-                <strong>13</strong>
+                <strong>{monthStats.daysWorked}</strong>
               </li>
               <li>
                 <span>Overtime hours</span>
-                <strong>2h 30m</strong>
+                <strong>{monthStats.overtimeLabel}</strong>
               </li>
               <li>
                 <span>Leaves taken</span>
-                <strong>2</strong>
+                <strong>{monthStats.leavesTaken}</strong>
               </li>
             </ul>
           </motion.div>
