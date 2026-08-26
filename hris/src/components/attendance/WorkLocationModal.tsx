@@ -96,7 +96,7 @@ export function WorkLocationModal({ open, onClose, currentPlaceName }: Props) {
     <Modal
       open={open}
       onClose={onClose}
-      size="lg"
+      size="xl"
       title="Change work location"
       footer={
         <>

@@ -1,54 +1,44 @@
 /**
- * Geoapify — place search and map tiles.
+ * Map tiles: OpenStreetMap raster tiles via MapLibre GL (no API key needed).
+ * Geocoding: Nominatim (OSM's free geocoding service, no API key needed).
  *
- * Chosen over Google Maps Platform because the free tier needs no billing
- * information and permits commercial use with attribution. The trade-off is
- * honest and worth writing down: Geoapify is built on OpenStreetMap, whose
- * coverage of Dhaka is patchier than Google's. Searching this very office
- * ("Road 19/C, Mohakhali New DOHS") returns a weak building match, and a
- * looser search collides with the *other* Mohakhali DOHS in Kafrul. That is
- * exactly why the map stays clickable: when search cannot find a place, the
- * employee pans and drops a pin instead, and `placeName` — the only required
- * field — is still whatever they typed.
- *
- * The key is `NEXT_PUBLIC_` out of necessity, not laziness: MapLibre fetches
- * tiles straight from the browser, so the key is in the page either way.
- * Proxying search through our own route would add a hop for no security gain.
- * The real mitigation is Geoapify's allowed-origin restriction — see
- * .env.example.
+ * OSM tile usage policy: max 2 parallel requests per user, cache enabled by
+ * default in MapLibre, attribution required (included in OSM_MAP_STYLE).
+ * Nominatim usage policy: max 1 req/sec — the 350 ms debounce in the picker
+ * keeps us well within that limit for a single-company HRIS.
  */
 
-const KEY = process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY;
-
-/** Search and the map are one purchase — either both work or neither does. */
-export const MAPS_ENABLED = !!KEY;
+/** Maps are always available — neither tiles nor geocoding require a paid key. */
+export const MAPS_ENABLED = true;
 
 /**
- * Pale, low-ink basemap. Deliberate: this map exists to confirm a pin, so the
- * pin should be the loudest thing on it. Positron also carries fewer label
- * layers than the `osm-bright` family, which means less to rasterise per frame.
- * Override with any vector style id Geoapify publishes (`osm-bright-smooth`,
- * `klokantech-basic`, `dark-matter`, …) if the look ever needs to change.
+ * Inline MapLibre style that loads OSM raster tiles.
+ * Pass this object directly as the `style` prop of MapLibreMap so MapLibre
+ * never makes a request to Geoapify and no origin restriction applies.
  */
-const STYLE = process.env.NEXT_PUBLIC_GEOAPIFY_MAP_STYLE || 'positron';
+export const OSM_MAP_STYLE = {
+  version: 8 as const,
+  sources: {
+    osm: {
+      type: 'raster' as const,
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution:
+        '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+      maxzoom: 19,
+    },
+  },
+  layers: [{ id: 'osm-tiles', type: 'raster' as const, source: 'osm' }],
+};
 
-/** MapLibre reads the whole style document from here; tiles follow from it. */
-export function mapStyleUrl(): string {
-  return `https://maps.geoapify.com/v1/styles/${STYLE}/style.json?apiKey=${KEY}`;
-}
+// ─── Shared types ─────────────────────────────────────────
 
 /** One search result, flattened to just what the modal and the DB care about. */
 export interface PlaceHit {
-  /**
-   * Absent from Geoapify's documented field list, so treated as optional — though
-   * `/search` and `/reverse` do both return it in practice. Our own column is a
-   * plain `String?` capped at 300 chars with no format assumption (see
-   * StartOffsiteSchema), so present-or-absent costs nothing either way.
-   */
   placeId?: string;
   /** Bold line in the dropdown: an amenity name, or street + house number. */
   primary: string;
-  /** Muted second line: whatever the address has left over. */
+  /** Muted second line: remainder of the display name. */
   secondary: string;
   /** Full single-line address, stored as `formattedAddress`. */
   formatted?: string;
@@ -56,109 +46,82 @@ export interface PlaceHit {
   lon?: number;
 }
 
-/** Geoapify's documented `features[].properties` fields, narrowed to ours. */
-interface RawProps {
-  place_id?: string;
+// ─── Nominatim types ──────────────────────────────────────
+
+interface NominatimResult {
+  place_id: number;
+  osm_type: string;
+  osm_id: number;
+  lat: string;
+  lon: string;
+  display_name: string;
   name?: string;
-  formatted?: string;
-  address_line1?: string;
-  address_line2?: string;
-  lat?: number;
-  lon?: number;
 }
 
-function toHit(p: RawProps): PlaceHit {
+function toHit(r: NominatimResult): PlaceHit {
+  const parts = r.display_name.split(', ');
+  const primary = r.name || parts[0] || r.display_name;
+  const secondary = parts.slice(1, 3).join(', ');
   return {
-    ...(p.place_id ? { placeId: p.place_id } : {}),
-    // A POI carries `name`; a bare street address does not, and there
-    // `address_line1` already holds "street + house number".
-    primary: p.name || p.address_line1 || p.formatted || 'Unnamed place',
-    secondary: p.address_line2 || '',
-    ...(p.formatted ? { formatted: p.formatted } : {}),
-    ...(typeof p.lat === 'number' ? { lat: p.lat } : {}),
-    ...(typeof p.lon === 'number' ? { lon: p.lon } : {}),
+    placeId: `${r.osm_type}${r.osm_id}`,
+    primary,
+    secondary,
+    formatted: r.display_name,
+    lat: parseFloat(r.lat),
+    lon: parseFloat(r.lon),
   };
 }
 
-/**
- * Geoapify defaults to GeoJSON, which is the shape its own docs demonstrate
- * (`result.features[0].properties.formatted`). The `results` branch is cheap
- * insurance in case a `format=json` response ever reaches here.
- */
-function extract(body: unknown): PlaceHit[] {
-  const b = body as {
-    features?: { properties?: RawProps }[];
-    results?: RawProps[];
-  } | null;
-  if (b?.features) {
-    return b.features.map((f) => toHit(f.properties ?? {}));
-  }
-  if (b?.results) return b.results.map(toHit);
-  return [];
-}
-
-async function get(path: string, params: Record<string, string>, signal?: AbortSignal) {
-  if (!KEY) throw new Error('Map search is not configured.');
-  const q = new URLSearchParams({ ...params, apiKey: KEY, lang: 'en' });
-  const res = await fetch(`https://api.geoapify.com/v1/geocode/${path}?${q}`, { signal });
-  if (!res.ok) {
-    // 401 means a bad or origin-blocked key; 429 means the daily credits ran
-    // out. Both are worth surfacing verbatim — a silent empty list would read
-    // as "no such place", which is a different and misleading problem.
-    throw new Error(`Search failed (HTTP ${res.status}).`);
-  }
-  return extract(await res.json());
+async function nominatimGet(
+  path: 'search' | 'reverse',
+  params: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<Response> {
+  const q = new URLSearchParams({ format: 'json', addressdetails: '1', ...params });
+  const res = await fetch(`https://nominatim.openstreetmap.org/${path}?${q}`, {
+    signal,
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error(`Nominatim ${path} failed (HTTP ${res.status}).`);
+  return res;
 }
 
 /**
- * Place search.
+ * Place search via Nominatim.
  *
- * Uses `/search`, NOT `/autocomplete`. Geoapify markets autocomplete as the
- * type-ahead endpoint, so it is the obvious choice — and on Dhaka's OSM data it
- * is measurably wrong. Measured against this key, same bias, same `limit=6`:
- *
- *   query                    /autocomplete            /search
- *   "Jamuna Future Park"     0 hits                   found
- *   "Gulshan Club"           6 hits, none correct     found, exact
- *   "BRAC Centre Mohakhali"  6 hits, none correct     found ("BRAC Center")
- *
- * Autocomplete's failure mode is worse than emptiness: asked for Gulshan Club it
- * confidently offers "Shainik Club Bus stop" and "BOLLYWOOD DANCE & FITNESS
- * CLUB", so an employee in a hurry can file a plausible-looking wrong site into
- * HR's report. `/search` costs the same 1 credit and both return an identical
- * FeatureCollection, so this is recall gained for nothing. Do not "optimise"
- * this back to autocomplete.
- *
- * The caller debounces by 350ms and requires 3 characters, which is what makes a
- * full-geocode endpoint reasonable to drive from a text field.
- *
- * Biased towards the office rather than hard-filtered to Bangladesh: a soft
- * proximity bias already floats Dhaka results to the top, while a
- * `countrycode:bd` filter would quietly break the consultant flying to a
- * client in Singapore.
+ * Uses a viewbox biased around the office so Dhaka results float to the top,
+ * but `bounded=0` lets it fall back to wider results rather than returning
+ * nothing when a consultant is working outside Dhaka.
  */
-export function searchPlaces(
+export async function searchPlaces(
   text: string,
   near: { lat: number; lng: number },
   signal?: AbortSignal,
 ): Promise<PlaceHit[]> {
-  return get(
+  const pad = 0.5; // ~55 km viewbox — covers greater Dhaka
+  const viewbox = `${near.lng - pad},${near.lat + pad},${near.lng + pad},${near.lat - pad}`;
+  const res = await nominatimGet(
     'search',
-    {
-      text,
-      limit: '6',
-      bias: `proximity:${near.lng},${near.lat}`,
-    },
+    { q: text, limit: '6', viewbox, bounded: '0' },
     signal,
   );
+  const results: NominatimResult[] = await res.json();
+  return results.map(toHit);
 }
 
-/** Names a dropped pin. Returns null when the coordinates resolve to nothing. */
+/** Names a dropped pin via Nominatim reverse geocoding. Returns null on failure. */
 export async function reverseGeocode(
   lat: number,
   lon: number,
   signal?: AbortSignal,
 ): Promise<PlaceHit | null> {
-  const hits = await get('reverse', { lat: String(lat), lon: String(lon) }, signal);
-  return hits[0] ?? null;
+  try {
+    const res = await nominatimGet('reverse', { lat: String(lat), lon: String(lon) }, signal);
+    const r: NominatimResult = await res.json();
+    // Nominatim returns `{ error: 'Unable to geocode' }` for ocean/void clicks
+    if (!r.display_name) return null;
+    return toHit(r);
+  } catch {
+    return null;
+  }
 }

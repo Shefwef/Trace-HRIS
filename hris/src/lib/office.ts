@@ -27,12 +27,12 @@ export const OFFICE = {
     process.env.NEXT_PUBLIC_OFFICE_ADDRESS ??
     'Level 2, Plot 285, Road 19/C, Mohakhali New DOHS, Dhaka-1206, Bangladesh',
   /**
-   * Mohakhali New DOHS, approximated from OpenStreetMap — which has thin data
-   * for this neighbourhood and confuses it with the other Mohakhali DOHS in
-   * Kafrul. Worth confirming in the picker once a Geoapify key is set.
+   * Verified from Google Maps pin for "TRACE Consulting" — Plot 285, Road 19/C,
+   * Mohakhali New DOHS. Override with NEXT_PUBLIC_OFFICE_LAT / _LNG in .env.local
+   * if the office ever moves.
    */
-  lat: envNumber(process.env.NEXT_PUBLIC_OFFICE_LAT, 23.7815),
-  lng: envNumber(process.env.NEXT_PUBLIC_OFFICE_LNG, 90.4001),
+  lat: envNumber(process.env.NEXT_PUBLIC_OFFICE_LAT, 23.7843515),
+  lng: envNumber(process.env.NEXT_PUBLIC_OFFICE_LNG, 90.3928013),
 } as const;
 
 /**

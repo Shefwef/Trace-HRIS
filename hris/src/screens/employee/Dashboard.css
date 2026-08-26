@@ -82,15 +82,36 @@
 }
 .edash-section-link:hover { text-decoration: none; color: var(--color-brand-primary); }
 
-.edash-activity {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+/* Stretches the recent-activity section to fill the remaining left-column height,
+   keeping both columns visually aligned at the bottom of the grid row. */
+.edash-section-fill {
+  flex: 1;
+  min-height: 200px;
+}
+
+/* Card container that fills the section — items stack at the top, card grows. */
+.edash-activity-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-xl);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
+}
+
+/* Empty state fills the card instead of floating at the top */
+.edash-activity-panel .edash-empty {
+  flex: 1;
+  border-radius: 0;
+}
+
+.edash-activity {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 .edash-activity li {
   display: grid;

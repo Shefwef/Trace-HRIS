@@ -43,7 +43,7 @@
   color: var(--color-text-muted);
   pointer-events: none;
 }
-.wlm-search-input { padding-left: 34px; }
+.wlm-search .input { padding-left: 36px; }
 
 .wlm-spin { animation: wlm-spin 0.9s linear infinite; }
 @keyframes wlm-spin {
@@ -112,7 +112,7 @@
 /* ── Map ── */
 
 .wlm-map {
-  height: 220px;
+  height: 300px;
   border-radius: var(--radius-md);
   overflow: hidden;
   border: 1px solid var(--color-border-default);

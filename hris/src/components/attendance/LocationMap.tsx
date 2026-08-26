@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { MapLibreMap, Marker, NavigationControl } from 'maplibre-gl';
-import { mapStyleUrl } from '@/lib/geoapify';
+import { OSM_MAP_STYLE } from '@/lib/geoapify';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 /** Matches the report headers and the rest of the brand. */
@@ -51,7 +51,7 @@ export default function LocationMap({ center, marker, onPick }: Props) {
 
     const m = new MapLibreMap({
       container: el,
-      style: mapStyleUrl(),
+      style: OSM_MAP_STYLE,
       center: [start.current.lng, start.current.lat],
       zoom: 12,
       maxZoom: 18,

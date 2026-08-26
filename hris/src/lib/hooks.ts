@@ -687,8 +687,6 @@ export function useWorkLocation(
     queryKey: ['work-location', employeeId ?? 'me', range ?? null],
     queryFn: () => api<WorkLocationResponse>(`/api/work-location${qs}`),
     enabled,
-    // The card shows a live "off-site for 1h 20m" counter.
-    refetchInterval: 60_000,
   });
 }
 

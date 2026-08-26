@@ -6,6 +6,7 @@ import { useCurrentUser } from '@/lib/session';
 import { useBalance, useMyLeaves, useHolidays } from '@/lib/hooks';
 import { AttendanceWidget } from '../../components/attendance/AttendanceWidget';
 import { WorkLocationCard } from '../../components/attendance/WorkLocationCard';
+import { DashboardLocationMap } from '../../components/attendance/DashboardLocationMap';
 import { LeaveBalanceCards } from '../../components/leave/LeaveBalanceCards';
 import { MiniCalendar } from '../../components/attendance/MiniCalendar';
 import { Button } from '../../components/ui/Button';
@@ -79,49 +80,51 @@ export function EmployeeDashboard() {
             <LeaveBalanceCards balance={balance} />
           </section>
 
-          <section className="edash-section">
+          <section className="edash-section edash-section-fill">
             <div className="edash-section-head">
               <h3>Recent leave activity</h3>
               <Link href="/leaves" className="edash-section-link">
                 See all <ArrowRight size={14} />
               </Link>
             </div>
-            {requests.length === 0 ? (
-              <motion.div
-                className="edash-empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-              >
-                <ClipboardList size={22} />
-                <div>
-                  <strong>No leave requests yet</strong>
-                  <p>Once you apply for a leave, it will show up here.</p>
-                </div>
-              </motion.div>
-            ) : (
-              <ul className="edash-activity">
-                {requests.map((r) => (
-                  <li key={r.id}>
-                    <Badge variant={leaveVariant[r.leaveType]}>
-                      {leaveTypeShort(r.leaveType)}
-                    </Badge>
-                    <div className="edash-activity-body">
-                      <div className="edash-activity-title">
-                        {leaveTypeLabel(r.leaveType)} · {fmtDateShort(r.startDate)}
-                        {r.startDate !== r.endDate && ` – ${fmtDateShort(r.endDate)}`}
+            <div className="edash-activity-panel">
+              {requests.length === 0 ? (
+                <motion.div
+                  className="edash-empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <ClipboardList size={22} />
+                  <div>
+                    <strong>No leave requests yet</strong>
+                    <p>Once you apply for a leave, it will show up here.</p>
+                  </div>
+                </motion.div>
+              ) : (
+                <ul className="edash-activity">
+                  {requests.map((r) => (
+                    <li key={r.id}>
+                      <Badge variant={leaveVariant[r.leaveType]}>
+                        {leaveTypeShort(r.leaveType)}
+                      </Badge>
+                      <div className="edash-activity-body">
+                        <div className="edash-activity-title">
+                          {leaveTypeLabel(r.leaveType)} · {fmtDateShort(r.startDate)}
+                          {r.startDate !== r.endDate && ` – ${fmtDateShort(r.endDate)}`}
+                        </div>
+                        <div className="edash-activity-meta">
+                          {r.durationDays} {r.durationDays === 1 ? 'day' : 'days'} ·{' '}
+                          {fmtRelative(r.createdAt)}
+                        </div>
                       </div>
-                      <div className="edash-activity-meta">
-                        {r.durationDays} {r.durationDays === 1 ? 'day' : 'days'} ·{' '}
-                        {fmtRelative(r.createdAt)}
-                      </div>
-                    </div>
-                    <Badge variant={statusVariant[r.status]}>
-                      {r.status.toLowerCase()}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
+                      <Badge variant={statusVariant[r.status]}>
+                        {r.status.toLowerCase()}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </section>
         </div>
 
@@ -197,6 +200,8 @@ export function EmployeeDashboard() {
           </motion.div>
         </div>
       </div>
+
+      <DashboardLocationMap />
 
       <LeaveApplicationFlow open={applyOpen} onClose={() => setApplyOpen(false)} />
     </div>

@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
+import type { Role } from '@prisma/client';
 import { requireAuth, err, parseBody, isUniqueViolation } from '@/lib/api';
 import { checkPermission } from '@/lib/permissions';
 import { StartOffsiteSchema } from '@/lib/validation';
 import { startOrChangeOffsite, WorkLocationError } from '@/lib/workLocation';
+import { prisma } from '@/lib/db';
+import { notifyMany } from '@/lib/notifications';
 
 /**
  * POST /api/work-location/offsite
@@ -27,6 +30,35 @@ export async function POST(req: Request) {
       actorId: actor.id,
       place: input,
     });
+
+    // Notify HR on new off-site starts (not location changes). Isolated in its
+    // own try/catch so any DB hiccup here never surfaces to the employee.
+    if (result.eventType === 'OFFSITE_STARTED') {
+      void (async () => {
+        try {
+          const hrUsers = await prisma.user.findMany({
+            where: { roles: { has: 'HR' as Role }, isActive: true, id: { not: actor.id } },
+            select: { id: true },
+          });
+          if (hrUsers.length > 0) {
+            const purposePart = input.purpose ? ` — ${input.purpose}` : '';
+            await notifyMany(
+              hrUsers.map((u) => ({
+                recipientId: u.id,
+                type: 'SYSTEM' as const,
+                title: `${actor.fullName} started off-site work`,
+                body: `${input.placeName}${purposePart}`,
+                referenceType: 'work_location_event',
+                referenceId: result.eventId,
+              })),
+            );
+          }
+        } catch {
+          // Notification failure must never roll back or delay the location change.
+        }
+      })();
+    }
+
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
     if (e instanceof WorkLocationError) return err(e.status, e.code, e.message);

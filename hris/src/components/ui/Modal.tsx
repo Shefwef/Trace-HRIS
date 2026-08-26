@@ -9,11 +9,11 @@ interface Props {
   title?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 export function Modal({ open, onClose, title, children, footer, size = 'md' }: Props) {
-  const widths = { sm: 360, md: 480, lg: 640 };
+  const widths = { sm: 360, md: 480, lg: 640, xl: 780 };
   return (
     <AnimatePresence>
       {open && (
