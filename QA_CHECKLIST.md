@@ -1,7 +1,10 @@
 # Trace HRIS — QA Checklist
 
-Everything in the current uncommitted batch, in the order I'd test it. Biometric
+Everything in the batch pushed as `217d3f9`, in the order I'd test it. Biometric
 integration is **not** in scope and is not started.
+
+This batch is **already committed and deployed** — you are QA'ing the live app, not a
+pre-push tree. Anything you find here becomes a fix commit on top.
 
 Three bodies of work are being signed off here:
 
@@ -30,6 +33,16 @@ Nothing to do here except one thing:
 most likely reason for a blank map during QA.
 
 **Expect** The "Change work location" modal shows a search box and a pale grey map.
+
+### 0-1b · ⚠️ If you are QA'ing the deployed app, add the key to Vercel first
+The key is gitignored, so **Vercel does not have it**. Until you add it, the deployed app
+shows the typed-entry fallback instead of the map — and Part 6 will read as a total failure
+when it is only a missing variable.
+
+Vercel → your project → Settings → Environment Variables → add
+`NEXT_PUBLIC_GEOAPIFY_API_KEY` for **Production** (and Preview if you use preview URLs) →
+then **Redeploy**. The redeploy is not optional: `NEXT_PUBLIC_*` is baked into the JS bundle
+at build time, so the deploy that is live right now already has "no key" compiled into it.
 
 ### 0-2 · Leave the key unrestricted for now
 In the Geoapify dashboard, leave **Allowed IP addresses**, **Allowed HTTP referrers**,
@@ -137,17 +150,19 @@ from leave-notification routing. `deactivatedAt` and `deactivatedById` get stamp
 ### 3-3 · You cannot deactivate yourself
 **Expect** 400, "You cannot deactivate yourself."
 
-### 3-4 · ⚠️ Deactivation does not revoke access — confirm this is what you want
+### 3-4 · Deactivation blocks API access; UI pages still visible
 **Do** Deactivate a test employee, then sign in as them.
 
-**Expect (as built)** They can still sign in, clock in, and submit leave. I checked
-`getCurrentUser()` in `src/lib/auth.ts:10` — it looks the user up by Clerk id with **no
-`isActive` filter**, and neither `proxy.ts` nor the session layer gates on it either.
+**Expect** They can sign into Clerk and load the app pages, but **cannot perform any
+actions**. Every API route goes through `requireAuth()` in `src/lib/api.ts:31`, which
+returns `403 INACTIVE` when `isActive` is false — so clock-in, leave submission, and all
+mutations are already blocked at the API layer. `getCurrentUser()` in `src/lib/auth.ts:10`
+has no `isActive` filter (the checklist previously overstated this), but the mutation
+endpoints do.
 
-So today "deactivate" means *hidden from HR's lists, reports and routing*, not *access
-revoked*. That may be deliberate — a soft delete that preserves records — but the Employees
-UI reads like revocation. **Decide which you meant.** If it should block access, that's a
-small change in one place and I'll make it before the push.
+The remaining gap is UI-only: the app layout does not gate on `isActive`, so a deactivated
+user sees the dashboard and navigation but every action fails. If you want to redirect them
+to an "account deactivated" page instead, that is a one-line check in the app layout.
 
 ---
 
@@ -354,8 +369,10 @@ These already worked; the batch touched code near them.
 
 Not QA failures — decisions or known gaps.
 
-1. **Deactivation doesn't revoke access** (check 3-4). Verified, not assumed. Tell me if it
-   should and I'll fix it before the push.
+1. **Deactivation revokes API access but not UI visibility** (check 3-4). All mutations
+   return `403 INACTIVE` via `requireAuth()`. The only remaining gap: a deactivated user can
+   still navigate app pages (the layout has no `isActive` gate). Add a redirect in the app
+   layout if you want them to land on a "deactivated" screen instead of seeing the dashboard.
 2. **OSM can't do Dhaka street addresses** — a street query returns a nearby wrong building.
    Named landmarks are fine (9/10 measured). Structural to OSM, not fixable by us; mitigated
    by click-to-pin and the editable name field. Google would be better here and needs a card.
@@ -379,5 +396,16 @@ Not QA failures — decisions or known gaps.
 
 ## Sign-off
 
-When Parts 0–8 pass, say so and I'll commit in grouped commits and push to `origin/main`.
-Nothing is committed yet. Biometric integration starts only after that.
+This batch is already on `origin/main` at `217d3f9`. Parts 0–8 are verifying what shipped,
+so the outcome is a list of fixes rather than a go/no-go on pushing.
+
+When you have run through it:
+- Note which checks failed and which findings you want acted on.
+- Those become fix commits on top of `217d3f9`.
+- **Biometric integration starts only after that** — see
+  [BIOMETRIC_FINGERPRINT_INTEGRATION_STEPS.md](BIOMETRIC_FINGERPRINT_INTEGRATION_STEPS.md).
+
+Still open outside this checklist: add `NEXT_PUBLIC_GEOAPIFY_API_KEY` to Vercel and redeploy
+(0-1b), and confirm Vercel's `DATABASE_URL` points at the same Neon host you develop against —
+`npm run build` does **not** run `prisma migrate deploy`, so a separate production branch would
+be missing all 7 migrations.
