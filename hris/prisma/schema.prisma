@@ -59,6 +59,29 @@ enum AttendanceSource {
   BIOMETRIC
 }
 
+/// Where an employee is physically working. Deliberately separate from
+/// attendance presence: an employee at a ministry all afternoon is still
+/// clocked in. Changing location never touches clock-in/clock-out.
+enum WorkLocationType {
+  OFFICE
+  OFFSITE
+}
+
+enum WorkLocationEventType {
+  /// Written automatically on clock-in. Establishes the OFFICE baseline.
+  OFFICE_CLOCK_IN
+  /// Employee left for an external official destination.
+  OFFSITE_STARTED
+  /// Employee came back. Closes the open off-site period.
+  RETURNED_TO_OFFICE
+  /// Off-site employee moved to a different destination. Closes the previous
+  /// period and opens a new one in a single transaction.
+  OFFSITE_LOCATION_CHANGED
+  /// HR/Admin fixed an erroneous record. Never overwrites history — the
+  /// correction is appended and both rows remain visible.
+  ADMIN_CORRECTION
+}
+
 enum ExtraWorkType {
   FULL_DAY          // 9 AM – 5 PM  → +1.0 replacement leave day
   HALF_DAY_MORNING  // 9 AM – 1 PM  → +0.5 replacement leave day
@@ -140,6 +163,8 @@ model User {
   notifications    Notification[]
   createdHolidays  Holiday[]
   auditLog         AuditLog[]
+  locationEvents   WorkLocationEvent[] @relation("EmployeeLocations")
+  authoredLocations WorkLocationEvent[] @relation("AuthoredLocations")
 
   @@index([role])
   @@index([email])
@@ -250,16 +275,70 @@ model AttendanceRecord {
   status                AttendanceStatus
   source                AttendanceSource  @default(MANUAL)
   biometricDeviceId     String?
+  /// Where the employee is working *right now* for this day. Lives here rather
+  /// than on User so it resets naturally at midnight — a stale "OFFSITE" on the
+  /// user row would survive forever if someone forgot to return.
+  workLocation          WorkLocationType  @default(OFFICE)
   notes                 String?
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
 
   employee              User              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   breaks                BreakSession[]
+  locationEvents        WorkLocationEvent[]
 
   @@unique([employeeId, date])
   @@index([employeeId, date(sort: Desc)])
   @@map("attendance_records")
+}
+
+/// Append-only work-location history. One row per location period: `startedAt`
+/// is always set, `endedAt` is null while the period is open. Rule 3 (an
+/// employee has exactly one current location) is enforced by a partial unique
+/// index on (employeeId) WHERE "endedAt" IS NULL — see the migration SQL, as
+/// Prisma cannot express partial indexes declaratively.
+///
+/// Nothing in this table is ever updated except to stamp `endedAt`. Corrections
+/// are appended as ADMIN_CORRECTION rows.
+model WorkLocationEvent {
+  id                    String                @id @default(cuid())
+  employeeId            String
+  /// The attendance day this period belongs to. Null for periods created
+  /// outside a clocked-in session (admin corrections on historical days).
+  attendanceId          String?
+  eventType             WorkLocationEventType
+  previousLocationType  WorkLocationType?
+  newLocationType       WorkLocationType
+
+  /// Google Places data, captured once at selection time. Null for OFFICE
+  /// periods. We store what the employee chose — we never poll their device.
+  placeId               String?
+  placeName             String?
+  formattedAddress      String?
+  latitude              Float?
+  longitude             Float?
+
+  purpose               String?               @db.VarChar(200)
+
+  startedAt             DateTime
+  endedAt               DateTime?
+  /// True when clock-out closed this period instead of the employee returning.
+  /// Rule 7: the record is flagged, not rewritten, so HR can see who forgot.
+  autoClosed            Boolean               @default(false)
+
+  /// Who wrote the row. Equals employeeId for self-service changes; differs for
+  /// ADMIN_CORRECTION.
+  createdById           String
+  createdAt             DateTime              @default(now())
+
+  employee              User                  @relation("EmployeeLocations", fields: [employeeId], references: [id], onDelete: Cascade)
+  createdBy             User                  @relation("AuthoredLocations", fields: [createdById], references: [id])
+  attendance            AttendanceRecord?     @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId, startedAt(sort: Desc)])
+  @@index([attendanceId])
+  @@index([startedAt])
+  @@map("work_location_events")
 }
 
 model BreakSession {

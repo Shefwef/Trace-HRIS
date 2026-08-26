@@ -134,3 +134,28 @@ export const UpdateEmployeeSchema = z.object({
   lineManagerId: z.union([z.string(), z.null()]).optional(),
 });
 export type UpdateEmployeeInput = z.infer<typeof UpdateEmployeeSchema>;
+
+// ─── Work location ────────────────────────────────────────
+
+/**
+ * A destination the employee picked. `placeName` is the only hard requirement:
+ * when no Google Maps key is configured the modal falls back to typed entry, so
+ * placeId/lat/lng are all optional. Coordinates are bounds-checked because a
+ * bad Places response is easier to catch here than in a report six weeks later.
+ */
+export const StartOffsiteSchema = z.object({
+  placeId: z.string().max(300).optional(),
+  placeName: z.string().min(2).max(200),
+  formattedAddress: z.string().max(400).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  purpose: z.string().max(200).optional(),
+});
+export type StartOffsiteInput = z.infer<typeof StartOffsiteSchema>;
+
+export const CorrectWorkLocationSchema = z.object({
+  eventId: z.string().min(1),
+  note: z.string().min(3).max(200),
+});
+export type CorrectWorkLocationInput = z.infer<typeof CorrectWorkLocationSchema>;
+

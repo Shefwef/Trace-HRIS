@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { requireAuth, err, parseBody } from '@/lib/api';
+import { localDateOnly } from '@/lib/workday';
+import { closeOpenPeriodOnClockOut } from '@/lib/workLocation';
 
 const Body = z
   .object({
@@ -29,7 +31,7 @@ export async function POST(req: Request) {
   }
 
   const now = input?.timestamp ? new Date(input.timestamp) : new Date();
-  const dateOnly = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const dateOnly = localDateOnly(now);
 
   const record = await prisma.attendanceRecord.findUnique({
     where: { employeeId_date: { employeeId: user.id, date: dateOnly } },
@@ -47,24 +49,31 @@ export async function POST(req: Request) {
   });
   const standardMinutes = settings.standardHoursPerDay * 60;
 
-  // Close any open break
+  // Close any open break. Computed here, written inside the transaction below
+  // so a failure can't leave a closed break on a still-open session.
   const openBreak = record.breaks.find((b) => !b.breakEnd);
-  let addedBreakMinutes = 0;
-  if (openBreak) {
-    const dur = Math.round((now.getTime() - openBreak.breakStart.getTime()) / 60000);
-    addedBreakMinutes = dur;
-    await prisma.breakSession.update({
-      where: { id: openBreak.id },
-      data: { breakEnd: now, durationMinutes: dur },
-    });
-  }
+  const addedBreakMinutes = openBreak
+    ? Math.round((now.getTime() - openBreak.breakStart.getTime()) / 60000)
+    : 0;
 
   const totalBreakMinutes = record.totalBreakMinutes + addedBreakMinutes;
   const rawMinutes = Math.round((now.getTime() - record.clockInTime.getTime()) / 60000);
   const totalWorkedMinutes = Math.max(0, rawMinutes - totalBreakMinutes);
   const overtimeMinutes = Math.max(0, totalWorkedMinutes - standardMinutes);
 
-  await prisma.$transaction(async (tx) => {
+  const location = await prisma.$transaction(async (tx) => {
+    if (openBreak) {
+      await tx.breakSession.update({
+        where: { id: openBreak.id },
+        data: { breakEnd: now, durationMinutes: addedBreakMinutes },
+      });
+    }
+
+    // Rule 7 — clock-out closes whatever work-location period is open. If the
+    // employee was still off-site, the period is flagged autoClosed rather than
+    // rewritten to pretend they came back.
+    const closed = await closeOpenPeriodOnClockOut(tx, { employeeId: user.id, at: now });
+
     await tx.attendanceRecord.update({
       where: { id: record.id },
       data: {
@@ -81,14 +90,24 @@ export async function POST(req: Request) {
         action: 'CLOCK_OUT',
         targetType: 'attendance_record',
         targetId: record.id,
-        metadata: { totalWorkedMinutes, overtimeMinutes, totalBreakMinutes },
+        metadata: {
+          totalWorkedMinutes,
+          overtimeMinutes,
+          totalBreakMinutes,
+          endedAtLocation: closed.endedAt,
+          offsiteAutoClosed: closed.autoClosed,
+        },
       },
     });
+
+    return closed;
   });
 
   return NextResponse.json({
     ok: true,
     at: now.toISOString(),
     summary: { totalWorkedMinutes, overtimeMinutes, totalBreakMinutes },
+    // The card uses this to warn "you were still marked off-site" on clock-out.
+    location: { endedAt: location.endedAt, autoClosed: location.autoClosed },
   });
 }

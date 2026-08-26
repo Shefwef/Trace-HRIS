@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { useCurrentUser } from '@/lib/session';
 import { useBalance, useMyLeaves, useHolidays } from '@/lib/hooks';
 import { AttendanceWidget } from '../../components/attendance/AttendanceWidget';
+import { WorkLocationCard } from '../../components/attendance/WorkLocationCard';
 import { LeaveBalanceCards } from '../../components/leave/LeaveBalanceCards';
 import { MiniCalendar } from '../../components/attendance/MiniCalendar';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { LeaveApplicationFlow } from '../../components/leave/LeaveApplicationFlow';
-import { fmtDateShort, fmtRelative, leaveTypeLabel, leaveTypeShort } from '../../lib/utils';
+import { fmtDateShort, fmtRelative, leaveTypeLabel, leaveTypeShort, todayISO } from '../../lib/utils';
 import type { LeaveStatus, LeaveType } from '../../lib/types';
 import './Dashboard.css';
 
@@ -37,7 +38,9 @@ export function EmployeeDashboard() {
 
   if (!user || !balance) return null;
 
-  const today = new Date().toISOString().slice(0, 10);
+  // Office-local day. A UTC slice would call a 3 AM Dhaka visitor "yesterday"
+  // and surface a holiday that has already passed.
+  const today = todayISO();
   const upcomingHoliday = holidays
     .filter((h) => h.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date))[0] ?? null;
@@ -123,6 +126,10 @@ export function EmployeeDashboard() {
         </div>
 
         <div className="edash-col-right">
+          {/* Sits at the top of the right column so it lands beside the attendance
+              widget: "clocked in at 8:58" on the left, "and working from here" here. */}
+          <WorkLocationCard />
+
           {upcomingHoliday && (
             <motion.div
               className="edash-highlight"

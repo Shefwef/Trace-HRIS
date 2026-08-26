@@ -17,6 +17,7 @@ import {
   Cog,
   ScrollText,
   Shield,
+  MapPin,
   X,
 } from 'lucide-react';
 import { useCurrentUser } from '@/lib/session';
@@ -37,6 +38,7 @@ const adminNav = [
   { to: '/admin', label: 'Admin Home', icon: <Home size={18} /> },
   { to: '/admin/requests', label: 'Requests', icon: <Inbox size={18} /> },
   { to: '/admin/employees', label: 'Employees', icon: <Users size={18} /> },
+  { to: '/admin/locations', label: 'Work Locations', icon: <MapPin size={18} /> },
   { to: '/admin/holidays', label: 'Holiday Manager', icon: <CalendarDays size={18} /> },
   { to: '/admin/settings', label: 'Settings', icon: <Settings size={18} /> },
 ];
@@ -48,6 +50,7 @@ const adminNav = [
  */
 const lineManagerNav = [
   { to: '/admin/requests', label: 'Team Requests', icon: <Inbox size={18} /> },
+  { to: '/admin/locations', label: 'Team Locations', icon: <MapPin size={18} /> },
 ];
 
 const superNav = [

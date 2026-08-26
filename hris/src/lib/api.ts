@@ -179,3 +179,17 @@ export function handler<T extends unknown[]>(
     }
   };
 }
+
+/**
+ * True for a Prisma unique-constraint violation (P2002). Used where a race is
+ * expected and a 409 is a better answer than a 500 — e.g. the partial unique
+ * index that keeps one work-location period open per employee.
+ */
+export function isUniqueViolation(e: unknown): boolean {
+  return (
+    typeof e === 'object' &&
+    e !== null &&
+    'code' in e &&
+    (e as { code?: unknown }).code === 'P2002'
+  );
+}

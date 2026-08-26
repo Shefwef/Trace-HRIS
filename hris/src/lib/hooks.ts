@@ -398,6 +398,7 @@ export interface AttendanceRecordData {
   status: string;
   source: string;
   notes: string | null;
+  workLocation?: WorkLocationType;
   breaks: AttendanceBreak[];
 }
 
@@ -432,6 +433,9 @@ export function useAttendanceHistory(year?: number, month?: number) {
 function invalidateAttendance(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ['attendance'] });
   qc.invalidateQueries({ queryKey: ['balance'] });
+  // Clock-in opens an OFFICE period and clock-out closes whatever is open, so
+  // the location card is stale after either.
+  qc.invalidateQueries({ queryKey: ['work-location'] });
 }
 
 const TODAY_KEY = ['attendance', 'today'] as const;
@@ -454,7 +458,7 @@ export function useClockIn() {
         isWeekend: old?.isWeekend ?? false,
         record:
           old?.record != null
-            ? { ...old.record, clockInTime: now, status: 'PRESENT' }
+            ? { ...old.record, clockInTime: now, status: 'PRESENT', workLocation: 'OFFICE' }
             : {
                 id: 'optimistic',
                 date: new Date().toISOString().slice(0, 10),
@@ -466,6 +470,7 @@ export function useClockIn() {
                 status: 'PRESENT',
                 source: 'MANUAL',
                 notes: null,
+                workLocation: 'OFFICE',
                 breaks: [],
               },
       }));
@@ -563,6 +568,177 @@ export function useEndBreak() {
       if (ctx?.prev) qc.setQueryData(TODAY_KEY, ctx.prev);
     },
     onSettled: () => invalidateAttendance(qc),
+  });
+}
+
+// ─── Work location ──────────────────────────────────────
+
+export type WorkLocationType = 'OFFICE' | 'OFFSITE';
+
+export type WorkLocationEventKind =
+  | 'OFFICE_CLOCK_IN'
+  | 'OFFSITE_STARTED'
+  | 'RETURNED_TO_OFFICE'
+  | 'OFFSITE_LOCATION_CHANGED'
+  | 'ADMIN_CORRECTION';
+
+export interface WorkLocationOpenPeriod {
+  id: string;
+  eventType: WorkLocationEventKind;
+  placeName: string | null;
+  formattedAddress: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  purpose: string | null;
+  startedAt: string;
+  minutesElapsed: number;
+}
+
+export interface WorkLocationEventItem {
+  id: string;
+  eventType: WorkLocationEventKind;
+  previousLocationType: WorkLocationType | null;
+  newLocationType: WorkLocationType;
+  placeId: string | null;
+  placeName: string | null;
+  formattedAddress: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  purpose: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  autoClosed: boolean;
+  durationMinutes: number | null;
+  createdBy: { id: string; fullName: string } | null;
+  byOther: boolean;
+  dayKey: string;
+}
+
+export interface WorkLocationResponse {
+  date: string;
+  employeeId: string;
+  current: {
+    type: WorkLocationType;
+    clockInTime: string | null;
+    clockOutTime: string | null;
+    attendanceId: string | null;
+    open: WorkLocationOpenPeriod | null;
+  };
+  history: WorkLocationEventItem[];
+}
+
+export interface StartOffsitePayload {
+  placeId?: string;
+  placeName: string;
+  formattedAddress?: string;
+  latitude?: number;
+  longitude?: number;
+  purpose?: string;
+}
+
+export interface LocationBoardRow {
+  employeeId: string;
+  fullName: string;
+  employeeIdCode: string | null;
+  department: string | null;
+  designation: string | null;
+  locationType: WorkLocationType;
+  clockInTime: string | null;
+  clockOutTime: string | null;
+  placeName: string | null;
+  formattedAddress: string | null;
+  purpose: string | null;
+  startedAt: string | null;
+  durationMinutes: number | null;
+  lastChangeAt: string | null;
+  autoClosedToday: boolean;
+}
+
+export interface LocationBoardResponse {
+  date: string;
+  scope: 'ALL' | 'TEAM';
+  /** Whether the viewer holds work_location.correct — drives the UI only. */
+  canCorrect: boolean;
+  totals: {
+    employees: number;
+    present: number;
+    inOffice: number;
+    offsite: number;
+    notClockedIn: number;
+  };
+  rows: LocationBoardRow[];
+}
+
+const LOCATION_KEY = ['work-location'] as const;
+
+/** Own location, or someone else's when `employeeId` is supplied. */
+export function useWorkLocation(
+  employeeId?: string,
+  range?: { from?: string; to?: string },
+  /** False keeps a mounted-but-hidden consumer (e.g. a closed drawer) from fetching. */
+  enabled = true,
+) {
+  const q = new URLSearchParams();
+  if (employeeId) q.set('employeeId', employeeId);
+  if (range?.from) q.set('from', range.from);
+  if (range?.to) q.set('to', range.to);
+  const qs = q.toString() ? `?${q.toString()}` : '';
+  return useQuery({
+    queryKey: ['work-location', employeeId ?? 'me', range ?? null],
+    queryFn: () => api<WorkLocationResponse>(`/api/work-location${qs}`),
+    enabled,
+    // The card shows a live "off-site for 1h 20m" counter.
+    refetchInterval: 60_000,
+  });
+}
+
+export function useLocationBoard(date?: string) {
+  const qs = date ? `?date=${date}` : '';
+  return useQuery({
+    queryKey: ['work-location', 'board', date ?? 'today'],
+    queryFn: () => api<LocationBoardResponse>(`/api/work-location/board${qs}`),
+    refetchInterval: 60_000,
+  });
+}
+
+function invalidateLocation(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: LOCATION_KEY });
+  qc.invalidateQueries({ queryKey: ['attendance'] });
+}
+
+export function useStartOffsite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: StartOffsitePayload) =>
+      api<{ ok: true; eventId: string; eventType: WorkLocationEventKind }>(
+        '/api/work-location/offsite',
+        { method: 'POST', body: JSON.stringify(input) },
+      ),
+    onSuccess: () => invalidateLocation(qc),
+  });
+}
+
+export function useReturnToOffice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<{ ok: true; eventId: string; offsiteMinutes: number }>(
+        '/api/work-location/return',
+        { method: 'POST' },
+      ),
+    onSuccess: () => invalidateLocation(qc),
+  });
+}
+
+export function useCorrectLocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ eventId, note }: { eventId: string; note: string }) =>
+      api<{ ok: true; correctionId: string }>('/api/work-location/correct', {
+        method: 'POST',
+        body: JSON.stringify({ eventId, note }),
+      }),
+    onSuccess: () => invalidateLocation(qc),
   });
 }
 

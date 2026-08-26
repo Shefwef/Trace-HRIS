@@ -1,4 +1,5 @@
 import { differenceInBusinessDays, format, parseISO } from 'date-fns';
+import { localDayKey } from './workday';
 
 export function cx(...classes: (string | false | undefined | null)[]): string {
   return classes.filter(Boolean).join(' ');
@@ -74,6 +75,10 @@ export function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
+/**
+ * Today as `yyyy-MM-dd` in the office timezone. Not `toISOString().slice(0, 10)`
+ * — that is the UTC day, which is yesterday for anyone in Dhaka before 06:00.
+ */
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDayKey();
 }

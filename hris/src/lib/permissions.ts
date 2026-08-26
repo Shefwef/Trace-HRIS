@@ -35,6 +35,10 @@ export const ACTION_PERMISSIONS = [
   'reports.per_employee_others',
   'audit.view',
   'system.view',
+  'work_location.change_own',
+  'work_location.view_team',
+  'work_location.view_all',
+  'work_location.correct',
 ] as const;
 
 export const NOTIFICATION_PERMISSIONS = [
@@ -73,6 +77,10 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'reports.per_employee_others': 'View other employees\' reports',
   'audit.view': 'View audit logs',
   'system.view': 'View system health',
+  'work_location.change_own': 'Change own work location',
+  'work_location.view_team': 'View team work locations',
+  'work_location.view_all': 'View all work locations',
+  'work_location.correct': 'Correct work location records',
   'notifications.leave_pending': 'Receive leave pending notifications',
   'notifications.leave_decision': 'Receive leave decision notifications',
   'notifications.extra_work_pending': 'Receive extra work pending notifications',
@@ -101,6 +109,10 @@ export const PERMISSION_GROUPS: { label: string; permissions: string[] }[] = [
   {
     label: 'Settings & System',
     permissions: ['settings.edit', 'settings.edit_qa_redirect', 'reports.company', 'reports.per_employee_others', 'audit.view', 'system.view'],
+  },
+  {
+    label: 'Work Location',
+    permissions: ['work_location.change_own', 'work_location.view_team', 'work_location.view_all', 'work_location.correct'],
   },
   {
     label: 'Notifications',
@@ -137,6 +149,10 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'reports.per_employee_others': true,
     'audit.view': false,
     'system.view': false,
+    'work_location.change_own': true,
+    'work_location.view_team': true,
+    'work_location.view_all': true,
+    'work_location.correct': true,
     // Admin receives no notifications by default (checks pages manually)
     'notifications.leave_pending': false,
     'notifications.leave_decision': false,
@@ -164,6 +180,10 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'reports.per_employee_others': true,
     'audit.view': false,
     'system.view': false,
+    'work_location.change_own': true,
+    'work_location.view_team': true,
+    'work_location.view_all': true,
+    'work_location.correct': true,
     'notifications.leave_pending': true,
     'notifications.leave_decision': true,
     'notifications.extra_work_pending': true,
@@ -190,6 +210,10 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'reports.per_employee_others': true, // team only
     'audit.view': false,
     'system.view': false,
+    'work_location.change_own': true,
+    'work_location.view_team': true,  // team only - enforced server-side
+    'work_location.view_all': false,
+    'work_location.correct': false,
     'notifications.leave_pending': true,
     'notifications.leave_decision': true,
     'notifications.extra_work_pending': true,
@@ -216,6 +240,10 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'reports.per_employee_others': false,
     'audit.view': false,
     'system.view': false,
+    'work_location.change_own': true,  // the whole point: self-service
+    'work_location.view_team': false,
+    'work_location.view_all': false,
+    'work_location.correct': false,
     'notifications.leave_pending': false,
     'notifications.leave_decision': true, // own only
     'notifications.extra_work_pending': false,
