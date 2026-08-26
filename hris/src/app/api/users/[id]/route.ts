@@ -36,6 +36,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const existing = await prisma.user.findUnique({ where: { id } });
   if (!existing) return err(404, 'NOT_FOUND', 'User not found.');
 
+  // Only a Super Admin may change the roles or active status of another Super Admin account.
+  const targetIsSA = existing.roles.includes('SUPER_ADMIN') || existing.role === 'SUPER_ADMIN';
+  const actorIsSA = actor.roles.includes('SUPER_ADMIN') || actor.role === 'SUPER_ADMIN';
+  if (targetIsSA && !actorIsSA && (input.roles !== undefined || input.isActive !== undefined)) {
+    return err(
+      403,
+      'SUPER_ADMIN_PROTECTED',
+      'Only a Super Admin can change the role or active status of another Super Admin account.',
+    );
+  }
+
   // Prevent changing your own role set or deactivating yourself
   if (id === actor.id) {
     if (input.roles) {

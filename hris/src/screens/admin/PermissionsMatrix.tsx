@@ -7,7 +7,7 @@ import { useStore } from '@/lib/store';
 import { api } from '@/lib/hooks';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { PERMISSION_GROUPS, PERMISSION_LABELS, DEFAULT_MATRIX } from '@/lib/permissions';
+import { PERMISSION_GROUPS, PERMISSION_LABELS, DEFAULT_MATRIX } from '@/lib/permissionsMeta';
 import { cx } from '@/lib/utils';
 import type { Role } from '@prisma/client';
 import './PermissionsMatrix.css';
