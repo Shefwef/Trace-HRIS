@@ -1,8 +1,10 @@
-const CACHE_NAME = 'trace-hris-cache-v1';
+const CACHE_NAME = 'trace-hris-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
-  '/Trace%20Consulting%20Logo.png',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/apple-touch-icon.png',
   '/favicon.svg'
 ];
 
