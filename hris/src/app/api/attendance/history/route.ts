@@ -37,12 +37,30 @@ export async function GET(req: Request) {
   const records = await prisma.attendanceRecord.findMany({
     where: { employeeId: targetId, date: { gte: from, lt: to } },
     orderBy: { date: 'asc' },
-    include: { breaks: { orderBy: { breakStart: 'asc' } } },
+    include: {
+      breaks: { orderBy: { breakStart: 'asc' } },
+      locationEvents: { orderBy: { startedAt: 'asc' } },
+    },
   });
 
   return NextResponse.json({
     year,
     month,
-    records: records.map(serialize),
+    records: records.map((r) => ({
+      ...serialize(r),
+      locationEvents: r.locationEvents.map((e) => ({
+        id: e.id,
+        eventType: e.eventType,
+        newLocationType: e.newLocationType,
+        placeName: e.placeName,
+        formattedAddress: e.formattedAddress,
+        purpose: e.purpose,
+        startedAt: e.startedAt.toISOString(),
+        endedAt: e.endedAt?.toISOString() ?? null,
+        durationMinutes: e.endedAt
+          ? Math.round((e.endedAt.getTime() - e.startedAt.getTime()) / 60_000)
+          : null,
+      })),
+    })),
   });
 }

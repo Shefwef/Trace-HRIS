@@ -387,6 +387,18 @@ export interface AttendanceBreak {
   durationMinutes: number | null;
 }
 
+export interface LocationEventSummary {
+  id: string;
+  eventType: WorkLocationEventKind;
+  newLocationType: WorkLocationType;
+  placeName: string | null;
+  formattedAddress: string | null;
+  purpose: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  durationMinutes: number | null;
+}
+
 export interface AttendanceRecordData {
   id: string;
   date: string;
@@ -400,6 +412,7 @@ export interface AttendanceRecordData {
   notes: string | null;
   workLocation?: WorkLocationType;
   breaks: AttendanceBreak[];
+  locationEvents: LocationEventSummary[];
 }
 
 export interface TodayResponse {
@@ -472,6 +485,7 @@ export function useClockIn() {
                 notes: null,
                 workLocation: 'OFFICE',
                 breaks: [],
+                locationEvents: [],
               },
       }));
       return { prev };

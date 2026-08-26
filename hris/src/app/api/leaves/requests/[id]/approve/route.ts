@@ -79,6 +79,23 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
   const now = new Date();
 
+  // Compute which calendar dates this approval covers so we can backfill
+  // any ABSENT attendance records for those days → LEAVE.
+  const absenceDates: Date[] = input.allocation
+    ? (input.allocation as AllocationEntry[]).map((a) => new Date(a.date))
+    : (() => {
+        const dates: Date[] = [];
+        const end = new Date(request.endDate);
+        for (
+          let d = new Date(request.startDate);
+          d <= end;
+          d = new Date(d.getTime() + 86_400_000)
+        ) {
+          dates.push(new Date(d));
+        }
+        return dates;
+      })();
+
   const updated = await prisma.$transaction(async (tx) => {
     const updatedRequest = await tx.leaveRequest.update({
       where: { id },
@@ -114,6 +131,19 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       await tx.leaveBalance.update({
         where: { id: balance.id },
         data: { replacementBalance: { decrement: finalDuration } },
+      });
+    }
+
+    // Convert any ABSENT records on the approved dates to LEAVE so the
+    // attendance log reflects the retroactive approval.
+    if (absenceDates.length > 0) {
+      await tx.attendanceRecord.updateMany({
+        where: {
+          employeeId: request.employeeId,
+          date: { in: absenceDates },
+          status: 'ABSENT',
+        },
+        data: { status: 'LEAVE' },
       });
     }
 

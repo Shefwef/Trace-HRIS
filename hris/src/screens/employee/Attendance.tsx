@@ -2,8 +2,8 @@
 import { useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Bar, BarChart } from 'recharts';
 import { motion } from 'framer-motion';
-import { CheckCircle2, XCircle, Coffee, Zap, Plus } from 'lucide-react';
-import { useAttendanceHistory, useBalance } from '@/lib/hooks';
+import { CheckCircle2, XCircle, Coffee, Zap, Plus, Building2, MapPin, ArrowLeft } from 'lucide-react';
+import { useAttendanceHistory, useBalance, type AttendanceRecordData, type LocationEventSummary } from '@/lib/hooks';
 import { AttendanceWidget } from '../../components/attendance/AttendanceWidget';
 import { StatCard } from '../../components/ui/StatCard';
 import { Button } from '../../components/ui/Button';
@@ -128,6 +128,7 @@ export function AttendancePage() {
             <span>Worked</span>
             <span>Overtime</span>
             <span>Status</span>
+            <span>Location</span>
           </div>
           {attendance.length === 0 ? (
             <div className="atpg-row" style={{ gridTemplateColumns: '1fr', color: 'var(--color-text-muted)', padding: 24, justifyContent: 'center' }}>
@@ -135,21 +136,91 @@ export function AttendancePage() {
             </div>
           ) : (
             attendance.map((a) => (
-              <div key={a.id} className="atpg-row">
-                <span data-label="Date">{fmtDate(a.date, 'EEE, d MMM')}</span>
-                <span className="mono" data-label="Clock in">{a.clockInTime ? fmtTime(a.clockInTime) : '—'}</span>
-                <span className="mono" data-label="Clock out">{a.clockOutTime ? fmtTime(a.clockOutTime) : '—'}</span>
-                <span className="mono" data-label="Break">{a.totalBreakMinutes ? fmtDuration(a.totalBreakMinutes) : '—'}</span>
-                <span className="mono" data-label="Worked">{a.totalWorkedMinutes ? fmtDuration(a.totalWorkedMinutes) : '—'}</span>
-                <span className="mono" data-label="Overtime">{a.overtimeMinutes ? fmtDuration(a.overtimeMinutes) : '—'}</span>
-                <span data-label="Status"><StatusDot status={a.status} /></span>
-              </div>
+              <AttendanceRow key={a.id} record={a} />
             ))
           )}
         </div>
       </div>
 
       <LogExtraWorkModal open={extraOpen} onClose={() => setExtraOpen(false)} />
+    </div>
+  );
+}
+
+function AttendanceRow({ record: a }: { record: AttendanceRecordData }) {
+  const locEvents = a.locationEvents ?? [];
+  const subEvents = locEvents.filter((e) => e.eventType !== 'OFFICE_CLOCK_IN');
+  const isActive = a.status === 'PRESENT' || a.status === 'HALF_DAY';
+
+  return (
+    <>
+      <div className="atpg-row">
+        <span data-label="Date">{fmtDate(a.date, 'EEE, d MMM')}</span>
+        <span className="mono" data-label="Clock in">{a.clockInTime ? fmtTime(a.clockInTime) : '—'}</span>
+        <span className="mono" data-label="Clock out">{a.clockOutTime ? fmtTime(a.clockOutTime) : '—'}</span>
+        <span className="mono" data-label="Break">{a.totalBreakMinutes ? fmtDuration(a.totalBreakMinutes) : '—'}</span>
+        <span className="mono" data-label="Worked">{a.totalWorkedMinutes ? fmtDuration(a.totalWorkedMinutes) : '—'}</span>
+        <span className="mono" data-label="Overtime">{a.overtimeMinutes ? fmtDuration(a.overtimeMinutes) : '—'}</span>
+        <span data-label="Status"><StatusDot status={a.status} /></span>
+        <span data-label="Location">
+          {isActive ? <LocationTag record={a} /> : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
+        </span>
+      </div>
+      {isActive && subEvents.map((e) => <LocEventRow key={e.id} event={e} />)}
+    </>
+  );
+}
+
+function LocationTag({ record }: { record: AttendanceRecordData }) {
+  const events = record.locationEvents ?? [];
+  const hasOffsite = events.some((e) => e.eventType === 'OFFSITE_STARTED');
+  if (!hasOffsite) {
+    return (
+      <span className="atpg-loc-tag">
+        <i style={{ background: 'var(--color-success)' }} />
+        Office
+      </span>
+    );
+  }
+  if (record.workLocation === 'OFFSITE') {
+    return (
+      <span className="atpg-loc-tag">
+        <i style={{ background: 'var(--color-warning)' }} />
+        Offsite
+      </span>
+    );
+  }
+  return (
+    <span className="atpg-loc-tag">
+      <i style={{ background: 'var(--color-info, #3182CE)' }} />
+      Mixed
+    </span>
+  );
+}
+
+function LocEventRow({ event: e }: { event: LocationEventSummary }) {
+  const labels: Record<string, { icon: React.ReactNode; text: string; color: string }> = {
+    OFFSITE_STARTED:          { icon: <MapPin size={10} />,     text: 'Left office',        color: 'var(--color-warning)' },
+    RETURNED_TO_OFFICE:       { icon: <ArrowLeft size={10} />,  text: 'Returned to office', color: 'var(--color-success)' },
+    OFFSITE_LOCATION_CHANGED: { icon: <MapPin size={10} />,     text: 'Location changed',   color: 'var(--color-info, #3182CE)' },
+    ADMIN_CORRECTION:         { icon: <Building2 size={10} />,  text: 'Admin correction',   color: 'var(--color-text-muted)' },
+  };
+  const lbl = labels[e.eventType] ?? { icon: null, text: e.eventType, color: 'var(--color-text-muted)' };
+
+  return (
+    <div className="atpg-loc-row">
+      <span className="atpg-loc-time">{fmtTime(e.startedAt)}</span>
+      <span className="atpg-loc-badge" style={{ color: lbl.color }}>
+        {lbl.icon} {lbl.text}
+      </span>
+      {(e.placeName || e.formattedAddress) && (
+        <span className="atpg-loc-place">
+          {e.placeName ?? e.formattedAddress}
+        </span>
+      )}
+      {e.durationMinutes != null && (
+        <span className="atpg-loc-dur">{fmtDuration(e.durationMinutes)}</span>
+      )}
     </div>
   );
 }
