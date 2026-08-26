@@ -26,17 +26,27 @@ Components with a literal import path.
 |---|---|
 | Phases 1–6 | Auth, roles, attendance (clock in/out/break), leave workflow with email, holidays, calendar, heatmap, extra-work logs, Clerk webhooks, Gemini chatbot, audit log, PWA manifest |
 | Phase 7 | `LINE_MANAGER` role, runtime permission matrix, employee deactivation |
-| Feature 1 | Work-location tracking + Geoapify map picker + HR location board |
+| Feature 1 | Work-location tracking + OSM/Nominatim map picker + HR location board |
+| Feature 2 | OSM dashboard map, HR off-site notification, Super Admin account protection, live "This month" stats, PWA icons from company logo |
 | Feature 3 | Excel-first report exports (PDF demoted to secondary) |
 
-Last four commits:
+Last commits (as of this handoff):
 
 ```
+9a3179e docs: update QA findings, add handoff document
+4e61c1c fix(auth): client-safe permissions meta, guard Super Admin accounts
+d20c891 feat(map): switch to OpenStreetMap, add dashboard map, fix office pin
 217d3f9 docs: rewrite biometric integration plan around how the device is actually used
 d9344d2 feat(reports): Excel-first exports with live formulas and real numbers
-b42c64e feat(work-location): track where employees actually work, with a map picker
-148299b chore(deps): add exceljs and maplibre-gl
 ```
+
+**Maps note:** Geoapify was replaced with OpenStreetMap raster tiles (no API key) + Nominatim for geocoding.
+`NEXT_PUBLIC_GEOAPIFY_API_KEY` is no longer needed. `MAPS_ENABLED` is unconditionally `true`.
+The QA checklist sections about Geoapify (Part 0, Part 6) are now outdated — skip them.
+
+**PWA note:** Company logo (`public/Trace Consulting Logo.png`) is now the source of all PWA icons.
+Generated: `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`. Manifest updated with `id`,
+`scope`, `orientation`. Service worker bumped to cache-v2. App is installable on iOS and Android.
 
 ## What is NOT done
 
@@ -45,13 +55,8 @@ installed in the office. Nothing in this codebase talks to it yet. Follow
 `BIOMETRIC_FINGERPRINT_INTEGRATION_STEPS.md` (Steps 1–16). Do not start until the user says
 their QA pass is finished.
 
-Smaller known gaps, none requested yet — do not fix without asking:
-- `hris/public/manifest.json` references `/icon-192.png` and `/icon-512.png`; neither file
-  exists, so the PWA is manifest-ready but not installable.
-- `Dashboard.tsx` `.edash-perf` shows hardcoded placeholder stats (96% / 13 / 2h 30m / 2).
-- `hris/DEMO_GUIDE.md` is stale prototype-era text ("2 roles", "7 minutes"). Root
-  `DEMO_GUIDE.md` is current but says "4 roles" and predates `LINE_MANAGER`.
-- `README.md` has a static "Permission matrix" section that predates the runtime matrix.
+Smaller known gaps — do not fix without asking:
+- `DEMO_GUIDE.md` (root) still says "4 roles" and predates `LINE_MANAGER`.
 - `npm audit`: 5 vulnerabilities, all pre-existing transitives, none on a reachable path.
 
 ## Open decisions — ask, do not assume

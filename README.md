@@ -75,16 +75,18 @@ Live at [trace-hris.vercel.app](https://trace-hris.vercel.app).
 - Mini-calendar & full calendar: **status-tinted day cells** (green = Present, blue = Leave, purple = Holiday, amber = Half-day, red = Absent)
 
 ### Reports
-Four branded PDF reports available at `/reports`, downloaded on demand:
+
+Five downloadable reports at `/reports`. **Excel is the primary format** — spreadsheets with live `=SUM()` formulas, frozen/filterable header rows, and numbers stored as numbers (not text) so you can sort and chart them. A secondary PDF is available for all except the off-site report.
 
 | Report | Scope | Roles that see it |
 |---|---|---|
 | Performance summary | Cycle + selected month | Everyone |
 | Monthly attendance | Selected month | Everyone |
 | Leave history | Full cycle year | Everyone |
-| Company cycle report (landscape A4) | All active employees | HR / Admin / Super Admin |
+| Company cycle report | All active employees | HR / Admin / Super Admin |
+| Off-site work log | All location events | HR / Admin / Super Admin |
 
-Every PDF embeds the Trace logo, brand blue header, footer with page-of-pages + generation timestamp. Rendered fresh on every download - nothing cached.
+Every Excel file opens on a **Summary** sheet. Every PDF embeds the Trace logo, brand blue header, and footer with page number + generation timestamp. Rendered fresh on every download — nothing cached.
 
 ### Admin tools
 - **Employees** - invite, deactivate/reactivate, **role editor per card** (see hierarchy below), **Assign team** for Line Managers, searchable. Everyone is listed including Super Admins; your own card is read-only.
@@ -172,7 +174,7 @@ Every role change syncs to Clerk's `publicMetadata` so future sessions carry the
 instead of hardcoded checks. The five roles are fixed - you cannot invent new
 ones - but **what each role may do is editable**.
 
-- **24 permissions** across two categories: 19 *actions* (`leave.approve`,
+- **28 permissions** across two categories: 23 *actions* (`leave.approve`,
   `holiday.delete`, `employee.assign_line_manager`, `audit.view`, …) and
   5 *notification toggles* (`notifications.leave_pending`, …) that control
   whether a role receives that kind of notification at all.
@@ -209,34 +211,6 @@ in.
 At approval time, the reviewer sees a live **balance preview** and can modify the day-by-day allocation before approving. The final approved allocation is stored on the record for audit purposes. Reviewers can also edit the approve/reject email body before it goes out.
 
 ---
-
-## Team roster (12 seeded users)
-
-Multi-role: a person can hold more than one role simultaneously (e.g. a COO who needs both Admin and HR power). All 12 accounts are pre-verified in Clerk with photos uploaded; users sign in with email + password (no email verification code needed).
-
-| # | Name | Designation | Email | Role set | Initial password |
-|---|---|---|---|---|---|
-| 1 | Shefadib (Super Admin) | System Administrator | `shefadib@gmail.com` | Super Admin + Admin + HR + Employee | `Trace-HRIS-Super-2026!` |
-| 2 | Fuad M Khalid Hossen | Chief Executive Officer (CEO) | `fuad.khalid@traceconsultingltd.com` | Admin | `Trace-HRIS-Fuad-2026!` |
-| 3 | Abu Saleh Muhammad Saifullah | Chief Operating Officer (COO) | `asmsaifullah@traceconsultingltd.com` | Admin + HR | `Trace-HRIS-Saifullah-2026!` |
-| 4 | Umme Mahbuba Tama | Research Associate | `umtama@traceconsultingltd.com` | HR | `Trace-HRIS-Tama-2026!` |
-| 5 | Tanvir Kabir | Digital Content & Multimedia Specialist | `tanvir.kabir@traceconsultingltd.com` | Employee | `Trace-HRIS-Tanvir-2026!` |
-| 6 | Rubayat E Shams Anik | Policy, Research and Business Development Specialist | `res.anik@traceconsultingltd.com` | Employee | `Trace-HRIS-Anik-2026!` |
-| 7 | Mimma Afrin | Technical Lead - Laboratory Operations | `mimma.afrin@traceconsultingltd.com` | Employee | `Trace-HRIS-Mimma-2026!` |
-| 8 | Recardo Saurav Antor Halder | Manager, Business Development | `recardo.halder@traceconsultingltd.com` | Employee | `Trace-HRIS-Recardo-2026!` |
-| 9 | Nabeel Khan | Head of Partnerships & Strategic Growth | `nabeel.khan@traceconsultingltd.com` | Employee | `Trace-HRIS-Nabeel-2026!` |
-| 10 | Moudud Ahmmed Sujan | Head of External Affairs | `moudud.sujan@traceconsultingltd.com` | Employee | `Trace-HRIS-Moudud-2026!` |
-| 11 | Ahmed Julker Nine | Research and Policy Analyst | `ahmed.nine@traceconsultingltd.com` | Employee | `Trace-HRIS-Ahmed-2026!` |
-| 12 | Tahsina Shiva | IT Project Manager | `tahsina.shiva@traceconsultingltd.com` | Employee | `Trace-HRIS-Tahsina-2026!` |
-
-Initial passwords follow the pattern `Trace-HRIS-<FirstName>-2026!` (upper + lower + digit + symbol, matches the Clerk complexity policy). Every user should change their password on first sign-in via avatar → **Account settings** → Security. Photos live in `hris/public/` and are also uploaded to Clerk profile pictures via `scripts/sync-roles.ts`.
-
-The Super Admin account deliberately holds **all four** of Super Admin, Admin, HR
-and Employee so a single sign-in can drive an entire submit → notify → approve →
-email loop during QA. Strip the extra roles before handing the system over.
-
-`LINE_MANAGER` is not in the seed list on purpose - reporting lines are org state,
-not seed state. Grant the role and pick the team from the Employees page.
 
 ---
 
@@ -284,17 +258,22 @@ Once you have a verified domain on Resend, `scripts/send-welcome.ts` sends the e
 - [x] Employee search (name, ID, email, department) with clear button
 - [x] Audit log viewer at `/admin/audit` (IP + user-agent captured)
 - [x] System health page at `/admin/system` (Super Admin only)
-- [x] Four downloadable PDF reports with Trace branding
+- [x] Excel-first reports (5 reports with live formulas, frozen headers, real numbers); PDF secondary
+- [x] **Work location tracking** — employees declare their destination (office / off-site) at clock-in; HR sees a live team board; append-only audit trail; 7 business rules enforced at DB level
+- [x] **Dashboard location map** — read-only OSM map on employee dashboard showing office pin + off-site pin when applicable
+- [x] HR notification when an employee starts an off-site period (fire-and-forget, never delays the employee)
 - [x] Analytics page with real charts (leave distribution, hours trend, cumulative leaves)
 - [x] Full calendar + mini-calendar with **status-tinted day cells**
 - [x] Bangladesh work week (Sun-Thu) with local-date handling throughout - no UTC off-by-one
+- [x] **"This month, at a glance"** — live attendance rate, days worked, overtime, and leaves taken (no hardcoded values)
 - [x] Security headers (HSTS, X-Frame, Referrer-Policy, Permissions-Policy)
+- [x] **Super Admin protection** — only a Super Admin can change the role or active status of another Super Admin account
 - [x] Per-user write rate limiting (30/min via Postgres)
 - [x] Clerk webhook sync (`user.deleted`, `user.updated`)
 - [x] Neon cold-start retry via Prisma `$extends` (300/900/2100 ms backoff)
 - [x] "Ask HRIS" chatbot (Gemini 3.6 Flash, scoped, markdown-aware)
 - [x] Mobile responsive (sidebar drawer, reflowing tables, floating chat)
-- [x] **Installable PWA** (`manifest.json` + service worker)
+- [x] **Installable PWA** — company logo icons (192 × 192, 512 × 512, 180 × 180 Apple touch), manifest with `id`/`scope`/`orientation`, service worker cache v2, correct `apple-touch-icon` meta
 - [x] Next.js 16 conventions - `viewport` export for `themeColor`, `proxy.ts` instead of `middleware.ts`
 - [x] GitHub Actions CI (build + typecheck on every push)
 
