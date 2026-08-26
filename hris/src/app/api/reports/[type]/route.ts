@@ -3,11 +3,22 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { prisma } from '@/lib/db';
-import { requireAuth, err } from '@/lib/api';
+import { requireAuth, err, type ApiUser } from '@/lib/api';
+import { checkPermission } from '@/lib/permissions';
+import { resolveVisibleEmployeeIds } from '@/lib/workLocation';
 import { AttendanceReport, type AttendanceRecord } from '@/lib/reports/AttendanceReport';
 import { LeavesReport, type LeaveRecord } from '@/lib/reports/LeavesReport';
 import { SummaryReport } from '@/lib/reports/SummaryReport';
 import { AllEmployeesReport, type EmployeeRow } from '@/lib/reports/AllEmployeesReport';
+import {
+  getAttendanceReportData, getCompanyReportData, getLeaveReportData,
+  getOffsiteRows, getSummaryReportData, monthPeriod, yearPeriod,
+} from '@/lib/reports/data';
+import {
+  buildAttendanceWorkbook, buildCompanyWorkbook, buildLeavesWorkbook,
+  buildOffsiteWorkbook, buildSummaryWorkbook,
+} from '@/lib/reports/builders';
+import { xlsxResponse } from '@/lib/reports/workbook';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -52,7 +63,12 @@ function pdfResponse(buf: Buffer, filename: string): Response {
  * GET /api/reports/attendance?year=YYYY&month=MM
  * GET /api/reports/leaves?year=YYYY
  * GET /api/reports/summary?year=YYYY&month=MM
- * GET /api/reports/all-employees?year=YYYY&month=MM   (HR/Admin/Super Admin only)
+ * GET /api/reports/all-employees?year=YYYY&month=MM   (reports.company)
+ * GET /api/reports/offsite?year=YYYY&month=MM         (work_location.view_all/_team)
+ *
+ * `?format=xlsx` (the default) returns a formatted workbook; `?format=pdf`
+ * returns the print-ready PDF. Excel leads because these reports get filtered,
+ * pivoted and pasted into payroll sheets — a PDF is the exception, not the norm.
  */
 export async function GET(
   req: Request,
@@ -66,18 +82,22 @@ export async function GET(
   const now = new Date();
   const year = Number(url.searchParams.get('year') ?? now.getFullYear());
   const month = Number(url.searchParams.get('month') ?? now.getMonth() + 1);
+  const format = url.searchParams.get('format') === 'pdf' ? 'pdf' : 'xlsx';
 
   if (!Number.isFinite(year) || year < 2000 || year > 2100)
     return err(400, 'BAD_YEAR', 'Invalid year.');
-  if (type === 'attendance' || type === 'summary' || type === 'all-employees') {
+  const usesMonth = type === 'attendance' || type === 'summary'
+    || type === 'all-employees' || type === 'offsite';
+  if (usesMonth) {
     if (!Number.isFinite(month) || month < 1 || month > 12)
       return err(400, 'BAD_MONTH', 'Invalid month.');
   }
 
-  const logoDataUrl = await getLogoDataUrl();
-  const generatedAt = fmtGeneratedAt();
-
   try {
+    if (format === 'xlsx') return await renderXlsx(user, type, year, month);
+
+    const logoDataUrl = await getLogoDataUrl();
+    const generatedAt = fmtGeneratedAt();
     switch (type) {
       case 'attendance':
         return await renderAttendance(user, year, month, logoDataUrl, generatedAt);
@@ -86,19 +106,113 @@ export async function GET(
       case 'summary':
         return await renderSummary(user, year, month, logoDataUrl, generatedAt);
       case 'all-employees':
-        if (user.role !== 'HR' && user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')
-          return err(403, 'FORBIDDEN', 'HR, Admin or Super Admin only.');
+        // Reads the runtime permission matrix rather than the denormalised
+        // primary role: a COO holding ADMIN + EMPLOYEE has EMPLOYEE nowhere in
+        // sight but every right to this report, and a Line Manager whose
+        // reports.company key was toggled on would otherwise be refused.
+        if (!(await checkPermission(user, 'reports.company')))
+          return err(403, 'FORBIDDEN', 'You do not have permission to export company reports.');
         return await renderAllEmployees(year, month, logoDataUrl, generatedAt);
+      case 'offsite':
+        return err(
+          400, 'PDF_UNAVAILABLE',
+          'The off-site work report is Excel-only — 14 columns of coordinates do not fit a page.',
+        );
       default:
         return err(404, 'UNKNOWN_REPORT', `Unknown report type "${type}".`);
     }
   } catch (e) {
     console.error('[reports] render error', e);
     return NextResponse.json(
-      { error: 'RENDER_FAILED', message: 'Could not generate the PDF.' },
+      { error: 'RENDER_FAILED', message: `Could not generate the ${format.toUpperCase()}.` },
       { status: 500 },
     );
   }
+}
+
+// ─── Excel ─────────────────────────────────────────────────
+
+/**
+ * The Excel path. Each report resolves its own scope: the three personal
+ * reports are always the caller's own data, and the two team-wide ones go
+ * through the permission matrix. No branch here reads an employee id from the
+ * query string, so there is nothing for a caller to tamper with.
+ */
+async function renderXlsx(
+  user: ApiUser,
+  type: string,
+  year: number,
+  month: number,
+): Promise<Response> {
+  const slug = (user.employeeIdCode ?? user.fullName).replace(/\s+/g, '-').toLowerCase();
+
+  switch (type) {
+    case 'attendance': {
+      const period = monthPeriod(year, month);
+      const data = await getAttendanceReportData(user, period);
+      return xlsxResponse(
+        buildAttendanceWorkbook(user, period, data),
+        `attendance-report-${slug}-${period.fileRange}.xlsx`,
+      );
+    }
+
+    case 'leaves': {
+      const period = yearPeriod(year);
+      const data = await getLeaveReportData(user, year);
+      return xlsxResponse(
+        buildLeavesWorkbook(user, period, data),
+        `leave-history-${slug}-${period.fileRange}.xlsx`,
+      );
+    }
+
+    case 'summary': {
+      const period = monthPeriod(year, month);
+      const data = await getSummaryReportData(user, period);
+      return xlsxResponse(
+        buildSummaryWorkbook(user, period, data),
+        `performance-summary-${slug}-${period.fileRange}.xlsx`,
+      );
+    }
+
+    case 'all-employees': {
+      if (!(await checkPermission(user, 'reports.company')))
+        return err(403, 'FORBIDDEN', 'You do not have permission to export company reports.');
+      const period = monthPeriod(year, month);
+      const data = await getCompanyReportData(period, 'ALL');
+      return xlsxResponse(
+        buildCompanyWorkbook(period, data, 'All active employees'),
+        `company-report-${period.fileRange}.xlsx`,
+      );
+    }
+
+    case 'offsite': {
+      // Same scope resolution the location board uses: 'ALL' for HR/Admin, the
+      // direct reports for a Line Manager, and own-rows-only for everyone else.
+      const scope = await resolveVisibleEmployeeIds(user);
+      const period = monthPeriod(year, month);
+      const ids = scope === 'ALL' ? await allActiveIds() : (scope ?? [user.id]);
+      const rows = await getOffsiteRows(ids, period);
+      const label =
+        scope === 'ALL' ? 'All active employees'
+        : scope === null ? 'Your own records'
+        : 'Your direct reports';
+      return xlsxResponse(
+        buildOffsiteWorkbook(period, rows, label),
+        `offsite-work-report-${period.fileRange}.xlsx`,
+      );
+    }
+
+    default:
+      return err(404, 'UNKNOWN_REPORT', `Unknown report type "${type}".`);
+  }
+}
+
+async function allActiveIds(): Promise<string[]> {
+  const rows = await prisma.user.findMany({
+    where: { isActive: true },
+    select: { id: true },
+  });
+  return rows.map((r) => r.id);
 }
 
 // ─── attendance ────────────────────────────────────────────────

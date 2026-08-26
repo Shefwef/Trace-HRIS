@@ -1,13 +1,17 @@
 'use client';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Download, FileText, TrendingUp, Users, CalendarClock, Loader2, Check } from 'lucide-react';
+import {
+  FileSpreadsheet, FileText, TrendingUp, Users, CalendarClock, Navigation,
+  Loader2, Check, Download,
+} from 'lucide-react';
 import { useCurrentUser } from '@/lib/session';
 import { useStore } from '@/lib/store';
 import { Button } from '../../components/ui/Button';
 import './Reports.css';
 
-type ReportType = 'attendance' | 'leaves' | 'summary' | 'all-employees';
+type ReportType = 'attendance' | 'leaves' | 'summary' | 'all-employees' | 'offsite';
+type Format = 'xlsx' | 'pdf';
 
 interface ReportDef {
   id: ReportType;
@@ -18,6 +22,12 @@ interface ReportDef {
   bg: string;
   usesMonth: boolean;
   adminOnly?: boolean;
+  /**
+   * False for reports that only make sense as a spreadsheet. The off-site
+   * report is fourteen columns wide including coordinates — a PDF of it would
+   * be unreadable, so the button is simply absent rather than producing one.
+   */
+  hasPdf?: boolean;
 }
 
 const REPORTS: ReportDef[] = [
@@ -29,34 +39,47 @@ const REPORTS: ReportDef[] = [
     accent: 'var(--color-leave-replacement)',
     bg: 'var(--color-leave-replacement-light)',
     usesMonth: true,
+    hasPdf: true,
   },
   {
     id: 'attendance',
     title: 'Monthly attendance',
-    body: 'Every clock-in, clock-out, break minute and overtime for the month — grouped by day, with a status badge per row.',
+    body: 'Every clock-in, clock-out, break and overtime for the month, plus where each day was worked from. Three sheets: summary, daily rows, off-site periods.',
     icon: <CalendarClock size={20} />,
     accent: 'var(--color-brand-primary)',
     bg: 'var(--color-info-light)',
     usesMonth: true,
+    hasPdf: true,
   },
   {
     id: 'leaves',
     title: 'Leave history',
-    body: 'Every leave request in the selected cycle — dates, reason, reviewer and decision. Sorted newest-first.',
+    body: 'Every leave request in the selected cycle — dates, reason, reviewer and decision — with the balance it was drawn against.',
     icon: <FileText size={20} />,
     accent: 'var(--color-leave-casual)',
     bg: 'var(--color-leave-casual-light)',
     usesMonth: false,
+    hasPdf: true,
+  },
+  {
+    id: 'offsite',
+    title: 'Off-site work',
+    body: 'Every location period in the month — place, address, coordinates, purpose, duration, and who recorded it. Covers whoever you can see on the location board.',
+    icon: <Navigation size={20} />,
+    accent: 'var(--color-warning)',
+    bg: 'var(--color-warning-light)',
+    usesMonth: true,
   },
   {
     id: 'all-employees',
     title: 'Company cycle report',
-    body: 'HR / Admin only. Every active employee side-by-side — balances, attendance rate this month, pending requests. Landscape A4.',
+    body: 'HR / Admin only. Five sheets — headline figures, per-employee summary, every daily attendance row, off-site periods and leave requests.',
     icon: <Users size={20} />,
-    accent: 'var(--color-warning)',
-    bg: 'var(--color-warning-light)',
+    accent: 'var(--color-danger)',
+    bg: 'var(--color-danger-light)',
     usesMonth: true,
     adminOnly: true,
+    hasPdf: true,
   },
 ];
 
@@ -71,20 +94,29 @@ export function ReportsPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [busyId, setBusyId] = useState<ReportType | null>(null);
-  const [doneId, setDoneId] = useState<ReportType | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
 
   if (!user) return null;
 
-  const isAdmin = user.role === 'HR' || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
+  // Multi-role holders are the norm here — the COO carries ADMIN + HR + EMPLOYEE,
+  // and reading only the denormalised primary role would hide this card from
+  // half the people entitled to it. The server re-checks via the permission
+  // matrix, so this is presentation only.
+  const roles = user.roles.length > 0 ? user.roles : [user.role];
+  const isAdmin =
+    roles.includes('HR') || roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
+  const isManager = isAdmin || roles.includes('LINE_MANAGER');
+
   const yearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1];
   const list = REPORTS.filter((r) => !r.adminOnly || isAdmin);
 
-  async function download(r: ReportDef) {
-    setBusyId(r.id);
-    setDoneId(null);
+  async function download(r: ReportDef, format: Format) {
+    const key = `${r.id}:${format}`;
+    setBusy(key);
+    setDone(null);
     try {
-      const q = new URLSearchParams({ year: String(year) });
+      const q = new URLSearchParams({ year: String(year), format });
       if (r.usesMonth) q.set('month', String(month));
       const res = await fetch(`/api/reports/${r.id}?${q.toString()}`);
       if (!res.ok) {
@@ -96,10 +128,9 @@ export function ReportsPage() {
         throw new Error(msg);
       }
       const blob = await res.blob();
-      // Try to grab the filename from Content-Disposition; fallback to a sensible default.
+      // Prefer the server's filename — it carries the resolved date range.
       const cd = res.headers.get('content-disposition') ?? '';
-      const match = cd.match(/filename="([^"]+)"/);
-      const filename = match?.[1] ?? `${r.id}.pdf`;
+      const filename = cd.match(/filename="([^"]+)"/)?.[1] ?? `${r.id}.${format}`;
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -110,14 +141,14 @@ export function ReportsPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      setDoneId(r.id);
+      setDone(key);
       addToast({ kind: 'success', title: 'Download ready', body: filename });
-      setTimeout(() => setDoneId(null), 2500);
+      setTimeout(() => setDone(null), 2500);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unknown error';
       addToast({ kind: 'error', title: `Could not generate ${r.title}`, body: msg });
     } finally {
-      setBusyId(null);
+      setBusy(null);
     }
   }
 
@@ -126,7 +157,8 @@ export function ReportsPage() {
       <div className="rpts-head">
         <h1>Reports</h1>
         <p className="muted">
-          Branded, print-quality PDFs — perfect for records, audits and reimbursements. Pick a period, then download.
+          Formatted Excel workbooks — filter, pivot and paste straight into payroll or audit
+          sheets. Pick a period, then export. A print-ready PDF is available where it makes sense.
         </p>
       </div>
 
@@ -154,56 +186,86 @@ export function ReportsPage() {
           </label>
         </div>
         <p className="rpts-period-hint muted">
-          Year applies to every report. Month is used by Attendance, Summary, and Company. Leave History always covers the full cycle year.
+          Every export contains exactly the period selected here — nothing wider, nothing
+          cached. Leave History always covers the full cycle year.
         </p>
       </div>
 
       <div className="rpts-grid">
-        {list.map((r, i) => {
-          const busy = busyId === r.id;
-          const done = doneId === r.id;
-          return (
-            <motion.div
-              key={r.id}
-              className="rpts-card card"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-            >
-              <div className="rpts-icon" style={{ background: r.bg, color: r.accent }}>
-                {r.icon}
+        {list.map((r, i) => (
+          <motion.div
+            key={r.id}
+            className="rpts-card card"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
+          >
+            <div className="rpts-icon" style={{ background: r.bg, color: r.accent }}>
+              {r.icon}
+            </div>
+            <div className="rpts-body">
+              <h4>{r.title}</h4>
+              <p>{r.body}</p>
+              <div className="rpts-scope">
+                {r.usesMonth ? `${MONTH_NAMES[month - 1]} ${year}` : `Full cycle ${year}`}
+                {r.adminOnly ? ' · HR / Admin only' : ''}
+                {r.id === 'offsite'
+                  ? isAdmin
+                    ? ' · everyone'
+                    : isManager
+                      ? ' · your team'
+                      : ' · your own records'
+                  : ''}
               </div>
-              <div className="rpts-body">
-                <h4>{r.title}</h4>
-                <p>{r.body}</p>
-                <div className="rpts-scope">
-                  {r.usesMonth
-                    ? `${MONTH_NAMES[month - 1]} ${year}`
-                    : `Full cycle ${year}`}
-                  {r.adminOnly ? ' · HR / Admin only' : ''}
-                </div>
-              </div>
+            </div>
+
+            <div className="rpts-actions">
               <Button
-                variant={done ? 'success' : 'primary'}
+                variant={done === `${r.id}:xlsx` ? 'success' : 'primary'}
                 leadingIcon={
-                  busy ? <Loader2 size={14} className="rpts-spin" /> :
-                  done ? <Check size={14} /> :
-                  <Download size={14} />
+                  busy === `${r.id}:xlsx` ? <Loader2 size={14} className="rpts-spin" /> :
+                  done === `${r.id}:xlsx` ? <Check size={14} /> :
+                  <FileSpreadsheet size={14} />
                 }
-                onClick={() => download(r)}
-                disabled={busy}
+                onClick={() => download(r, 'xlsx')}
+                disabled={busy !== null}
               >
-                {busy ? 'Generating…' : done ? 'Downloaded' : 'Download PDF'}
+                {busy === `${r.id}:xlsx` ? 'Building…'
+                  : done === `${r.id}:xlsx` ? 'Downloaded'
+                  : 'Export Excel'}
               </Button>
-            </motion.div>
-          );
-        })}
+
+              {r.hasPdf && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leadingIcon={
+                    busy === `${r.id}:pdf` ? <Loader2 size={13} className="rpts-spin" /> :
+                    done === `${r.id}:pdf` ? <Check size={13} /> :
+                    <Download size={13} />
+                  }
+                  onClick={() => download(r, 'pdf')}
+                  disabled={busy !== null}
+                >
+                  {busy === `${r.id}:pdf` ? 'Rendering…'
+                    : done === `${r.id}:pdf` ? 'Downloaded'
+                    : 'PDF'}
+                </Button>
+              )}
+            </div>
+          </motion.div>
+        ))}
       </div>
 
       <div className="rpts-note card">
-        <strong>About these PDFs</strong>
+        <strong>About these exports</strong>
         <p>
-          Every report is rendered fresh on the server the moment you click Download — nothing is cached. The Trace logo, brand colors, and layout come straight from the app's design system. Sensitive data (personal reasons, adjustment notes) is included only where you already have permission to see it in the app.
+          Workbooks open on a Summary sheet carrying the period and headline figures, then the
+          raw rows. Header rows are frozen and filterable; hours, days and rates are real
+          numbers rather than text, so they sort and total correctly, and each sheet ends with
+          a live <span className="mono">SUM()</span> row. Times are shown in Dhaka time.
+          Everything is generated fresh on request, and you only ever receive rows you already
+          have permission to see in the app.
         </p>
       </div>
     </div>

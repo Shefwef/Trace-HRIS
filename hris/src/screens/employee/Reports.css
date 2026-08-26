@@ -133,6 +133,21 @@
   border-radius: var(--radius-sm);
   display: inline-block;
 }
+/*
+ * Excel and PDF sit on one row: Excel is the primary action so it takes the
+ * space, PDF stays at its natural width so it reads as the secondary option.
+ * `margin-top: auto` keeps both aligned along the bottom of the grid row even
+ * when one card's description runs longer than its neighbour's.
+ */
+.rpts-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: auto;
+}
+.rpts-actions .btn:first-child { flex: 1 1 0; min-width: 0; }
+.rpts-actions .btn:nth-child(2) { flex: 0 0 auto; }
+
 .rpts-note {
   padding: var(--space-5);
   background: linear-gradient(135deg, var(--color-info-light), var(--color-bg-surface));
