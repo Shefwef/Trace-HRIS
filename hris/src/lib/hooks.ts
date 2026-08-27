@@ -125,12 +125,18 @@ export interface AuditLogItem {
   ip: string | null;
   userAgent: string | null;
   createdAt: string;
-  actor: { id: string; fullName: string; email: string; role: string } | null;
+  actor: { id: string; fullName: string; email?: string; role: string } | null;
+  targetUser: { id: string; fullName: string; email?: string; role: string } | null;
+  detail: string;
+}
+export interface AuditUserOption {
+  id: string; fullName: string; role: string;
 }
 export interface AuditLogResponse {
   total: number;
   limit: number;
   actions: string[];
+  users: AuditUserOption[];
   items: AuditLogItem[];
 }
 
@@ -204,16 +210,28 @@ export function useNotifications() {
   });
 }
 
-export function useAuditLog(filters: { action?: string; actorId?: string; targetType?: string; since?: string } = {}) {
+export interface AuditFilters {
+  action?: string;
+  actorId?: string;
+  targetUserId?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+}
+export function auditLogQuery(filters: AuditFilters): string {
   const q = new URLSearchParams();
   if (filters.action) q.set('action', filters.action);
   if (filters.actorId) q.set('actorId', filters.actorId);
-  if (filters.targetType) q.set('targetType', filters.targetType);
-  if (filters.since) q.set('since', filters.since);
-  const qs = q.toString() ? `?${q.toString()}` : '';
+  if (filters.targetUserId) q.set('targetUserId', filters.targetUserId);
+  if (filters.from) q.set('from', filters.from);
+  if (filters.to) q.set('to', filters.to);
+  if (filters.limit) q.set('limit', String(filters.limit));
+  return q.toString() ? `?${q.toString()}` : '';
+}
+export function useAuditLog(filters: AuditFilters = {}) {
   return useQuery({
     queryKey: ['audit-log', filters],
-    queryFn: () => api<AuditLogResponse>(`/api/audit-log${qs}`),
+    queryFn: () => api<AuditLogResponse>(`/api/audit-log${auditLogQuery(filters)}`),
   });
 }
 

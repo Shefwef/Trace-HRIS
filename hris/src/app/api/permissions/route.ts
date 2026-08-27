@@ -1,15 +1,18 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth, err, parseBody } from '@/lib/api';
-import { invalidatePermissionCache, ALL_PERMISSIONS } from '@/lib/permissions';
+import { invalidatePermissionCache, ALL_PERMISSIONS, checkPermission } from '@/lib/permissions';
 import { z } from 'zod';
 import { Prisma, type Role } from '@prisma/client';
 
 export async function GET(req: Request) {
   const [actor, error] = await requireAuth(req);
   if (error) return error;
-  if (!actor.roles.includes('SUPER_ADMIN')) {
-    return err(403, 'FORBIDDEN', 'Only Super Admins can view the permission matrix.');
+  // View is available to anyone with audit.view — reads only. Editing (PATCH)
+  // is still Super Admin gated below.
+  const canView = await checkPermission(actor, 'audit.view');
+  if (!canView) {
+    return err(403, 'FORBIDDEN', 'You do not have permission to view the permission matrix.');
   }
 
   const permissions = await prisma.rolePermission.findMany({

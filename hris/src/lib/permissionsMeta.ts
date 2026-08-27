@@ -151,7 +151,7 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'settings.edit_qa_redirect': false,
     'reports.company': true,
     'reports.per_employee_others': true,
-    'audit.view': false,
+    'audit.view': true,
     'system.view': false,
     'work_location.change_own': true,
     'work_location.view_team': true,
@@ -185,7 +185,7 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'settings.edit_qa_redirect': false,
     'reports.company': true,
     'reports.per_employee_others': true,
-    'audit.view': false,
+    'audit.view': true,
     'system.view': false,
     'work_location.change_own': true,
     'work_location.view_team': true,
@@ -218,7 +218,7 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'settings.edit_qa_redirect': false,
     'reports.company': false,
     'reports.per_employee_others': true, // team only
-    'audit.view': false,
+    'audit.view': true,
     'system.view': false,
     'work_location.change_own': true,
     'work_location.view_team': true,  // team only - enforced server-side
