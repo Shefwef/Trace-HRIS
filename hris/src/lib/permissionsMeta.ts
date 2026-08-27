@@ -131,6 +131,24 @@ export const PERMISSION_GROUPS: { label: string; permissions: string[] }[] = [
  * that are missing from the DB will be seeded; admin overrides are
  * never touched.
  */
+/**
+ * Client-safe permission check against DEFAULT_MATRIX only (no DB hit).
+ * Lives here rather than in permissions.ts so Client Components can call it
+ * without pulling Prisma into the browser bundle.
+ */
+export function checkPermissionSync(
+  actor: { role: Role; roles?: Role[] | null },
+  permission: string,
+): boolean {
+  const roles: readonly Role[] =
+    actor.roles && actor.roles.length > 0 ? actor.roles : [actor.role];
+  for (const r of roles) {
+    const defaults = DEFAULT_MATRIX[r];
+    if (defaults && defaults[permission]) return true;
+  }
+  return false;
+}
+
 export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
   SUPER_ADMIN: Object.fromEntries(ALL_PERMISSIONS.map((p) => [p, true])),
   ADMIN: {

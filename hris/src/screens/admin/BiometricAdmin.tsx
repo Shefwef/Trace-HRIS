@@ -6,7 +6,7 @@ import { api } from '@/lib/hooks';
 import { fmtDate, fmtTime } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { useCurrentUser } from '@/lib/session';
-import { checkPermissionSync } from '@/lib/permissions';
+import { checkPermissionSync } from '@/lib/permissionsMeta';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -52,6 +52,8 @@ export function BiometricAdmin() {
   const user = useCurrentUser();
   const canManage = user ? checkPermissionSync(user, 'biometric.manage') : false;
   const canSimulate = user ? checkPermissionSync(user, 'biometric.simulate') : false;
+  const { data: devices } = useDevices();
+  const noDevicesYet = Array.isArray(devices) && devices.length === 0;
 
   return (
     <div className="pg">
@@ -61,6 +63,27 @@ export function BiometricAdmin() {
           <p className="muted">ZKTeco M2-LR integration — punch ingest, device management, and employee mapping.</p>
         </div>
       </div>
+
+      {noDevicesYet && (
+        <div
+          role="status"
+          style={{
+            display: 'flex',
+            gap: 12,
+            alignItems: 'flex-start',
+            padding: '14px 18px',
+            marginBottom: 20,
+            background: 'var(--color-info-light, #EBF4FF)',
+            border: '1px solid var(--color-info, #3182CE)',
+            borderRadius: 'var(--radius-md)',
+          }}
+        >
+          <AlertCircle size={18} color="var(--color-info, #3182CE)" style={{ marginTop: 2, flexShrink: 0 }} />
+          <div style={{ fontSize: 'var(--text-sm)', lineHeight: 1.55, color: 'var(--color-text-primary)' }}>
+            <strong>No biometric device connected yet.</strong> This page is ready to receive punches from the office ZKTeco M2-LR — you can register the device serial in the <em>Devices</em> tab, map each employee&apos;s <code>emp_code</code> under <em>Mapping</em>, then either wait for the office agent to POST to <code>/api/biometric/punches</code> or use the <em>Simulate</em> tab to test the full pipeline end-to-end. Once the real device is set up, everything you configure here will start filling in automatically.
+          </div>
+        </div>
+      )}
 
       <div className="tab-bar" style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--color-border-default)', marginBottom: 24 }}>
         {([

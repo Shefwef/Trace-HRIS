@@ -19,6 +19,7 @@ import { ALL_PERMISSIONS, DEFAULT_MATRIX } from './permissionsMeta';
 export {
   ACTION_PERMISSIONS, NOTIFICATION_PERMISSIONS, ALL_PERMISSIONS,
   PERMISSION_LABELS, PERMISSION_GROUPS, DEFAULT_MATRIX,
+  checkPermissionSync,
   type Permission,
 } from './permissionsMeta';
 
@@ -74,23 +75,6 @@ export async function checkPermission(
     }
   }
 
-  return false;
-}
-
-/**
- * Synchronous check against the DEFAULT_MATRIX only (no DB hit).
- * Useful in client-side code or places where async isn't viable.
- */
-export function checkPermissionSync(
-  actor: { role: Role; roles?: Role[] | null },
-  permission: string,
-): boolean {
-  const roles: readonly Role[] =
-    actor.roles && actor.roles.length > 0 ? actor.roles : [actor.role];
-  for (const r of roles) {
-    const defaults = DEFAULT_MATRIX[r];
-    if (defaults && defaults[permission]) return true;
-  }
   return false;
 }
 
