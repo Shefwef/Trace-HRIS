@@ -94,8 +94,6 @@ export function Sidebar() {
           <img
             src="/Trace%20Consulting%20Logo%20Dark.png"
             alt="Trace Consulting"
-            width={44}
-            height={44}
           />
         </div>
         <div className="sidebar-brand-text">
