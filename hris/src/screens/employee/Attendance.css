@@ -158,6 +158,32 @@
   display: inline-block;
   flex-shrink: 0;
 }
+.atpg-loc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font: inherit;
+  color: var(--color-text-secondary);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+  max-width: 100%;
+  overflow: hidden;
+}
+.atpg-loc-btn:hover {
+  background: var(--color-bg-subtle);
+  border-color: var(--color-brand-primary);
+}
+.atpg-loc-btn > svg { flex-shrink: 0; color: var(--color-text-muted); }
+.atpg-loc-btn .atpg-loc-tag {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 
 @media (max-width: 900px) {
   .atpg-thead { display: none; }

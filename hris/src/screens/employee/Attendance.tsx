@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Bar, BarChart } from 'recharts';
 import { motion } from 'framer-motion';
-import { CheckCircle2, XCircle, Coffee, Zap, Plus, Building2, MapPin, ArrowLeft } from 'lucide-react';
+import { CheckCircle2, XCircle, Coffee, Zap, Plus, Building2, MapPin, ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react';
 import { useAttendanceHistory, useBalance, type AttendanceRecordData, type LocationEventSummary } from '@/lib/hooks';
 import { AttendanceWidget } from '../../components/attendance/AttendanceWidget';
 import { StatCard } from '../../components/ui/StatCard';
@@ -148,9 +148,20 @@ export function AttendancePage() {
 }
 
 function AttendanceRow({ record: a }: { record: AttendanceRecordData }) {
+  const [expanded, setExpanded] = useState(false);
   const locEvents = a.locationEvents ?? [];
   const subEvents = locEvents.filter((e) => e.eventType !== 'OFFICE_CLOCK_IN');
   const isActive = a.status === 'PRESENT' || a.status === 'HALF_DAY';
+  const hasOffsite = locEvents.some((e) => e.eventType === 'OFFSITE_STARTED');
+  const canExpand = isActive && subEvents.length > 0;
+
+  const summary = !isActive
+    ? '—'
+    : !hasOffsite
+      ? 'Office'
+      : a.workLocation === 'OFFSITE'
+        ? `Office + ${offsiteLabel(subEvents)}`
+        : `Office + ${offsiteLabel(subEvents)}`;
 
   return (
     <>
@@ -163,37 +174,48 @@ function AttendanceRow({ record: a }: { record: AttendanceRecordData }) {
         <span className="mono" data-label="Overtime">{a.overtimeMinutes ? fmtDuration(a.overtimeMinutes) : '—'}</span>
         <span data-label="Status"><StatusDot status={a.status} /></span>
         <span data-label="Location">
-          {isActive ? <LocationTag record={a} /> : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
+          {canExpand ? (
+            <button
+              type="button"
+              className="atpg-loc-btn"
+              onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+            >
+              {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              <LocationTag record={a} label={summary} />
+            </button>
+          ) : isActive ? (
+            <LocationTag record={a} label="Office" />
+          ) : (
+            <span style={{ color: 'var(--color-text-muted)' }}>—</span>
+          )}
         </span>
       </div>
-      {isActive && subEvents.map((e) => <LocEventRow key={e.id} event={e} />)}
+      {expanded && subEvents.map((e) => <LocEventRow key={e.id} event={e} />)}
     </>
   );
 }
 
-function LocationTag({ record }: { record: AttendanceRecordData }) {
+function offsiteLabel(events: LocationEventSummary[]): string {
+  // Prefer the first offsite start's place name; else generic "outside"
+  const first = events.find((e) => e.eventType === 'OFFSITE_STARTED');
+  if (first?.placeName) return first.placeName;
+  const total = events.filter((e) => e.eventType === 'OFFSITE_STARTED').length;
+  return total > 1 ? `${total} outside stops` : 'outside';
+}
+
+function LocationTag({ record, label }: { record: AttendanceRecordData; label: string }) {
   const events = record.locationEvents ?? [];
   const hasOffsite = events.some((e) => e.eventType === 'OFFSITE_STARTED');
-  if (!hasOffsite) {
-    return (
-      <span className="atpg-loc-tag">
-        <i style={{ background: 'var(--color-success)' }} />
-        Office
-      </span>
-    );
-  }
-  if (record.workLocation === 'OFFSITE') {
-    return (
-      <span className="atpg-loc-tag">
-        <i style={{ background: 'var(--color-warning)' }} />
-        Offsite
-      </span>
-    );
-  }
+  const color = !hasOffsite
+    ? 'var(--color-success)'
+    : record.workLocation === 'OFFSITE'
+      ? 'var(--color-warning)'
+      : 'var(--color-info, #3182CE)';
   return (
     <span className="atpg-loc-tag">
-      <i style={{ background: 'var(--color-info, #3182CE)' }} />
-      Mixed
+      <i style={{ background: color }} />
+      {label}
     </span>
   );
 }
