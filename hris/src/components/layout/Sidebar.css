@@ -37,8 +37,9 @@
   font-size: var(--text-xl);
   font-weight: var(--weight-bold);
   color: var(--color-text-primary);
-  letter-spacing: -0.02em;
+  letter-spacing: 0.08em;
   line-height: 1.15;
+  text-transform: uppercase;
 }
 .sidebar-brand-tag {
   font-size: var(--text-xs);

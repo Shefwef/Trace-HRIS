@@ -42,23 +42,24 @@ const adminNav = [
   { to: '/admin/locations', label: 'Work Locations', icon: <MapPin size={18} /> },
   { to: '/admin/holidays', label: 'Holiday Manager', icon: <CalendarDays size={18} /> },
   { to: '/admin/biometric', label: 'Biometric', icon: <Fingerprint size={18} /> },
+  { to: '/admin/audit', label: 'Audit Logs', icon: <ScrollText size={18} /> },
+  { to: '/admin/permissions', label: 'Permissions', icon: <Shield size={18} /> },
   { to: '/admin/settings', label: 'Settings', icon: <Settings size={18} /> },
 ];
 
 /**
- * Line Managers get a single review entry point — they approve their own team's
- * leave and extra work, but hold none of the directory/holiday/settings powers
- * that the full Administration section exposes.
+ * Line Managers get their team review entry points plus the shared oversight
+ * pages (audit log, permissions). Holiday manager / settings stay HR/Admin.
  */
 const lineManagerNav = [
   { to: '/admin/requests', label: 'Team Requests', icon: <Inbox size={18} /> },
   { to: '/admin/locations', label: 'Team Locations', icon: <MapPin size={18} /> },
+  { to: '/admin/audit', label: 'Audit Logs', icon: <ScrollText size={18} /> },
+  { to: '/admin/permissions', label: 'Permissions', icon: <Shield size={18} /> },
 ];
 
 const superNav = [
   { to: '/admin/system', label: 'System Config', icon: <Cog size={18} /> },
-  { to: '/admin/permissions', label: 'Permissions', icon: <Shield size={18} /> },
-  { to: '/admin/audit', label: 'Audit Logs', icon: <ScrollText size={18} /> },
 ];
 
 export function Sidebar() {
@@ -91,14 +92,14 @@ export function Sidebar() {
       <div className="sidebar-brand">
         <div className="sidebar-logo">
           <img
-            src="/Trace%20Consulting%20Logo.png"
+            src="/Trace%20Consulting%20Logo%20Dark.png"
             alt="Trace Consulting"
-            width={26}
-            height={26}
+            width={32}
+            height={32}
           />
         </div>
         <div className="sidebar-brand-text">
-          <div className="sidebar-brand-name">Trace HRIS</div>
+          <div className="sidebar-brand-name">HRIS</div>
           <div className="sidebar-brand-tag">People, simplified.</div>
         </div>
         <button className="sidebar-close" onClick={closeMobile} aria-label="Close menu">
@@ -144,7 +145,7 @@ export function Sidebar() {
         <div className="sidebar-help">
           <div className="sidebar-help-title">Need help?</div>
           <div className="sidebar-help-body">
-            Reach out to HR at <a href="mailto:asmsaifullah@traceconsultingltd.com">asmsaifullah@traceconsultingltd.com</a>
+            Reach out to <a href="mailto:contact@traceconsultingltd.com">contact@traceconsultingltd.com</a>
           </div>
         </div>
       </div>

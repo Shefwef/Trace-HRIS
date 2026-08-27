@@ -13,10 +13,10 @@ export default async function LandingPage() {
       <header className="landing-nav">
         <div className="landing-brand">
           <img
-            src="/Trace%20Consulting%20Logo.png"
+            src="/Trace%20Consulting%20Logo%20Dark.png"
             alt="Trace Consulting"
-            width={32}
-            height={32}
+            width={40}
+            height={40}
             className="landing-brand-logo"
           />
           <div>

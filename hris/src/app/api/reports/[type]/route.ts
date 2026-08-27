@@ -33,7 +33,7 @@ let cachedLogo: string | null = null;
 async function getLogoDataUrl(): Promise<string> {
   if (cachedLogo) return cachedLogo;
   try {
-    const buf = await readFile(path.join(process.cwd(), 'public', 'Trace Consulting Logo.png'));
+    const buf = await readFile(path.join(process.cwd(), 'public', 'Trace Consulting Logo Dark.png'));
     cachedLogo = `data:image/png;base64,${buf.toString('base64')}`;
     return cachedLogo;
   } catch {

@@ -24,7 +24,8 @@
   font-size: var(--text-xl);
   color: var(--color-text-primary);
   line-height: 1.15;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .landing-brand-tag {
   font-size: var(--text-xs);
