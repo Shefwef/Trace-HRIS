@@ -14,14 +14,9 @@ export default async function LandingPage() {
         <div className="landing-brand">
           <img
             src="/Trace%20Consulting%20Logo%20Dark.png"
-            alt="Trace Consulting"
-            width={48}
-            height={48}
+            alt="Trace HRIS"
             className="landing-brand-logo"
           />
-          <div>
-            <div className="landing-brand-name">HRIS</div>
-          </div>
         </div>
         <Link href="/sign-in" className="landing-nav-cta">
           <LogIn size={16} />

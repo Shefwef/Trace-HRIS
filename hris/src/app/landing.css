@@ -16,21 +16,11 @@
 .landing-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
 }
-.landing-brand-name {
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-size: 30px;
-  color: #123B6C;
-  line-height: 1;
-  letter-spacing: -0.015em;
-  text-transform: uppercase;
-}
-.landing-brand-tag {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  margin-top: -2px;
+.landing-brand-logo {
+  height: 40px;
+  width: auto;
+  display: block;
 }
 .landing-nav-cta {
   display: inline-flex;

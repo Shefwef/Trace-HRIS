@@ -8,14 +8,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="auth-brand">
           <img
             src="/Trace%20Consulting%20Logo%20Dark.png"
-            alt="Trace Consulting"
-            width={88}
-            height={88}
+            alt="Trace HRIS"
             className="auth-brand-logo"
           />
-          <div>
-            <div className="auth-brand-name">HRIS</div>
-          </div>
         </div>
         <div className="auth-hero">
           <h1>Every leave. Every hour. Everyone.</h1>
