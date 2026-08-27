@@ -159,9 +159,7 @@ function AttendanceRow({ record: a }: { record: AttendanceRecordData }) {
     ? '—'
     : !hasOffsite
       ? 'Office'
-      : a.workLocation === 'OFFSITE'
-        ? `Office + ${offsiteLabel(subEvents)}`
-        : `Office + ${offsiteLabel(subEvents)}`;
+      : 'Office +';
 
   return (
     <>
@@ -194,14 +192,6 @@ function AttendanceRow({ record: a }: { record: AttendanceRecordData }) {
       {expanded && subEvents.map((e) => <LocEventRow key={e.id} event={e} />)}
     </>
   );
-}
-
-function offsiteLabel(events: LocationEventSummary[]): string {
-  // Prefer the first offsite start's place name; else generic "outside"
-  const first = events.find((e) => e.eventType === 'OFFSITE_STARTED');
-  if (first?.placeName) return first.placeName;
-  const total = events.filter((e) => e.eventType === 'OFFSITE_STARTED').length;
-  return total > 1 ? `${total} outside stops` : 'outside';
 }
 
 function LocationTag({ record, label }: { record: AttendanceRecordData; label: string }) {

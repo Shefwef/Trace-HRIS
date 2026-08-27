@@ -84,13 +84,21 @@
     minmax(0, 1fr)
     minmax(0, 1fr)
     minmax(0, 1fr)
-    minmax(0, 1.4fr);
+    minmax(0, 0.9fr);
   gap: 12px;
   padding: 12px 16px;
   align-items: center;
   font-size: var(--text-sm);
 }
 .atpg-row > span { min-width: 0; }
+/* Location cell centered so the compact "Office" tag / "Office +" button
+   sit in the middle rather than hugging the left edge. */
+.atpg-thead > span:last-child,
+.atpg-row > span[data-label="Location"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .atpg-thead {
   font-size: 10px;
   text-transform: uppercase;
@@ -176,10 +184,10 @@
   flex: 1 1 auto;
 }
 .atpg-loc-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
+  padding: 4px 10px;
   border: 1px solid var(--color-border-default);
   background: var(--color-bg-surface);
   border-radius: var(--radius-md);
@@ -187,17 +195,13 @@
   font: inherit;
   color: var(--color-text-secondary);
   transition: background var(--transition-fast), border-color var(--transition-fast);
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  overflow: hidden;
+  white-space: nowrap;
 }
 .atpg-loc-btn:hover {
   background: var(--color-bg-subtle);
   border-color: var(--color-brand-primary);
 }
 .atpg-loc-btn > svg { flex-shrink: 0; color: var(--color-text-muted); }
-.atpg-loc-btn .atpg-loc-tag { flex: 1 1 auto; min-width: 0; }
 
 @media (max-width: 900px) {
   .atpg-thead { display: none; }
