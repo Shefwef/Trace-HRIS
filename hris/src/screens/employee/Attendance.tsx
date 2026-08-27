@@ -215,7 +215,7 @@ function LocationTag({ record, label }: { record: AttendanceRecordData; label: s
   return (
     <span className="atpg-loc-tag">
       <i style={{ background: color }} />
-      {label}
+      <span className="atpg-loc-tag-text" title={label}>{label}</span>
     </span>
   );
 }
