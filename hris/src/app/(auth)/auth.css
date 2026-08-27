@@ -47,9 +47,9 @@
 }
 .auth-brand-name {
   font-family: var(--font-display);
-  font-weight: var(--weight-bold);
-  font-size: 40px;
-  letter-spacing: 0.1em;
+  font-weight: 900;
+  font-size: 52px;
+  letter-spacing: -0.015em;
   text-transform: uppercase;
   color: white;
   line-height: 1;

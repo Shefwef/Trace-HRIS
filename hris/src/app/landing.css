@@ -20,11 +20,11 @@
 }
 .landing-brand-name {
   font-family: var(--font-display);
-  font-weight: var(--weight-bold);
-  font-size: var(--text-xl);
-  color: var(--color-text-primary);
-  line-height: 1.15;
-  letter-spacing: 0.08em;
+  font-weight: 900;
+  font-size: 30px;
+  color: #123B6C;
+  line-height: 1;
+  letter-spacing: -0.015em;
   text-transform: uppercase;
 }
 .landing-brand-tag {
