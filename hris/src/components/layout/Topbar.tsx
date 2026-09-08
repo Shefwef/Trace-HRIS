@@ -3,9 +3,11 @@ import { useState, useRef, useEffect } from 'react';
 import { Bell, ChevronDown, LogOut, UserCog, Menu, CheckCircle2, XCircle, Clock as ClockIcon, Star, CalendarDays, Info } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useClerk } from '@clerk/nextjs';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCurrentUser, initials, avatarColorFor } from '@/lib/session';
 import { useNotifications, useMarkNotificationRead, useMarkAllRead } from '@/lib/hooks';
+import { notificationHref } from '@/lib/notificationHref';
 import { Avatar } from '../ui/Avatar';
 import { cx, fmtRelative } from '../../lib/utils';
 import { useMobileNav } from './navContext';
@@ -113,10 +115,15 @@ export function Topbar() {
                     <div className="topbar-notif-empty">You&apos;re all caught up.</div>
                   ) : (
                     notif.items.slice(0, 10).map((n) => (
-                      <button
+                      <Link
                         key={n.id}
+                        href={notificationHref(n)}
+                        prefetch={false}
                         className={cx('topbar-notif-item', !n.isRead && 'topbar-notif-unread')}
-                        onClick={() => markRead.mutate(n.id)}
+                        onClick={() => {
+                          if (!n.isRead) markRead.mutate(n.id);
+                          setNotifOpen(false);
+                        }}
                       >
                         <span className="topbar-notif-icon">
                           {NOTIF_ICONS[n.type] ?? NOTIF_ICONS.SYSTEM}
@@ -127,7 +134,7 @@ export function Topbar() {
                           <div className="topbar-notif-time">{fmtRelative(n.createdAt)}</div>
                         </div>
                         {!n.isRead && <span className="topbar-notif-dot" />}
-                      </button>
+                      </Link>
                     ))
                   )}
                 </div>

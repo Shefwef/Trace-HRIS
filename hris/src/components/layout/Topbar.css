@@ -237,8 +237,11 @@
   width: 100%;
   transition: background var(--transition-fast);
   position: relative;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
 }
-.topbar-notif-item:hover { background: var(--color-bg-subtle); }
+.topbar-notif-item:hover { background: var(--color-bg-subtle); text-decoration: none; color: inherit; }
 .topbar-notif-unread {
   background: linear-gradient(90deg, var(--color-info-light), transparent 80%);
 }
