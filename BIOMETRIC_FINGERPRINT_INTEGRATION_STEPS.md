@@ -35,15 +35,43 @@ Steps 9 to 16 have never been run against the real PC or the real device.
 Until Step 13 passes, the correct description of this feature is
 **integration-ready**, not "integrated". Do not tell the office it works before Step 13.
 
-## YOU ARE HERE — Quick reference for the office PC visit
+## YOU ARE HERE — Office PC visit status (September 2026)
 
-You have ZKBioTime open on the PC and the API docs page is available.
-Do these four things in order:
+**Confirmed so far:**
+- ZKBioTime is running at `http://127.0.0.1:8081` (port 8081) ✓
+- HTTP Basic auth works — `"count": 1629` punches returned ✓
+- PC LAN IP: `192.168.68.64` — `BIOTIME_BASE_URL=http://192.168.68.64:8081` ✓
+- `BIOTIME_AUTH=basic` ✓
 
-1. **Find the base URL** — open a browser on the PC and try `http://127.0.0.1:8081`.
-   If it loads ZKBioTime, that is your base URL. Note the port.
-   Then open `http://127.0.0.1:8081/api/docs/` — this is the full interactive
-   Swagger/DRF API docs page where you can generate your token directly.
+**Still needed before leaving the PC:**
+1. Verify the LAN IP works (not just 127.0.0.1) — run the curl below
+2. Get the device serial from the fingerprint machine
+3. Check if the PC can make outbound HTTPS calls
+
+**Remaining quick-reference for the office PC visit:**
+
+1. **Verify LAN IP responds** (run in `cmd.exe`):
+   ```cmd
+   curl -s -u "YOUR_USERNAME:YOUR_PASSWORD" "http://192.168.68.64:8081/iclock/api/transactions/?page_size=5"
+   ```
+   Must return the same `"count": 1629` response as before.
+
+2. **Check outbound HTTPS** (needed for the agent to reach the HRIS):
+   ```cmd
+   curl -s -o NUL -w "%{http_code}" https://example.com
+   ```
+   Expected: `200`. If this times out, flag it to IT — the agent cannot
+   post punches to the HRIS without outbound HTTPS on port 443.
+
+3. **Get the device serial** — on the fingerprint machine on the wall:
+   `MENU → System Info → Device Info` → write down the serial number shown.
+
+4. **Write down and bring back** (never put in a commit):
+   - Username and password used for Basic auth
+   - Device serial number
+   The LAN IP (`192.168.68.64`) and port (`8081`) are now recorded above.
+
+Then follow Steps 9 and 10 below for the full detail and env-var setup.
 
 2. **Get a token — try these in order until one works:**
 
@@ -348,26 +376,24 @@ Rather than using the admin account, create a purpose-built one:
 ### 9b — Audit form (fill in on the PC)
 
 ```
---- Credentials to extract and bring back ---
-API docs page URL confirmed:               http://______:______/api/docs/
-JWT token from /jwt-api-token-auth/:       ______________________  (never commit this)
-General token (if found in profile/API):   ______________________  (never commit this)
-Auth method that worked (basic|jwt|token): ______________________
-ZKBioTime username (if using Basic auth):  ______________________
-ZKBioTime password (if using Basic auth):  ______________________  (never commit this)
+--- Credentials (confirmed September 2026) ---
+API docs page URL confirmed:               http://127.0.0.1:8081/api/docs/
+Auth method that worked:                   basic
+ZKBioTime username:                        [ask IT PM — do not write in this file]
+ZKBioTime password:                        [ask IT PM — do not write in this file]
+JWT / General token:                       not needed — Basic auth confirmed working
 
---- Vendor software ---
-Name and version (its About / Help page):  ______________________
-   expected: ZKBioTime 8.x, or BioTime 8.0 / 8.5
-Exact URL the PM opens on their phone:     ______________________
-   -> host: ____________  port: ______   (ZKBioTime often 8081)
-PC LAN IP (ipconfig):                      ______________________
-PC LAN IP is DHCP or static?               ______________________
-Dedicated integration account created?     Y / N   read-only? Y / N
+--- Vendor software (confirmed September 2026) ---
+Name and version (its About / Help page):  ZKBioTime (version TBC from About page)
+PC LAN IP (ipconfig → IPv4 Address):       192.168.68.64
+PC default gateway:                        192.168.68.1
+BIOTIME_BASE_URL:                          http://192.168.68.64:8081
+PC LAN IP is DHCP or static?              DHCP (fix with DHCP reservation — see Step 12)
+Dedicated integration account created?     N (using existing admin account for now)
 Its database engine + port:                ______________________
    ZKBioTime bundles PostgreSQL by default
 PC can make outbound HTTPS (443)?          Y / N
-   test:  curl -sS -o NUL -w "%{http_code}" https://example.com
+   test: curl.exe -s -o NUL -w "%{http_code}" https://example.com
 
 --- Device ---
 Serial number   MENU -> System Info -> Device Info:   ________________
