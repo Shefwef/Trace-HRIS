@@ -37,30 +37,45 @@ Until Step 13 passes, the correct description of this feature is
 
 ## YOU ARE HERE — Quick reference for the office PC visit
 
-You have ZKBioTime open on the PC. Do these four things in order:
+You have ZKBioTime open on the PC and the API docs page is available.
+Do these four things in order:
 
-1. **Find the URL** — open a browser on the PC and go to `http://127.0.0.1:8081`.
-   If it loads the ZKBioTime login page, that is your base URL. Note the port.
+1. **Find the base URL** — open a browser on the PC and try `http://127.0.0.1:8081`.
+   If it loads ZKBioTime, that is your base URL. Note the port.
+   Then open `http://127.0.0.1:8081/api/docs/` — this is the full interactive
+   Swagger/DRF API docs page where you can generate your token directly.
 
-2. **Get credentials** — the username + password you use to log into ZKBioTime
-   right now are the API credentials. No separate API key page needed.
-   (Optional but recommended: create a dedicated `hris_integration` account
-   under System → User Management with the Operator role instead of using admin.)
+2. **Generate your API token from the docs page** (preferred — no curl needed):
+   - Go to `http://127.0.0.1:8081/api/docs/`
+   - Find the **`POST /jwt-api-token-auth/`** endpoint
+   - Click **Try it out** → enter your ZKBioTime username and password → **Execute**
+   - Copy the `"token": "eyJ..."` value from the response — this is your API key
+   - It is valid for **7 days**; after that, repeat this step to get a new one
 
-3. **Test with curl from the PC terminal** (Command Prompt or PowerShell):
+   **Alternatively — get a non-expiring General Token:**
+   - Go to `http://127.0.0.1:8081/api/` and look for a Token section, or
+   - Check your user profile page inside ZKBioTime for a permanent API token
+   - A General Token uses `Authorization: Token <value>` and does not expire,
+     making it better for a long-running agent
+
+3. **Verify the token works** — paste this into Command Prompt, replacing the token:
    ```cmd
-   curl -s -u "YOUR_USERNAME:YOUR_PASSWORD" "http://127.0.0.1:8081/iclock/api/transactions/?page_size=5"
+   curl -s -H "Authorization: JWT eyJ...your_token_here..." "http://127.0.0.1:8081/iclock/api/transactions/?page_size=5"
    ```
-   Success looks like: `{"count":…,"code":0,"data":[…]}`
-   If you get 403, see Step 10a for the JWT fallback.
+   Or if you got a General Token:
+   ```cmd
+   curl -s -H "Authorization: Token ae600...your_token_here..." "http://127.0.0.1:8081/iclock/api/transactions/?page_size=5"
+   ```
+   Success: `{"count":…,"code":0,"data":[…]}`
+   If you get 403, try HTTP Basic auth as a fallback — see Step 10a.
 
-4. **Write down and bring back** these five values (never put them in a commit):
-   - Base URL (e.g. `http://127.0.0.1:8081` or the LAN IP if running from another machine)
-   - Username and password
-   - Auth method that worked (`basic` or `jwt`)
-   - Device serial number from `MENU → System Info → Device Info` on the fingerprint machine
+4. **Write down and bring back** (never put these in a commit):
+   - Base URL and port (e.g. `http://127.0.0.1:8081`)
+   - The token you generated (JWT or General)
+   - Which token type it is (`jwt` or `token`)
+   - Device serial from `MENU → System Info → Device Info` on the fingerprint machine
 
-Then follow Steps 9 and 10 below for the full detail.
+Then follow Steps 9 and 10 below for the full audit and env-var setup.
 
 ## Do not, under any circumstances
 
@@ -237,42 +252,57 @@ turns a one-hour job into a week.
 them and bring them back to your development machine.** The whole thing should
 take under 30 minutes if you have someone at the PC.
 
-### 9a — Extract the API credentials from ZKBioTime
+### 9a — Get your API token from the ZKBioTime docs page
 
-ZKBioTime uses username + password to authenticate its API. You have two options:
+ZKBioTime has a built-in interactive API docs page. This is the fastest and
+cleanest way to generate a token without touching any settings.
 
-**Option 1 — use the existing admin account (quickest)**
+**Option 1 — JWT token via the docs page (recommended, takes 2 minutes)**
 
-Ask the IT PM for the ZKBioTime admin username and password. This is the same
-login used to access the web UI from the phone. Write them down — they become
-`BIOTIME_USERNAME` and `BIOTIME_PASSWORD` in `agent/.env`.
+1. Open `http://127.0.0.1:8081/api/docs/` in the browser on the PC
+   (substitute the real port if different)
+2. Find **`POST /jwt-api-token-auth/`** in the endpoint list
+3. Click **Try it out** → fill in `username` and `password` → click **Execute**
+4. The response body contains `{"token": "eyJ..."}` — copy that value
+5. This is your API token. It is valid for **7 days**.
+6. In `agent/.env` set: `BIOTIME_TOKEN=eyJ...` and `BIOTIME_AUTH=jwt`
+7. The agent sends: `Authorization: JWT eyJ...`
 
-**Option 2 — create a dedicated read-only account (recommended for production)**
+**Option 2 — General (non-expiring) token**
 
-Inside ZKBioTime on the PC:
-1. Log in to the ZKBioTime web interface (the same URL the PM uses on their phone)
-2. Go to **System → User Management** (may also be under **Admin → Accounts**)
-3. Create a new account — username something like `hris_integration`
-4. Assign it the **reports** or **operator** role — the minimum that can read
-   `/personnel/` and `/iclock/` endpoints
-5. Note the username and password — these become `BIOTIME_USERNAME` and
-   `BIOTIME_PASSWORD` in `agent/.env`
+Some ZKBioTime versions expose a permanent token per user:
+- Check `http://127.0.0.1:8081/api/` for a Token section, or
+- Go to your user profile inside ZKBioTime — some builds show "API Token" there
+- A General Token uses `Authorization: Token <value>` and never expires,
+  making it more reliable for an always-running agent than the 7-day JWT
+- In `agent/.env` set: `BIOTIME_TOKEN=ae600...` and `BIOTIME_AUTH=token`
 
-**Option 3 — generate an API token directly (if ZKBioTime shows one)**
+**Option 3 — HTTP Basic auth (fallback, no token needed)**
 
-Some ZKBioTime installations expose a token in **System → API Settings** or
-**Integrations**. If you see a pre-generated token there, copy it. It goes in
-`agent/.env` as `BIOTIME_TOKEN` and the agent uses `Authorization: Token <value>`
-instead of username/password. Check Step 10 to verify which auth method works.
+If neither token method works, HTTP Basic auth uses your login credentials
+directly on every request — no token to generate or renew:
+- In `agent/.env` set: `BIOTIME_USERNAME=...`, `BIOTIME_PASSWORD=...`,
+  `BIOTIME_AUTH=basic`
+- Basic auth is reported to pass the ZKBioTime license gate where JWT does not
+
+**Option 4 — create a dedicated integration account (recommended for production)**
+
+Rather than using the admin account, create a purpose-built one:
+1. Log into ZKBioTime → **System → User Management**
+2. Add user: `hris_integration`, assign the **Operator** or **Reports** role
+3. Generate its token via Option 1 or use Basic auth with its credentials
+4. This account can be revoked without touching the admin password
 
 ### 9b — Audit form (fill in on the PC)
 
 ```
 --- Credentials to extract and bring back ---
-ZKBioTime username:                        ______________________
-ZKBioTime password:                        ______________________  (never commit this)
-Pre-generated API token (if exists):       ______________________  (never commit this)
+API docs page URL confirmed:               http://______:______/api/docs/
+JWT token from /jwt-api-token-auth/:       ______________________  (never commit this)
+General token (if found in profile/API):   ______________________  (never commit this)
 Auth method that worked (basic|jwt|token): ______________________
+ZKBioTime username (if using Basic auth):  ______________________
+ZKBioTime password (if using Basic auth):  ______________________  (never commit this)
 
 --- Vendor software ---
 Name and version (its About / Help page):  ______________________
@@ -309,53 +339,55 @@ able to reach it remotely).
 
 ### 10a — Test from the office PC
 
-Open a terminal on the office PC. Substitute the real LAN IP, port, and the
-credentials you extracted in Step 9.
+Open Command Prompt on the office PC. Use whichever token/auth you got in Step 9.
+Substitute the real port and your actual token or credentials.
 
-**Try HTTP Basic auth first** (most reliable against the ZKBioTime license gate):
+**If you generated a JWT token** (via the docs page, Step 9a Option 1):
 
-```bash
-curl -sS -u "BIOTIME_USERNAME:BIOTIME_PASSWORD" \
-  "http://192.168.1.50:8081/personnel/api/employees/?page_size=5"
+```cmd
+curl -s -H "Authorization: JWT eyJ...your_token..." "http://127.0.0.1:8081/personnel/api/employees/?page_size=5"
 ```
 
-**If you get JSON** shaped `{"count":…,"msg":…,"code":0,"data":[…]}` — note it
-is `data`, not `results` — Path A with Basic auth works. Record every `emp_code`
-you see; that is your mapping input for the admin screen.
+**If you have a General (non-expiring) token** (Step 9a Option 2):
 
-Then the punches:
-
-```bash
-curl -sS -u "BIOTIME_USERNAME:BIOTIME_PASSWORD" \
-  "http://192.168.1.50:8081/iclock/api/transactions/?page_size=5&ordering=-punch_time"
+```cmd
+curl -s -H "Authorization: Token ae600...your_token..." "http://127.0.0.1:8081/personnel/api/employees/?page_size=5"
 ```
 
-Confirm on a real row: `punch_time` is offset-less wall clock (`"2026-09-07 09:02:13"`),
-`punch_state` is `"0"` (in) or `"1"` (out), `verify_type` is `1` for fingerprint,
-and `terminal_sn` matches the serial from Step 9.
+**If using HTTP Basic auth** (Step 9a Option 3 — fallback):
+
+```cmd
+curl -s -u "YOUR_USERNAME:YOUR_PASSWORD" "http://127.0.0.1:8081/personnel/api/employees/?page_size=5"
+```
+
+**Success looks like** (note it is `data`, not `results`):
+```json
+{"count": 12, "msg": "OK", "code": 0, "data": [...]}
+```
+Record every `emp_code` value you see — that is your input for the employee
+mapping screen in the HRIS admin.
+
+Then confirm punches are reachable:
+
+```cmd
+curl -s -H "Authorization: JWT eyJ...your_token..." "http://127.0.0.1:8081/iclock/api/transactions/?page_size=5&ordering=-punch_time"
+```
+
+Check a real row: `punch_time` is offset-less wall clock (e.g. `"2026-09-08 09:02:13"`),
+`punch_state` is `"0"` (clock-in) or `"1"` (clock-out), `verify_type` is `1`
+for fingerprint, and `terminal_sn` matches the serial from Step 9.
 
 Device health:
 
-```bash
-curl -sS -u "BIOTIME_USERNAME:BIOTIME_PASSWORD" \
-  "http://192.168.1.50:8081/iclock/api/terminals/"
+```cmd
+curl -s -H "Authorization: JWT eyJ...your_token..." "http://127.0.0.1:8081/iclock/api/terminals/"
 ```
 
-`state: "1"` means online. It is `/terminals/`, not `/devices/` — the latter 404s.
+`state: "1"` means online. Note: it is `/terminals/`, not `/devices/`.
 
-**If Basic auth returns 403 with an `IsNotOpenAPI` marker**, try JWT:
-
-```bash
-# 1. Get a token
-curl -sS -X POST "http://192.168.1.50:8081/jwt-api-token-auth/" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"BIOTIME_USERNAME","password":"BIOTIME_PASSWORD"}'
-# -> returns {"token":"ey..."}
-
-# 2. Use it
-curl -sS -H "Authorization: JWT ey..." \
-  "http://192.168.1.50:8081/iclock/api/transactions/?page_size=5"
-```
+**If any call returns 403 with `IsNotOpenAPI`**, the license gates that endpoint.
+Try HTTP Basic auth — it is reported to pass the gate where JWT does not.
+If both fail, stop and go to Step 11 (direct DB read).
 
 Basic auth is reported to pass the license gate where JWT does not, so try Basic
 first. First requests can take 30–45 seconds cold — the Django app is waking up,
