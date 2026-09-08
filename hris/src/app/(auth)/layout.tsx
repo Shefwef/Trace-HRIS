@@ -20,7 +20,12 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </p>
         </div>
       </div>
-      <div className="auth-right">{children}</div>
+      <div className="auth-right">
+        <div className="auth-mobile-brand">
+          <img src="/Trace%20HRIS%20Transparent.png" alt="Trace HRIS" />
+        </div>
+        {children}
+      </div>
     </div>
   );
 }

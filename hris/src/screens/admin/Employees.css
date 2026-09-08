@@ -9,6 +9,25 @@
   .empg-head h1 { font-size: var(--text-2xl); }
   .empg-head { flex-direction: column; align-items: stretch; }
 }
+.empg-card-leave-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--color-border-default);
+  margin-top: auto;
+}
+.empg-card-leave-actions > * { min-width: 0; }
+.empg-card-leave-actions .btn { width: 100%; justify-content: center; }
+.empg-card-leave-actions:has(> :only-child) {
+  grid-template-columns: 1fr;
+}
+/* When both rows are present, only the top one keeps the divider. */
+.empg-card-leave-actions + .empg-card-actions {
+  border-top: none;
+  padding-top: 6px;
+  margin-top: 0;
+}
 .empg-card-actions {
   display: flex;
   justify-content: space-between;
@@ -218,16 +237,16 @@
   padding: var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  min-height: 236px;
+  gap: 12px;
+  min-height: 260px;
   transition: transform var(--transition-normal), box-shadow var(--transition-normal);
 }
 @media (max-width: 1280px) {
-  .empg-card { padding: var(--space-4); min-height: 220px; }
+  .empg-card { padding: var(--space-4); min-height: 244px; }
   .empg-grid { gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 }
 @media (max-width: 640px) {
-  .empg-card { min-height: 200px; }
+  .empg-card { min-height: 224px; }
   .empg-grid { grid-template-columns: 1fr; }
 }
 .empg-card:hover {

@@ -59,9 +59,15 @@
 }
 .auth-right {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: var(--space-8);
+  gap: var(--space-6);
+}
+/* Mobile-only logo shown above the sign-in form */
+.auth-mobile-brand {
+  display: none;
 }
 @media (max-width: 1200px) {
   .auth-brand-logo { height: 56px; }
@@ -70,4 +76,22 @@
 @media (max-width: 900px) {
   .auth-shell { grid-template-columns: 1fr; }
   .auth-left { display: none; }
+  .auth-mobile-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .auth-mobile-brand img {
+    height: 64px;
+    width: auto;
+  }
+  .auth-right {
+    min-height: 100vh;
+    padding: var(--space-6) var(--space-4);
+    background: linear-gradient(180deg, #eaf2fb 0%, var(--color-bg-canvas) 100%);
+  }
+}
+@media (max-width: 480px) {
+  .auth-right { padding: var(--space-5) var(--space-3); }
+  .auth-mobile-brand img { height: 52px; }
 }

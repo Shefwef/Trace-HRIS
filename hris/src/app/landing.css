@@ -8,7 +8,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-5) var(--space-8);
+  padding: var(--space-4) var(--space-8);
   max-width: 1240px;
   width: 100%;
   margin: 0 auto;
@@ -182,9 +182,22 @@
 
 @media (max-width: 960px) {
   .landing-hero-inner { grid-template-columns: 1fr; gap: var(--space-10); }
+  .landing-hero-cards { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 640px) {
-  .landing-nav, .landing-hero, .landing-footer { padding-left: var(--space-4); padding-right: var(--space-4); }
-  .landing-hero-text p { font-size: var(--text-base); }
+  .landing-nav,
+  .landing-hero,
+  .landing-footer { padding-left: var(--space-4); padding-right: var(--space-4); }
+  .landing-brand-logo { height: 56px; }
+  .landing-nav-cta { padding: 8px 14px; font-size: 13px; }
+  .landing-hero { padding-top: var(--space-6); padding-bottom: var(--space-6); }
+  .landing-hero-text h1 { font-size: clamp(28px, 8vw, 36px); }
+  .landing-hero-text p { font-size: var(--text-base); max-width: 100%; }
+  .landing-actions { flex-direction: column; }
+  .landing-btn { justify-content: center; padding: 13px 20px; }
+  .landing-hero-cards { grid-template-columns: 1fr; }
   .landing-footer { flex-direction: column; gap: 6px; text-align: center; }
+}
+@media (max-width: 400px) {
+  .landing-brand-logo { height: 44px; }
 }
