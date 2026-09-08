@@ -47,45 +47,62 @@ Do these four things in order:
 
 2. **Get a token — try these in order until one works:**
 
+   > **Windows note:** PowerShell has a `curl` alias that points to
+   > `Invoke-WebRequest`, not the real curl binary — it will throw
+   > "parameter name u is ambiguous" and similar errors. Always use
+   > **`curl.exe`** (with the `.exe`) in PowerShell, or open
+   > **Command Prompt** (`Win + R` → type `cmd` → Enter) and use `curl`
+   > there — cmd.exe has no alias and always calls the real binary.
+
    **Option A — HTTP Basic auth (most reliable, try this first):**
-   ZKBioTime's CSRF protection blocks unauthenticated POSTs, so Basic auth on
-   GET requests is often the easiest path. Open Command Prompt and run:
+   Basic auth on GET requests bypasses CSRF entirely — no token needed.
+   In Command Prompt (`cmd.exe`):
    ```cmd
    curl -s -u "YOUR_USERNAME:YOUR_PASSWORD" "http://127.0.0.1:8081/iclock/api/transactions/?page_size=5"
    ```
-   If that returns `{"code":0,"data":[...]}` — Basic auth works. You're done.
+   In PowerShell (note the `.exe`):
+   ```powershell
+   curl.exe -s -u "YOUR_USERNAME:YOUR_PASSWORD" "http://127.0.0.1:8081/iclock/api/transactions/?page_size=5"
+   ```
+   If either returns `{"code":0,"data":[...]}` — Basic auth works. You're done.
    Set `BIOTIME_AUTH=basic` and you don't need a token at all.
 
    **Option B — JWT via curl with Referer header (fixes CSRF):**
-   The docs page UI may give "CSRF token missing". The fix is to add a
-   `Referer` header, which Django's CSRF middleware accepts as same-origin:
+   The docs page UI gives "CSRF token missing". The fix is a `Referer` header,
+   which Django's CSRF middleware accepts as a same-origin signal.
+   In Command Prompt:
    ```cmd
    curl -s -X POST "http://127.0.0.1:8081/jwt-api-token-auth/" -H "Content-Type: application/json" -H "Referer: http://127.0.0.1:8081/" -d "{\"username\":\"YOUR_USERNAME\",\"password\":\"YOUR_PASSWORD\"}"
    ```
+   In PowerShell:
+   ```powershell
+   curl.exe -s -X POST "http://127.0.0.1:8081/jwt-api-token-auth/" -H "Content-Type: application/json" -H "Referer: http://127.0.0.1:8081/" -d '{\"username\":\"YOUR_USERNAME\",\"password\":\"YOUR_PASSWORD\"}'
+   ```
    Success returns `{"token":"eyJ..."}`. Copy that value — it is valid 7 days.
 
-   **Option C — JWT via curl with CSRF cookie (if Option B still fails):**
+   **Option C — JWT with CSRF cookie (if Option B still fails):**
+   In Command Prompt only (two commands chained with `&&`):
    ```cmd
    curl -s -c cookies.txt "http://127.0.0.1:8081/" && curl -s -X POST "http://127.0.0.1:8081/jwt-api-token-auth/" -H "Content-Type: application/json" -H "Referer: http://127.0.0.1:8081/" -b cookies.txt -d "{\"username\":\"YOUR_USERNAME\",\"password\":\"YOUR_PASSWORD\"}"
    ```
-   The first command fetches the login page and saves the CSRF cookie; the
-   second POST sends it back alongside the Referer. Delete `cookies.txt` after.
+   Fetches the login page to capture the CSRF cookie, then POSTs with it.
+   Delete `cookies.txt` after copying the token.
 
    **Option D — General (non-expiring) Token:**
-   Log into ZKBioTime in the browser → go to your user profile or
-   `http://127.0.0.1:8081/api/` and look for an API Token field.
-   A General Token uses `Authorization: Token <value>` and never expires —
-   better than JWT for a long-running agent. Set `BIOTIME_AUTH=token`.
+   Log into ZKBioTime in the browser → your user profile or
+   `http://127.0.0.1:8081/api/` → look for an API Token field.
+   Never expires — better than the 7-day JWT for a long-running agent.
+   Set `BIOTIME_AUTH=token`.
 
-3. **Verify the token (or Basic auth) reaches the data:**
+3. **Verify the auth method reaches the data** (use whichever worked above):
    ```cmd
    curl -s -H "Authorization: JWT eyJ...your_token..." "http://127.0.0.1:8081/iclock/api/transactions/?page_size=5"
    ```
-   Or for General Token: `-H "Authorization: Token ae600..."`
-   Or for Basic auth: `-u "YOUR_USERNAME:YOUR_PASSWORD"`
+   General Token: replace `JWT` with `Token` and paste the General Token value.
+   Basic auth: replace `-H "Authorization:..."` with `-u "USERNAME:PASSWORD"`.
 
    Success: `{"count":…,"code":0,"data":[…]}`
-   If you get 403 on all three, stop and go to Step 11 (direct DB read).
+   If you get 403 on all options, stop and go to Step 11 (direct DB read).
 
 4. **Write down and bring back** (never put these in a commit):
    - Base URL and port (e.g. `http://127.0.0.1:8081`)
@@ -281,17 +298,22 @@ The docs page UI (`/api/docs/`) will return "CSRF token missing" when you hit
 Execute — this is a known Django CSRF protection issue with Swagger UIs. Use
 curl with a `Referer` header instead, which Django accepts as same-origin:
 
+In Command Prompt (`cmd.exe` — not PowerShell):
 ```cmd
 curl -s -X POST "http://127.0.0.1:8081/jwt-api-token-auth/" -H "Content-Type: application/json" -H "Referer: http://127.0.0.1:8081/" -d "{\"username\":\"YOUR_USERNAME\",\"password\":\"YOUR_PASSWORD\"}"
+```
+
+In PowerShell (`.exe` suffix required):
+```powershell
+curl.exe -s -X POST "http://127.0.0.1:8081/jwt-api-token-auth/" -H "Content-Type: application/json" -H "Referer: http://127.0.0.1:8081/" -d '{\"username\":\"YOUR_USERNAME\",\"password\":\"YOUR_PASSWORD\"}'
 ```
 
 Returns `{"token":"eyJ..."}`. Copy the token value — valid for **7 days**.
 In `agent/.env` set: `BIOTIME_TOKEN=eyJ...` and `BIOTIME_AUTH=jwt`.
 The agent sends: `Authorization: JWT eyJ...`
 
-If the Referer header alone is not enough, first fetch the login page to
-get the CSRF cookie, then POST with both:
-
+If the Referer header alone is not enough, fetch the CSRF cookie first
+(Command Prompt only):
 ```cmd
 curl -s -c cookies.txt "http://127.0.0.1:8081/" && curl -s -X POST "http://127.0.0.1:8081/jwt-api-token-auth/" -H "Content-Type: application/json" -H "Referer: http://127.0.0.1:8081/" -b cookies.txt -d "{\"username\":\"YOUR_USERNAME\",\"password\":\"YOUR_PASSWORD\"}"
 ```
@@ -369,61 +391,48 @@ able to reach it remotely).
 
 ### 10a — Test from the office PC
 
-Open Command Prompt on the office PC. Use whichever token/auth you got in Step 9.
-Substitute the real port and your actual token or credentials.
+> **Windows reminder:** use `curl.exe` in PowerShell, or open Command Prompt
+> (`Win + R` → `cmd`) and use `curl` — either avoids the PowerShell alias that
+> throws "parameter name u is ambiguous".
 
-**If you generated a JWT token** (via the docs page, Step 9a Option 1):
+Use whichever auth method passed in Step 9. The examples below use Basic auth
+(simplest); swap in `-H "Authorization: JWT eyJ..."` or `-H "Authorization: Token ae600..."` if you got a token instead.
 
-```cmd
-curl -s -H "Authorization: JWT eyJ...your_token..." "http://127.0.0.1:8081/personnel/api/employees/?page_size=5"
-```
-
-**If you have a General (non-expiring) token** (Step 9a Option 2):
+**Employees** (confirms the roster endpoint and gives you the `emp_code` values):
 
 ```cmd
-curl -s -H "Authorization: Token ae600...your_token..." "http://127.0.0.1:8081/personnel/api/employees/?page_size=5"
-```
-
-**If using HTTP Basic auth** (Step 9a Option 3 — fallback):
-
-```cmd
-curl -s -u "YOUR_USERNAME:YOUR_PASSWORD" "http://127.0.0.1:8081/personnel/api/employees/?page_size=5"
+curl.exe -s -u "YOUR_USERNAME:YOUR_PASSWORD" "http://127.0.0.1:8081/personnel/api/employees/?page_size=5"
 ```
 
 **Success looks like** (note it is `data`, not `results`):
 ```json
 {"count": 12, "msg": "OK", "code": 0, "data": [...]}
 ```
-Record every `emp_code` value you see — that is your input for the employee
-mapping screen in the HRIS admin.
+Record every `emp_code` value — that is your input for the employee mapping
+screen in the HRIS admin.
 
-Then confirm punches are reachable:
+**Punches** (the main data feed):
 
 ```cmd
-curl -s -H "Authorization: JWT eyJ...your_token..." "http://127.0.0.1:8081/iclock/api/transactions/?page_size=5&ordering=-punch_time"
+curl.exe -s -u "YOUR_USERNAME:YOUR_PASSWORD" "http://127.0.0.1:8081/iclock/api/transactions/?page_size=5&ordering=-punch_time"
 ```
 
 Check a real row: `punch_time` is offset-less wall clock (e.g. `"2026-09-08 09:02:13"`),
 `punch_state` is `"0"` (clock-in) or `"1"` (clock-out), `verify_type` is `1`
 for fingerprint, and `terminal_sn` matches the serial from Step 9.
 
-Device health:
+**Device health:**
 
 ```cmd
-curl -s -H "Authorization: JWT eyJ...your_token..." "http://127.0.0.1:8081/iclock/api/terminals/"
+curl.exe -s -u "YOUR_USERNAME:YOUR_PASSWORD" "http://127.0.0.1:8081/iclock/api/terminals/"
 ```
 
-`state: "1"` means online. Note: it is `/terminals/`, not `/devices/`.
+`state: "1"` means online. It is `/terminals/`, not `/devices/` — the latter 404s.
+First requests can take 30–45 seconds cold — Django is waking up, not failing.
 
-**If any call returns 403 with `IsNotOpenAPI`**, the license gates that endpoint.
-Try HTTP Basic auth — it is reported to pass the gate where JWT does not.
-If both fail, stop and go to Step 11 (direct DB read).
-
-Basic auth is reported to pass the license gate where JWT does not, so try Basic
-first. First requests can take 30–45 seconds cold — the Django app is waking up,
-not failing.
-
-**If both fail**, stop and go to Step 11.
+**If any call returns 403 with `IsNotOpenAPI`**, switch to JWT or Token auth —
+Basic auth is reported to pass the license gate where JWT does not, but if
+Basic also returns 403, stop and go to Step 11 (direct DB read).
 
 ### 10b — Bring the credentials to your development machine
 
