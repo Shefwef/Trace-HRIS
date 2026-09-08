@@ -45,29 +45,47 @@ Do these four things in order:
    Then open `http://127.0.0.1:8081/api/docs/` — this is the full interactive
    Swagger/DRF API docs page where you can generate your token directly.
 
-2. **Generate your API token from the docs page** (preferred — no curl needed):
-   - Go to `http://127.0.0.1:8081/api/docs/`
-   - Find the **`POST /jwt-api-token-auth/`** endpoint
-   - Click **Try it out** → enter your ZKBioTime username and password → **Execute**
-   - Copy the `"token": "eyJ..."` value from the response — this is your API key
-   - It is valid for **7 days**; after that, repeat this step to get a new one
+2. **Get a token — try these in order until one works:**
 
-   **Alternatively — get a non-expiring General Token:**
-   - Go to `http://127.0.0.1:8081/api/` and look for a Token section, or
-   - Check your user profile page inside ZKBioTime for a permanent API token
-   - A General Token uses `Authorization: Token <value>` and does not expire,
-     making it better for a long-running agent
+   **Option A — HTTP Basic auth (most reliable, try this first):**
+   ZKBioTime's CSRF protection blocks unauthenticated POSTs, so Basic auth on
+   GET requests is often the easiest path. Open Command Prompt and run:
+   ```cmd
+   curl -s -u "YOUR_USERNAME:YOUR_PASSWORD" "http://127.0.0.1:8081/iclock/api/transactions/?page_size=5"
+   ```
+   If that returns `{"code":0,"data":[...]}` — Basic auth works. You're done.
+   Set `BIOTIME_AUTH=basic` and you don't need a token at all.
 
-3. **Verify the token works** — paste this into Command Prompt, replacing the token:
+   **Option B — JWT via curl with Referer header (fixes CSRF):**
+   The docs page UI may give "CSRF token missing". The fix is to add a
+   `Referer` header, which Django's CSRF middleware accepts as same-origin:
    ```cmd
-   curl -s -H "Authorization: JWT eyJ...your_token_here..." "http://127.0.0.1:8081/iclock/api/transactions/?page_size=5"
+   curl -s -X POST "http://127.0.0.1:8081/jwt-api-token-auth/" -H "Content-Type: application/json" -H "Referer: http://127.0.0.1:8081/" -d "{\"username\":\"YOUR_USERNAME\",\"password\":\"YOUR_PASSWORD\"}"
    ```
-   Or if you got a General Token:
+   Success returns `{"token":"eyJ..."}`. Copy that value — it is valid 7 days.
+
+   **Option C — JWT via curl with CSRF cookie (if Option B still fails):**
    ```cmd
-   curl -s -H "Authorization: Token ae600...your_token_here..." "http://127.0.0.1:8081/iclock/api/transactions/?page_size=5"
+   curl -s -c cookies.txt "http://127.0.0.1:8081/" && curl -s -X POST "http://127.0.0.1:8081/jwt-api-token-auth/" -H "Content-Type: application/json" -H "Referer: http://127.0.0.1:8081/" -b cookies.txt -d "{\"username\":\"YOUR_USERNAME\",\"password\":\"YOUR_PASSWORD\"}"
    ```
+   The first command fetches the login page and saves the CSRF cookie; the
+   second POST sends it back alongside the Referer. Delete `cookies.txt` after.
+
+   **Option D — General (non-expiring) Token:**
+   Log into ZKBioTime in the browser → go to your user profile or
+   `http://127.0.0.1:8081/api/` and look for an API Token field.
+   A General Token uses `Authorization: Token <value>` and never expires —
+   better than JWT for a long-running agent. Set `BIOTIME_AUTH=token`.
+
+3. **Verify the token (or Basic auth) reaches the data:**
+   ```cmd
+   curl -s -H "Authorization: JWT eyJ...your_token..." "http://127.0.0.1:8081/iclock/api/transactions/?page_size=5"
+   ```
+   Or for General Token: `-H "Authorization: Token ae600..."`
+   Or for Basic auth: `-u "YOUR_USERNAME:YOUR_PASSWORD"`
+
    Success: `{"count":…,"code":0,"data":[…]}`
-   If you get 403, try HTTP Basic auth as a fallback — see Step 10a.
+   If you get 403 on all three, stop and go to Step 11 (direct DB read).
 
 4. **Write down and bring back** (never put these in a commit):
    - Base URL and port (e.g. `http://127.0.0.1:8081`)
@@ -257,16 +275,28 @@ take under 30 minutes if you have someone at the PC.
 ZKBioTime has a built-in interactive API docs page. This is the fastest and
 cleanest way to generate a token without touching any settings.
 
-**Option 1 — JWT token via the docs page (recommended, takes 2 minutes)**
+**Option 1 — JWT token via curl (CSRF-safe)**
 
-1. Open `http://127.0.0.1:8081/api/docs/` in the browser on the PC
-   (substitute the real port if different)
-2. Find **`POST /jwt-api-token-auth/`** in the endpoint list
-3. Click **Try it out** → fill in `username` and `password` → click **Execute**
-4. The response body contains `{"token": "eyJ..."}` — copy that value
-5. This is your API token. It is valid for **7 days**.
-6. In `agent/.env` set: `BIOTIME_TOKEN=eyJ...` and `BIOTIME_AUTH=jwt`
-7. The agent sends: `Authorization: JWT eyJ...`
+The docs page UI (`/api/docs/`) will return "CSRF token missing" when you hit
+Execute — this is a known Django CSRF protection issue with Swagger UIs. Use
+curl with a `Referer` header instead, which Django accepts as same-origin:
+
+```cmd
+curl -s -X POST "http://127.0.0.1:8081/jwt-api-token-auth/" -H "Content-Type: application/json" -H "Referer: http://127.0.0.1:8081/" -d "{\"username\":\"YOUR_USERNAME\",\"password\":\"YOUR_PASSWORD\"}"
+```
+
+Returns `{"token":"eyJ..."}`. Copy the token value — valid for **7 days**.
+In `agent/.env` set: `BIOTIME_TOKEN=eyJ...` and `BIOTIME_AUTH=jwt`.
+The agent sends: `Authorization: JWT eyJ...`
+
+If the Referer header alone is not enough, first fetch the login page to
+get the CSRF cookie, then POST with both:
+
+```cmd
+curl -s -c cookies.txt "http://127.0.0.1:8081/" && curl -s -X POST "http://127.0.0.1:8081/jwt-api-token-auth/" -H "Content-Type: application/json" -H "Referer: http://127.0.0.1:8081/" -b cookies.txt -d "{\"username\":\"YOUR_USERNAME\",\"password\":\"YOUR_PASSWORD\"}"
+```
+
+Delete `cookies.txt` after copying the token.
 
 **Option 2 — General (non-expiring) token**
 
