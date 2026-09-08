@@ -1,0 +1,101 @@
+.grl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.grl-hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-subtle);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-default);
+  margin: 0;
+}
+.grl-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+@media (max-width: 520px) {
+  .grl-row { grid-template-columns: 1fr; }
+}
+.grl-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.grl-check input { cursor: pointer; }
+.grl-slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+.grl-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+  font: inherit;
+}
+.grl-slot:hover {
+  border-color: var(--color-brand-secondary);
+  background: var(--color-bg-subtle);
+}
+.grl-slot-active {
+  border-color: var(--color-brand-primary);
+  background: var(--color-leave-replacement-light);
+  color: var(--color-brand-primary);
+}
+.grl-slot-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+.grl-slot-window {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.grl-slot-active .grl-slot-window {
+  color: var(--color-brand-primary);
+  opacity: 0.85;
+}
+.grl-error {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  border: 1px solid var(--color-danger);
+}
+.grl-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: var(--space-4) 0;
+}
+.grl-success h3 {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+.grl-success p {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  max-width: 380px;
+  margin: 0;
+}

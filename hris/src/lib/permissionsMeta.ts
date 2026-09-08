@@ -15,6 +15,8 @@ export const ACTION_PERMISSIONS = [
   'leave.cancel_others',
   'extra_work.approve',
   'extra_work.reject',
+  'replacement.grant',
+  'replacement.view_others',
   'holiday.create',
   'holiday.edit',
   'holiday.delete',
@@ -60,6 +62,8 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'leave.cancel_others': 'Cancel others\' leave requests',
   'extra_work.approve': 'Approve extra work logs',
   'extra_work.reject': 'Reject extra work logs',
+  'replacement.grant': 'Grant replacement leave directly to employees',
+  'replacement.view_others': 'View others\' replacement leaves',
   'holiday.create': 'Create holidays',
   'holiday.edit': 'Edit holidays',
   'holiday.delete': 'Delete holidays',
@@ -97,6 +101,10 @@ export const PERMISSION_GROUPS: { label: string; permissions: string[] }[] = [
   {
     label: 'Extra Work',
     permissions: ['extra_work.approve', 'extra_work.reject'],
+  },
+  {
+    label: 'Replacement Leave',
+    permissions: ['replacement.grant', 'replacement.view_others'],
   },
   {
     label: 'Holidays',
@@ -157,6 +165,8 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'leave.cancel_others': true,
     'extra_work.approve': true,
     'extra_work.reject': true,
+    'replacement.grant': true,
+    'replacement.view_others': true,
     'holiday.create': true,
     'holiday.edit': true,
     'holiday.delete': true,
@@ -191,6 +201,8 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'leave.cancel_others': true,
     'extra_work.approve': true,
     'extra_work.reject': true,
+    'replacement.grant': true,
+    'replacement.view_others': true,
     'holiday.create': true,
     'holiday.edit': true,
     'holiday.delete': true,
@@ -224,6 +236,8 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'leave.cancel_others': false,
     'extra_work.approve': true,  // team only
     'extra_work.reject': true,   // team only
+    'replacement.grant': true,      // team only - enforced server-side
+    'replacement.view_others': true, // team only - enforced server-side
     'holiday.create': false,
     'holiday.edit': false,
     'holiday.delete': false,
@@ -257,6 +271,8 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'leave.cancel_others': false,
     'extra_work.approve': false,
     'extra_work.reject': false,
+    'replacement.grant': false,
+    'replacement.view_others': false,
     'holiday.create': false,
     'holiday.edit': false,
     'holiday.delete': false,

@@ -1,6 +1,6 @@
 'use client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CreateLeaveInput, CreateExtraWorkInput } from './validation';
+import type { CreateLeaveInput, CreateExtraWorkInput, GrantReplacementLeaveInput } from './validation';
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -362,6 +362,65 @@ export function useApproveExtraWork() {
       qc.invalidateQueries({ queryKey: ['extra-work'] });
       qc.invalidateQueries({ queryKey: ['balance'] });
     },
+  });
+}
+
+/**
+ * Grant replacement leave directly to an employee (HR / Line Manager tool).
+ * Creates a pre-approved LeaveRequest of type REPLACEMENT.
+ */
+export function useGrantReplacementLeave() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: GrantReplacementLeaveInput) =>
+      api<{ ok: true; leaveRequestId: string; durationDays: number }>(
+        '/api/leaves/grant-replacement',
+        {
+          method: 'POST',
+          body: JSON.stringify(input),
+        },
+      ),
+    onSuccess: (_res, vars) => {
+      qc.invalidateQueries({ queryKey: ['leaves'] });
+      qc.invalidateQueries({ queryKey: ['balance'] });
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+      qc.invalidateQueries({ queryKey: ['users'] });
+      qc.invalidateQueries({ queryKey: ['user-replacement-leaves', vars.employeeId] });
+    },
+  });
+}
+
+export interface ReplacementLeaveEntry {
+  id: string;
+  startDate: string;
+  endDate: string;
+  isHalfDay: boolean;
+  halfDaySlot: 'MORNING' | 'AFTERNOON' | null;
+  durationDays: number;
+  reason: string;
+  description: string | null;
+  status: LeaveStatus;
+  adminNote: string | null;
+  overtimeWorkDate: string | null;
+  source: 'GRANTED' | 'REQUESTED';
+  grantedBy: { id: string; fullName: string } | null;
+  reviewer: { id: string; fullName: string } | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+export interface UserReplacementLeavesResponse {
+  employee: { id: string; fullName: string };
+  replacementBalance: number;
+  leaves: ReplacementLeaveEntry[];
+}
+
+export function useUserReplacementLeaves(userId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ['user-replacement-leaves', userId],
+    enabled: !!userId && enabled,
+    queryFn: () =>
+      api<UserReplacementLeavesResponse>(`/api/users/${userId}/replacement-leaves`),
   });
 }
 

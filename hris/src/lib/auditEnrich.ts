@@ -152,6 +152,9 @@ function formatDetail(r: RawAuditRow): string {
     case 'EXTRA_WORK_SUBMITTED':
       return `Logged extra work${str(m.workType) ? ` (${str(m.workType)})` : ''}`;
 
+    case 'REPLACEMENT_LEAVE_GRANTED':
+      return `Granted replacement leave${num(m.durationDays) ? ` (${num(m.durationDays)} day${num(m.durationDays) === 1 ? '' : 's'})` : ''}${str(m.startDate) ? ` on ${str(m.startDate)}${str(m.endDate) && str(m.endDate) !== str(m.startDate) ? `–${str(m.endDate)}` : ''}` : ''}`;
+
     case 'HOLIDAY_CREATED':
     case 'HOLIDAY_UPDATED':
     case 'HOLIDAY_DELETED':

@@ -74,6 +74,37 @@ export const CreateExtraWorkSchema = z.object({
 });
 export type CreateExtraWorkInput = z.infer<typeof CreateExtraWorkSchema>;
 
+/**
+ * Payload for HR / Line Manager directly granting replacement leave to an employee.
+ * Creates an APPROVED replacement LeaveRequest without going through the normal
+ * request-then-approve flow. overtimeWorkDate is optional context (the day the
+ * employee worked overtime that this leave compensates for).
+ */
+export const GrantReplacementLeaveSchema = z
+  .object({
+    employeeId: z.string().min(1, 'employeeId is required'),
+    startDate: z.iso.date(),
+    endDate: z.iso.date(),
+    isHalfDay: z.boolean().default(false),
+    halfDaySlot: z.enum(['MORNING', 'AFTERNOON']).optional(),
+    reason: z.string().min(4, 'Please describe why you are granting this leave').max(100),
+    description: z.string().max(500).optional(),
+    overtimeWorkDate: z.iso.date().optional(),
+  })
+  .refine(
+    (v) => new Date(v.endDate) >= new Date(v.startDate),
+    { message: 'endDate must be on or after startDate', path: ['endDate'] }
+  )
+  .refine(
+    (v) => !v.isHalfDay || v.startDate === v.endDate,
+    { message: 'Half-day grants must be a single day', path: ['endDate'] }
+  )
+  .refine(
+    (v) => !v.isHalfDay || !!v.halfDaySlot,
+    { message: 'Pick morning or afternoon for a half-day grant', path: ['halfDaySlot'] }
+  );
+export type GrantReplacementLeaveInput = z.infer<typeof GrantReplacementLeaveSchema>;
+
 export const CreateHolidaySchema = z.object({
   name: z.string().min(2).max(120),
   date: z.iso.date(),

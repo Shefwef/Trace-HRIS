@@ -161,6 +161,7 @@ model User {
   leaveBalances    LeaveBalance[]
   leaveRequests    LeaveRequest[]     @relation("EmployeeLeaves")
   reviewedLeaves   LeaveRequest[]     @relation("ReviewerLeaves")
+  grantedLeaves    LeaveRequest[]     @relation("GrantedLeaves")
   extraWorkLogs    ExtraWorkLog[]     @relation("EmployeeExtraWork")
   reviewedExtras   ExtraWorkLog[]     @relation("ReviewerExtraWork")
   attendance       AttendanceRecord[]
@@ -230,11 +231,21 @@ model LeaveRequest {
   /// When set, durationDays reflects the sum of these entries, not the
   /// original request. Null means the reviewer accepted the request as-is.
   approvedAllocation    Json?
+  /// Set when this leave was directly granted by HR / Line Manager
+  /// (as opposed to a normal employee request that was later approved).
+  /// The granter is stored here; the record is also seeded with
+  /// status=APPROVED and reviewedById=grantedById in the same transaction.
+  grantedById           String?
+  /// Optional overtime work date the grant is compensating for (context only,
+  /// balance is not adjusted since the leave IS the credit).
+  overtimeWorkDate      DateTime?             @db.Date
+
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
 
   employee              User                  @relation("EmployeeLeaves", fields: [employeeId], references: [id], onDelete: Cascade)
   reviewer              User?                 @relation("ReviewerLeaves", fields: [reviewedById], references: [id])
+  grantedBy             User?                 @relation("GrantedLeaves", fields: [grantedById], references: [id])
 
   @@index([employeeId, status])
   @@index([status, createdAt(sort: Desc)])

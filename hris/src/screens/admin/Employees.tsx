@@ -1,15 +1,18 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { Search, Mail, UserPlus, UserX, ShieldCheck, Users, RefreshCw } from 'lucide-react';
+import { Search, Mail, UserPlus, UserX, ShieldCheck, Users, RefreshCw, Gift, Coffee } from 'lucide-react';
 import { useUsers, useUpdateEmployee } from '@/lib/hooks';
 import { initials, avatarColorFor, useCurrentUser } from '@/lib/session';
 import { useStore } from '@/lib/store';
+import { checkPermissionSync } from '@/lib/permissionsMeta';
 import { Avatar } from '../../components/ui/Avatar';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { InviteEmployeeModal } from '../../components/admin/InviteEmployeeModal';
+import { GrantReplacementLeaveModal } from '../../components/admin/GrantReplacementLeaveModal';
+import { ReplacementLeavesModal } from '../../components/admin/ReplacementLeavesModal';
 import { cx } from '../../lib/utils';
 import './Employees.css';
 
@@ -62,14 +65,57 @@ export function EmployeesPage() {
   const [pendingRoles, setPendingRoles] = useState<AppRole[]>([]);
   const [teamAssignId, setTeamAssignId] = useState<string | null>(null);
   const [pendingTeam, setPendingTeam] = useState<Set<string>>(new Set());
+  const [grantLeaveId, setGrantLeaveId] = useState<string | null>(null);
+  const [viewLeavesId, setViewLeavesId] = useState<string | null>(null);
 
   const rolesEditUser = rolesEditId ? users.find((u) => u.id === rolesEditId) : null;
   const teamAssignUser = teamAssignId ? users.find((u) => u.id === teamAssignId) : null;
+  const grantLeaveUser = grantLeaveId ? users.find((u) => u.id === grantLeaveId) : null;
+  const viewLeavesUser = viewLeavesId ? users.find((u) => u.id === viewLeavesId) : null;
 
   const canAssign = assignableRoles(currentUser?.role);
   const canEditRoles = canAssign.length > 0;
   // HR, Admin, Super Admin can assign teams
   const canAssignTeam = canAssign.length > 0;
+
+  // Replacement leave grant / view permissions. HR/Admin/Super Admin get both
+  // for anyone with an EMPLOYEE tag; Line Manager gets both but limited to
+  // their direct reports (enforced both here and server-side).
+  const canGrantReplacement = currentUser
+    ? checkPermissionSync(
+        { role: currentUser.role as any, roles: (currentUser.roles as any) ?? null },
+        'replacement.grant',
+      )
+    : false;
+  const canViewOthersReplacement = currentUser
+    ? checkPermissionSync(
+        { role: currentUser.role as any, roles: (currentUser.roles as any) ?? null },
+        'replacement.view_others',
+      )
+    : false;
+  const actorRoles = currentUser?.roles?.length ? currentUser.roles : currentUser ? [currentUser.role] : [];
+  const isFullReviewer =
+    actorRoles.includes('ADMIN') ||
+    actorRoles.includes('HR') ||
+    actorRoles.includes('SUPER_ADMIN');
+  const isLineManagerOnly = !isFullReviewer && actorRoles.includes('LINE_MANAGER');
+
+  /**
+   * Can the current actor grant / view replacement leave for the given target?
+   * HR/Admin/Super Admin: any employee-tagged, active, non-self user.
+   * Line Manager: only their direct reports (also employee-tagged, active).
+   */
+  function canActOnEmployee(target: { id: string; isActive: boolean; role: string; roles?: string[]; lineManagerId?: string | null }): boolean {
+    if (!currentUser) return false;
+    if (target.id === currentUser.id) return false;
+    if (!target.isActive) return false;
+    const targetRoles = target.roles?.length ? target.roles : [target.role];
+    // Only employees with the EMPLOYEE tag are grantable targets
+    if (!targetRoles.includes('EMPLOYEE')) return false;
+    if (isFullReviewer) return true;
+    if (isLineManagerOnly) return target.lineManagerId === currentUser.id;
+    return false;
+  }
 
   const filtered = useMemo(
     () =>
@@ -273,13 +319,42 @@ export function EmployeesPage() {
                      </div>
                   )}
                 </div>
-                <div className="empg-card-actions">
-                  {isSelf ? (
+                {isSelf ? (
+                  <div className="empg-card-actions">
                     <span className="muted empg-self-note">
                       Ask another admin to change your own roles or status.
                     </span>
-                  ) : (
-                    <>
+                  </div>
+                ) : (
+                  <>
+                    {(
+                      (canGrantReplacement && canActOnEmployee(u)) ||
+                      (canViewOthersReplacement && canActOnEmployee(u))
+                    ) && (
+                      <div className="empg-card-leave-actions">
+                        {canGrantReplacement && canActOnEmployee(u) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            leadingIcon={<Gift size={12} />}
+                            onClick={() => setGrantLeaveId(u.id)}
+                          >
+                            Grant leave
+                          </Button>
+                        )}
+                        {canViewOthersReplacement && canActOnEmployee(u) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            leadingIcon={<Coffee size={12} />}
+                            onClick={() => setViewLeavesId(u.id)}
+                          >
+                            Leaves
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    <div className="empg-card-actions">
                       {canEditRoles && u.isActive && (
                         <Button
                           variant="ghost"
@@ -322,9 +397,9 @@ export function EmployeesPage() {
                           Reactivate
                         </Button>
                       )}
-                    </>
-                  )}
-                </div>
+                    </div>
+                  </>
+                )}
               </div>
             );
           })}
@@ -332,6 +407,18 @@ export function EmployeesPage() {
       )}
 
       <InviteEmployeeModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
+
+      <GrantReplacementLeaveModal
+        open={!!grantLeaveId}
+        onClose={() => setGrantLeaveId(null)}
+        employee={grantLeaveUser ? { id: grantLeaveUser.id, fullName: grantLeaveUser.fullName } : null}
+      />
+
+      <ReplacementLeavesModal
+        open={!!viewLeavesId}
+        onClose={() => setViewLeavesId(null)}
+        employee={viewLeavesUser ? { id: viewLeavesUser.id, fullName: viewLeavesUser.fullName } : null}
+      />
 
       <Modal
         open={!!deactivateId}
