@@ -1,0 +1,4 @@
+# Never commit credentials or generated files
+.env
+.env.*
+node_modules/
