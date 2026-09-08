@@ -27,13 +27,40 @@ before starting so the shape of this makes sense. The short version:
 **Steps 1–8 are complete and merged.** The schema, ingest pipeline, API routes,
 admin screen, and simulator are all running.
 
-**As of September 2026:** ZKBioTime is confirmed as the vendor software and API
-credentials have been obtained from the IT project manager. Steps 9–10 are the
-immediate next actions — they require one sitting at the office PC.
+**As of September 2026:** ZKBioTime is confirmed as the vendor software. You now
+have access to the system from the office PC. Steps 9–10 are where you are right
+now — follow them to extract credentials and test the API.
 
 Steps 9 to 16 have never been run against the real PC or the real device.
 Until Step 13 passes, the correct description of this feature is
 **integration-ready**, not "integrated". Do not tell the office it works before Step 13.
+
+## YOU ARE HERE — Quick reference for the office PC visit
+
+You have ZKBioTime open on the PC. Do these four things in order:
+
+1. **Find the URL** — open a browser on the PC and go to `http://127.0.0.1:8081`.
+   If it loads the ZKBioTime login page, that is your base URL. Note the port.
+
+2. **Get credentials** — the username + password you use to log into ZKBioTime
+   right now are the API credentials. No separate API key page needed.
+   (Optional but recommended: create a dedicated `hris_integration` account
+   under System → User Management with the Operator role instead of using admin.)
+
+3. **Test with curl from the PC terminal** (Command Prompt or PowerShell):
+   ```cmd
+   curl -s -u "YOUR_USERNAME:YOUR_PASSWORD" "http://127.0.0.1:8081/iclock/api/transactions/?page_size=5"
+   ```
+   Success looks like: `{"count":…,"code":0,"data":[…]}`
+   If you get 403, see Step 10a for the JWT fallback.
+
+4. **Write down and bring back** these five values (never put them in a commit):
+   - Base URL (e.g. `http://127.0.0.1:8081` or the LAN IP if running from another machine)
+   - Username and password
+   - Auth method that worked (`basic` or `jwt`)
+   - Device serial number from `MENU → System Info → Device Info` on the fingerprint machine
+
+Then follow Steps 9 and 10 below for the full detail.
 
 ## Do not, under any circumstances
 
