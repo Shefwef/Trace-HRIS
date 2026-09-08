@@ -35,41 +35,59 @@ Steps 9 to 16 have never been run against the real PC or the real device.
 Until Step 13 passes, the correct description of this feature is
 **integration-ready**, not "integrated". Do not tell the office it works before Step 13.
 
-## YOU ARE HERE — Office PC visit status (September 2026)
+## Office PC visit — COMPLETE (September 2026)
 
-**Confirmed so far:**
-- ZKBioTime is running at `http://127.0.0.1:8081` (port 8081) ✓
-- HTTP Basic auth works — `"count": 1629` punches returned ✓
-- PC LAN IP: `192.168.68.64` — `BIOTIME_BASE_URL=http://192.168.68.64:8081` ✓
-- `BIOTIME_AUTH=basic` ✓
+All values confirmed. The office PC work is done.
 
-**Still needed before leaving the PC:**
-1. Verify the LAN IP works (not just 127.0.0.1) — run the curl below
-2. Get the device serial from the fingerprint machine
-3. Check if the PC can make outbound HTTPS calls
+| Value | Confirmed |
+|---|---|
+| `BIOTIME_BASE_URL` | `http://192.168.68.64:8081` |
+| `BIOTIME_AUTH` | `basic` |
+| `BIOTIME_USERNAME` | `admin` |
+| `BIOTIME_TERMINAL_SN` | `FQQ2251600181` |
+| `BIOMETRIC_DEVICE_SERIAL` | `FQQ2251600181` |
+| Device name | SenseFP M2 (`terminal_name: "SenseFP M2"`) |
+| Device state | `"1"` — online |
+| Device timezone | `terminal_tz: 6` — GMT+6 ✓ |
+| LAN IP on 192.168.68.64 | Confirmed responding ✓ |
+| Total punches | 1,628 |
+| Enrolled employees | 18 (`emp_code` 01, 10–26) |
 
-**Remaining quick-reference for the office PC visit:**
+**Important — `punch_state: "255"` (Unknown):** Many existing punches have
+state `"255"` instead of `"0"` (In) or `"1"` (Out). This is because the device
+was not configured with check-in/check-out states when those punches were
+recorded — employees tapped without selecting a direction. The agent handles
+`"255"` as a neutral tap and the HRIS ingest stores it as-is; the attendance
+logic treats the first tap of the day as clock-in and the last as clock-out
+regardless of `punch_state`. See Step 13 for the agent's handling.
 
-1. **Verify LAN IP responds** (run in `cmd.exe`):
-   ```cmd
-   curl -s -u "YOUR_USERNAME:YOUR_PASSWORD" "http://192.168.68.64:8081/iclock/api/transactions/?page_size=5"
-   ```
-   Must return the same `"count": 1629` response as before.
+**Employee roster from ZKBioTime** (emp_code → name, for the mapping screen):
 
-2. **Check outbound HTTPS** (needed for the agent to reach the HRIS):
-   ```cmd
-   curl -s -o NUL -w "%{http_code}" https://example.com
-   ```
-   Expected: `200`. If this times out, flag it to IT — the agent cannot
-   post punches to the HRIS without outbound HTTPS on port 443.
+| emp_code | Full name |
+|---|---|
+| 01 | Fuad M Khalid Hossen |
+| 10 | Recardo Halder |
+| 11 | Ahmed Julker Nine |
+| 12 | Mimma Afrin |
+| 13 | Tanvir Kabir |
+| 14 | Tahsina Shiva |
+| 15 | ASM Saifullah |
+| 16 | Umme Mahbuba Tama |
+| 17 | Shaila Rahman Ema |
+| 18 | Nabeel Khan |
+| 19 | Tanjum Tushi |
+| 20 | Mobarok Uddin Ahmed |
+| 21 | Moudud Sujan |
+| 22 | M. Mahraj-ul-Alam Samrat |
+| 23 | Milon Miah |
+| 24 | Rubayat E Shams Anik |
+| 25 | Fahmida Akter |
+| 26 | Yasin |
 
-3. **Get the device serial** — on the fingerprint machine on the wall:
-   `MENU → System Info → Device Info` → write down the serial number shown.
+Note: `emp_code "1001"` appears in transactions with no name — unenrolled/deleted
+entry, will be stored as unmapped and flagged in the admin screen.
 
-4. **Write down and bring back** (never put in a commit):
-   - Username and password used for Basic auth
-   - Device serial number
-   The LAN IP (`192.168.68.64`) and port (`8081`) are now recorded above.
+**Next action: back on your development machine → Step 10b (fill env files) → Step 13 (build the agent).**
 
 Then follow Steps 9 and 10 below for the full detail and env-var setup.
 
@@ -373,127 +391,96 @@ Rather than using the admin account, create a purpose-built one:
 3. Generate its token via Option 1 or use Basic auth with its credentials
 4. This account can be revoked without touching the admin password
 
-### 9b — Audit form (fill in on the PC)
+### 9b — Audit form (COMPLETE — September 2026)
 
 ```
---- Credentials (confirmed September 2026) ---
-API docs page URL confirmed:               http://127.0.0.1:8081/api/docs/
-Auth method that worked:                   basic
-ZKBioTime username:                        [ask IT PM — do not write in this file]
-ZKBioTime password:                        [ask IT PM — do not write in this file]
+--- Credentials ---
+Auth method that worked:                   basic  ✓
+ZKBioTime username:                        admin  (use dedicated account in production)
+ZKBioTime password:                        [in agent/.env only — never in this file]
 JWT / General token:                       not needed — Basic auth confirmed working
 
---- Vendor software (confirmed September 2026) ---
-Name and version (its About / Help page):  ZKBioTime (version TBC from About page)
-PC LAN IP (ipconfig → IPv4 Address):       192.168.68.64
+--- Vendor software ---
+Name:                                      ZKBioTime  ✓
+PC LAN IP (ipconfig → IPv4 Address):       192.168.68.64  ✓
 PC default gateway:                        192.168.68.1
-BIOTIME_BASE_URL:                          http://192.168.68.64:8081
-PC LAN IP is DHCP or static?              DHCP (fix with DHCP reservation — see Step 12)
-Dedicated integration account created?     N (using existing admin account for now)
-Its database engine + port:                ______________________
-   ZKBioTime bundles PostgreSQL by default
-PC can make outbound HTTPS (443)?          Y / N
-   test: curl.exe -s -o NUL -w "%{http_code}" https://example.com
+BIOTIME_BASE_URL:                          http://192.168.68.64:8081  ✓
+PC LAN IP is DHCP or static?              DHCP (recommend DHCP reservation — Step 12)
+Dedicated integration account created?     N (using admin for now)
+PC can make outbound HTTPS (443)?          TBC — run before deploying agent:
+   curl.exe -s -o NUL -w "%{http_code}" https://example.com  (expect 200)
 
 --- Device ---
-Serial number   MENU -> System Info -> Device Info:   ________________
-Firmware / push version, same screen:                 ________________
-Cloud server address currently set
-   MENU -> COMM. -> Cloud Server Setting:             ________________
-   READ ONLY. Write it down. Do not change it.
-Device clock reads (compare to your phone):           ________________
-Device timezone setting:                              ________________
-   must be GMT+6, no DST
+Serial number:                             FQQ2251600181  ✓
+Device name:                               SenseFP M2
+Firmware version:                          ZAM70-NF28HA-Ver3.1.12
+Push version:                              Ver 3.0.4S-20240809
+Device timezone:                           GMT+6 (terminal_tz: 6)  ✓
+Device state:                              "1" — online  ✓
+Cloud server address currently set:        points at 192.168.68.64:8081 (ZKBioTime)
+   DO NOT CHANGE — this is the device's only push slot.
+Device timezone setting:                   GMT+6, no DST  ✓
 ```
 
-The "exact URL the PM opens on their phone" gives you the LAN IP and port in
-one field — that becomes `BIOTIME_BASE_URL` in `agent/.env`.
-
-## Step 10 — Probe the API and confirm credentials work **PC** then **your machine**
+## Step 10 — Probe the API and confirm credentials work **COMPLETE**
 
 Do this in two stages: first from the office PC (to confirm the local API is
 reachable), then from your development machine (to confirm the agent will be
 able to reach it remotely).
 
-### 10a — Test from the office PC
+### 10a — COMPLETE (September 2026)
 
-> **Windows reminder:** use `curl.exe` in PowerShell, or open Command Prompt
-> (`Win + R` → `cmd`) and use `curl` — either avoids the PowerShell alias that
-> throws "parameter name u is ambiguous".
+All three endpoints confirmed working with HTTP Basic auth:
 
-Use whichever auth method passed in Step 9. The examples below use Basic auth
-(simplest); swap in `-H "Authorization: JWT eyJ..."` or `-H "Authorization: Token ae600..."` if you got a token instead.
+- `GET /personnel/api/employees/` → 18 employees, `code: 0` ✓
+- `GET /iclock/api/transactions/` → 1,628 punches, `code: 0` ✓
+- `GET /iclock/api/terminals/` → 1 device, `state: "1"` (online) ✓
+- LAN IP `192.168.68.64` responds identically to `127.0.0.1` ✓
 
-**Employees** (confirms the roster endpoint and gives you the `emp_code` values):
+**Notable:** `punch_state` on most records is `"255"` (Unknown) — employees
+tapped without selecting In/Out direction. The agent treats `"255"` the same
+as any other punch: stores it as-is, and the attendance logic uses first tap
+of the day as clock-in and last tap as clock-out regardless of state.
 
-```cmd
-curl.exe -s -u "YOUR_USERNAME:YOUR_PASSWORD" "http://127.0.0.1:8081/personnel/api/employees/?page_size=5"
-```
+### 10b — Fill in env files on your development machine
 
-**Success looks like** (note it is `data`, not `results`):
-```json
-{"count": 12, "msg": "OK", "code": 0, "data": [...]}
-```
-Record every `emp_code` value — that is your input for the employee mapping
-screen in the HRIS admin.
-
-**Punches** (the main data feed):
+Generate the shared ingest token once (run on your dev machine):
 
 ```cmd
-curl.exe -s -u "YOUR_USERNAME:YOUR_PASSWORD" "http://127.0.0.1:8081/iclock/api/transactions/?page_size=5&ordering=-punch_time"
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Check a real row: `punch_time` is offset-less wall clock (e.g. `"2026-09-08 09:02:13"`),
-`punch_state` is `"0"` (clock-in) or `"1"` (clock-out), `verify_type` is `1`
-for fingerprint, and `terminal_sn` matches the serial from Step 9.
+Copy the output. Then fill in these two files (both are gitignored):
 
-**Device health:**
-
-```cmd
-curl.exe -s -u "YOUR_USERNAME:YOUR_PASSWORD" "http://127.0.0.1:8081/iclock/api/terminals/"
-```
-
-`state: "1"` means online. It is `/terminals/`, not `/devices/` — the latter 404s.
-First requests can take 30–45 seconds cold — Django is waking up, not failing.
-
-**If any call returns 403 with `IsNotOpenAPI`**, switch to JWT or Token auth —
-Basic auth is reported to pass the license gate where JWT does not, but if
-Basic also returns 403, stop and go to Step 11 (direct DB read).
-
-### 10b — Bring the credentials to your development machine
-
-Once Step 10a passes, fill in `agent/.env` on your development machine (this
-file is gitignored and must never be committed):
+**`agent/.env`** — create this file in the `agent/` directory:
 
 ```ini
 HRIS_BASE_URL=https://<your-vercel-or-custom-domain>
-BIOMETRIC_INGEST_TOKEN=          # generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+BIOMETRIC_INGEST_TOKEN=<paste-generated-token-here>
 
-BIOTIME_BASE_URL=http://192.168.1.50:8081   # the LAN IP and port from Step 9
-BIOTIME_USERNAME=                            # from Step 9a
-BIOTIME_PASSWORD=                            # from Step 9a — never commit
-BIOTIME_AUTH=basic                           # basic | jwt — whichever passed in Step 10a
-BIOTIME_TERMINAL_SN=                         # device serial from Step 9
+BIOTIME_BASE_URL=http://192.168.68.64:8081
+BIOTIME_USERNAME=admin
+BIOTIME_PASSWORD=<ask-IT-PM>
+BIOTIME_AUTH=basic
+BIOTIME_TERMINAL_SN=FQQ2251600181
 
 POLL_SECONDS=60
 LOOKBACK_MINUTES=15
 ```
 
-And add to `hris/.env.local`:
+**`hris/.env.local`** — add these three lines:
 
 ```ini
-BIOMETRIC_INGEST_TOKEN=          # same value as above
+BIOMETRIC_INGEST_TOKEN=<same-token-as-above>
 BIOMETRIC_TZ=Asia/Dhaka
-BIOMETRIC_DEVICE_SERIAL=         # same serial as above
+BIOMETRIC_DEVICE_SERIAL=FQQ2251600181
 ```
 
-**Note:** `BIOTIME_BASE_URL` uses the office PC's **LAN IP**, which means the
-agent must run on the office LAN (i.e., on the office PC itself, not remotely
-from your laptop). The agent on the PC dials out to your HRIS over HTTPS; your
-HRIS never needs to reach in. This is the correct architecture.
+The agent runs on the office PC and dials **out** to the HRIS over HTTPS.
+The HRIS never dials in. `BIOTIME_BASE_URL` uses the LAN IP because the
+agent is on the same network as ZKBioTime.
 
-**Proof:** paste the working curl command (minus credentials) into the audit
-form. That command is the agent's specification.
+Once both files are filled in, proceed to Step 13 (build the agent).
 
 ## Step 11 — Path B, only if Step 10 failed **PC**
 
