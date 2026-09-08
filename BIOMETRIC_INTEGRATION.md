@@ -1,11 +1,16 @@
 # Biometric Clock-In / Clock-Out — The Decided Plan
 
-**Status:** design settled, not yet built. No code in `hris/` reads from the
-device or from the vendor software yet.
+**Status:** application-side complete (Steps 1–8 merged and running). Office
+agent not yet built. Next action: office PC visit to extract credentials and
+run the curl probe (Steps 9–10 of the runbook).
 **Scope:** fingerprint **clock-in and clock-out only**. Breaks stay as buttons in
 the web UI.
 **Device:** ZKTeco M2-LR, already installed at the Trace office and already
 enrolled with every employee's fingerprint.
+**Vendor software:** ZKBioTime (confirmed by IT project manager, September 2026).
+Credentials must be extracted from the ZKBioTime interface on the office PC —
+they are not held anywhere else. Next step is Step 9 (sit at the office PC,
+get or create credentials, record serial + URL) then Step 10 (curl probe).
 **Hard constraint:** the vendor's professionals installed and configured that
 device and its desktop software. Nothing in this plan changes a single device
 setting or a single vendor-software setting.
@@ -14,7 +19,8 @@ This document supersedes the earlier version of this file, which was written
 before the device was bought and asked you to choose between a wall-mounted
 terminal, WebAuthn on laptops, and a phone app. That choice was made in the real
 world: the terminal is on the wall and people are already punching into it. What
-is left is to get a copy of those punches into the HRIS.
+is left is to get a copy of those punches into the HRIS — specifically, to build
+the office agent that polls ZKBioTime and forwards punches to `/api/biometric/punches`.
 
 For the ordered, do-this-then-that runbook, see
 [BIOMETRIC_FINGERPRINT_INTEGRATION_STEPS.md](BIOMETRIC_FINGERPRINT_INTEGRATION_STEPS.md).
@@ -23,21 +29,40 @@ For the ordered, do-this-then-that runbook, see
 
 ## 1. What is actually running in the office
 
-Assembled from what the IT product manager described plus published
-documentation of the ZKTeco stack. Every line marked **(assumed)** needs one
-look at the office PC to confirm — see §9.
+Confirmed by the IT project manager in September 2026. Lines marked **(assumed)**
+still need one look at the office PC to fill in their specific values — see §9.
 
 | Layer | What it is |
 |---|---|
 | Terminal | ZKTeco M2-LR on the wall. Holds the fingerprint templates and a local punch log. |
 | Transport | Plain HTTP over the office LAN. The **device is the client** — it dials out to the PC. |
-| Server | ZKTeco desktop software on a Windows PC, **(assumed)** ZKBioTime 8.x, formerly branded BioTime 8.0. |
+| Server | **ZKBioTime** on a Windows PC. Confirmed by name from the IT project manager. Version and port TBC from Step 9. |
+| API | ZKBioTime exposes a Django REST Framework API. Root endpoint structure confirmed — `iclock_api_root` and `personnel_api_root` are live. Credentials to be extracted from the PC on the office visit (see §9). |
 | Store | The software's own database, **(assumed)** the PostgreSQL instance its installer bundles. Raw punches land in a table called `iclock_transaction`. |
 | Remote access | The same software's web UI, reached from the PM's phone through the office router. |
 
-The "phone app" the PM mentioned is the strongest clue for the product
-identification: ZKBioTime is a Django web application, so its admin panel is
-just a browser URL, which is exactly why it works from home once the router
+### About ZKBioTime
+
+ZKBioTime is the enterprise attendance and access management platform by ZKTeco,
+one of the world's largest biometric hardware and software vendors (global
+operations, millions of deployed devices). The software is a full Django web
+application, and its REST API is the standard integration surface — exactly what
+the API examples shared by IT confirm. The live API root response:
+
+```json
+{
+  "api_api_docs":        "http://127.0.0.1:8081/api/docs/",
+  "personnel_api_root":  "http://127.0.0.1:8081/personnel/api/",
+  "iclock_api_root":     "http://127.0.0.1:8081/iclock/api/"
+}
+```
+
+Port `8081` on `127.0.0.1` above is the PC's own loopback — substitute the
+actual PC LAN IP from Step 9. The `iclock` root is where punch transactions
+live; `personnel` is where the employee roster lives. Both are needed.
+
+The "phone app" the PM mentioned is the admin panel URL forwarded through the
+router — ZKBioTime is a browser app, so it works from any device once the router
 forwards a port to the PC.
 
 ### How one punch travels today
@@ -124,9 +149,20 @@ Three properties make this the right shape:
   HRIS's public HTTPS hostname. Their IP churn cannot break it.
 - **It is reversible in one step.** Stop the agent. That is the entire rollback.
 
+### Why not connect directly to the fingerprint machine?
+
+The M2-LR has **one** ADMS/PUSH slot — the address burned into its menu that it
+dials when someone taps. That slot is owned by ZKBioTime, and everything the
+office depends on (enrollment, PM's reports, phone panel) runs through it. Taking
+that slot away from ZKBioTime kills all of that. The API approach below never
+touches the device at all: ZKBioTime keeps doing what it does, and we read a copy
+of the data from it. If the agent is stopped, the office is exactly where it is
+today. This is the only safe architecture.
+
 ### Path A (primary) — the ZKBioTime REST API
 
-ZKBioTime 8.x exposes a Django REST Framework API. The endpoints that matter:
+ZKBioTime exposes a Django REST Framework API. API credentials confirmed from IT
+PM. The endpoints that matter:
 
 | Endpoint | Use |
 |---|---|
@@ -434,25 +470,24 @@ integration-ready and nothing stronger.
 
 ---
 
-## 9. Six questions for the office
+## 9. What to collect from the office PC
 
-Everything above marked **(assumed)** collapses once these are answered. None
-needs the vendor, and none needs a YouTube tutorial — the API is documented.
+The ordered, step-by-step instructions for what to do when you sit down at the
+office PC are in
+[BIOMETRIC_FINGERPRINT_INTEGRATION_STEPS.md](BIOMETRIC_FINGERPRINT_INTEGRATION_STEPS.md),
+starting at **Step 9**. Follow that file — it is the single runbook for the
+office visit.
 
-1. **The exact URL the PM opens on their phone.** Hostname and port. This alone
-   confirms the product and version.
-2. **Software name and version**, from its About or Help page. Expected:
-   ZKBioTime 8.x or BioTime 8.0/8.5.
-3. **Can a dedicated account be created for the integration?** Read-only if the
-   product allows it.
-4. **The M2-LR serial number**, from `MENU -> System Info -> Device Info`.
-5. **Can the PC make outbound HTTPS calls?** Almost certainly yes, since it is
-   already on the router. Nothing needs to come *in*.
-6. **Which database does the software use, and on which port?** Only needed if
-   Path A is license-gated.
+Summary of what you need to come back with:
 
-Worth mentioning to the PM regardless of this project: the DHCP reservation in
-§2 fixes the recurring "the device stopped working" outage on its own.
+| What | Where it comes from | Goes into |
+|---|---|---|
+| ZKBioTime credentials (username + password, or token) | ZKBioTime web UI — System → User Management or System → API Settings | `agent/.env` as `BIOTIME_USERNAME` / `BIOTIME_PASSWORD` |
+| PC LAN IP and port | URL the IT PM opens on their phone | `agent/.env` as `BIOTIME_BASE_URL` |
+| Device serial number | M2-LR: `MENU → System Info → Device Info` | `agent/.env` as `BIOTIME_TERMINAL_SN`; `hris/.env.local` as `BIOMETRIC_DEVICE_SERIAL` |
+| Auth method that passed the curl test | Step 10 of the runbook | `agent/.env` as `BIOTIME_AUTH=basic` or `jwt` |
+
+None of these values go in a commit. All of them go in gitignored `.env` files.
 
 ---
 
@@ -478,5 +513,36 @@ API reference, not inferred:
 
 ---
 
-*Design settled 25 August 2026. Nothing in this document has been executed
-against the physical M2-LR.*
+## 11. Current status and next actions
+
+| # | Status | Action |
+|---|---|---|
+| Steps 1–8 | **Done** | Schema, pipeline, API routes, admin screen, simulator all merged |
+| API credentials | **Next** | Must be extracted from ZKBioTime on the office PC (see §9) |
+| Step 9 | **Next** | Sit at the office PC: create/get credentials, confirm URL/port, get serial number |
+| Step 10 | **After Step 9** | Test credentials with curl against the live API; bring values back to your machine |
+| Step 11 | Only if Step 10 returns 403 | Request read-only DB user from IT |
+| Step 12 | While at office | DHCP reservation for PC + DDNS on router |
+| Step 13 | After Step 10 passes | Build and deploy the office agent |
+| Steps 14–16 | After Step 13 | Test matrix, parallel week, cutover |
+
+**The two-step sequence to unlock everything:**
+
+1. Go to the office PC → ZKBioTime web interface → create or obtain credentials (§9)
+2. Test them immediately from the office PC terminal:
+
+```bash
+# Run from the office PC. Substitute real LAN IP, port, and credentials.
+curl -sS -u "BIOTIME_USERNAME:BIOTIME_PASSWORD" \
+  "http://192.168.x.x:8081/iclock/api/transactions/?page_size=5&ordering=-punch_time"
+```
+
+If that returns `{"count":...,"code":0,"data":[...]}` — Path A is live.
+Record the working command (minus credentials), then bring the credential values
+back to your development machine and fill in `agent/.env` (see §6).
+
+---
+
+*Design settled 25 August 2026. Vendor software confirmed as ZKBioTime,
+September 2026. Credentials must be extracted from ZKBioTime on the office PC —
+Step 9 is the next action.*
