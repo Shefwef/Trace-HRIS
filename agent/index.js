@@ -139,23 +139,10 @@ async function fetchPunches(since) {
   return allPunches;
 }
 
-/**
- * Normalise ZKBioTime punch_state to what the HRIS ingest accepts.
- *
- * The HRIS ingest only processes "0" (clock-in) and "1" (clock-out).
- * ZKBioTime sends "255" (Unknown) when the device isn't configured with
- * explicit In/Out states — which is the case at Trace. We resolve "255"
- * by time of day: before 13:00 → clock-in, 13:00 and after → clock-out.
- * This matches how ZKBioTime's own reports handle state-less taps.
- *
- * States 2–5 (break, overtime) are left as-is so the HRIS skips them
- * cleanly, preserving the original data in rawPayload.
- */
-function normalisePunchState(punch) {
-  if (punch.punch_state !== '255') return punch.punch_state;
-  const hour = parseInt(punch.punch_time.slice(11, 13), 10);
-  return hour < 13 ? '0' : '1';
-}
+// punch_state is sent as-is to the HRIS. The server resolves "255" (Unknown)
+// via toggle logic: second tap = clock-out, third tap = clock-in again, etc.
+// This is more accurate than a time-of-day heuristic and handles multiple
+// in/out cycles in a single day.
 
 // ---------------------------------------------------------------------------
 // Date/time helpers
@@ -178,7 +165,7 @@ async function postToHris(punches) {
     punches: punches.map((p) => ({
       deviceUserId: String(p.emp_code),
       punchedAt: p.punch_time,         // "YYYY-MM-DD HH:MM:SS" wall-clock, as-is
-      punchState: normalisePunchState(p),
+      punchState: String(p.punch_state), // server resolves "255" via toggle
       verifyType: p.verify_type ?? undefined,
       sourceId: String(p.id),
     })),
@@ -217,9 +204,11 @@ function warn(...args) {
 let cursor = null; // last successful poll time; null = cold start
 
 async function poll() {
+  // On cold start, look back 12 hours so reboots mid-day don't lose morning punches.
+  // On subsequent polls, overlap by LOOKBACK_MINUTES to handle clock skew.
   const since = cursor
     ? new Date(cursor.getTime() - LOOKBACK_MINUTES * 60 * 1000)
-    : new Date(Date.now() - LOOKBACK_MINUTES * 60 * 1000);
+    : new Date(Date.now() - 12 * 60 * 60 * 1000);
 
   log(`Polling since ${formatBiotimeDate(since)} (cursor: ${cursor ? formatBiotimeDate(cursor) : 'cold start'})`);
 

@@ -103,18 +103,54 @@ export async function ingestPunches(input: IngestInput): Promise<IngestResult> {
     data: { lastSeenAt: new Date() },
   });
 
-  // 2. Filter to clock-in (0) and clock-out (1) only; parse times.
+  // 2. Filter to clock-in (0), clock-out (1), and unknown (255); parse times.
+  //    Unknown punches ("255") are resolved via toggle: the second tap of the day
+  //    becomes clock-out, the third becomes clock-in again, and so on. This matches
+  //    the ZKTeco M2-LR at Trace, which sends "255" for all taps because it is not
+  //    configured with explicit In/Out states.
   type ParsedPunch = {
     raw: RawPunch;
     punchedAtUtc: Date;
   };
 
-  const parsed: ParsedPunch[] = [];
+  const valid: ParsedPunch[] = [];
   for (const p of input.punches) {
-    if (p.punchState !== '0' && p.punchState !== '1') continue; // ignore breaks/OT
+    if (p.punchState !== '0' && p.punchState !== '1' && p.punchState !== '255') continue;
     const punchedAtUtc = parsePunchTime(p.punchedAt, tz);
     if (!punchedAtUtc) { result.rejected++; continue; }
-    parsed.push({ raw: p, punchedAtUtc });
+    valid.push({ raw: p, punchedAtUtc });
+  }
+
+  // Sort chronologically so within-batch toggle ordering is correct.
+  valid.sort((a, b) => a.punchedAtUtc.getTime() - b.punchedAtUtc.getTime());
+
+  // Resolve '255' punches: query the last stored state per employee from the DB,
+  // then toggle within the batch. Explicit '0'/'1' punches pass through unchanged.
+  const ids255 = [...new Set(
+    valid.filter((p) => p.raw.punchState === '255').map((p) => p.raw.deviceUserId),
+  )];
+  const stateMap = new Map<string, '0' | '1'>();
+  if (ids255.length > 0) {
+    const lastRows = await prisma.biometricPunch.findMany({
+      where: { deviceId: device.id, deviceUserId: { in: ids255 }, punchState: { in: ['0', '1'] } },
+      orderBy: { punchedAt: 'desc' },
+      distinct: ['deviceUserId'],
+      select: { deviceUserId: true, punchState: true },
+    });
+    for (const row of lastRows) stateMap.set(row.deviceUserId, row.punchState as '0' | '1');
+  }
+
+  const parsed: ParsedPunch[] = [];
+  for (const punch of valid) {
+    if (punch.raw.punchState === '255') {
+      // No prior punch on record → first tap of day → clock-in ('0')
+      const last = stateMap.get(punch.raw.deviceUserId) ?? '1';
+      const resolved: '0' | '1' = last === '0' ? '1' : '0';
+      stateMap.set(punch.raw.deviceUserId, resolved);
+      parsed.push({ raw: { ...punch.raw, punchState: resolved }, punchedAtUtc: punch.punchedAtUtc });
+    } else {
+      parsed.push(punch);
+    }
   }
 
   if (parsed.length === 0) {
