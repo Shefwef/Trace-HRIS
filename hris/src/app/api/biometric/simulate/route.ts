@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { requireAuth, err, parseBody } from '@/lib/api';
 import { checkPermission } from '@/lib/permissions';
 import { ingestPunches } from '@/lib/biometric';
-import { localDayKey } from '@/lib/workday';
+import { localDayKey, APP_TZ } from '@/lib/workday';
 
 const SimulateSchema = z.object({
   employeeId: z.string(),
@@ -36,8 +36,14 @@ export async function POST(req: Request) {
   if (!device) return err(400, 'NO_DEVICE', 'No active device registered. Register one first.');
 
   const at = input.timestamp ? new Date(input.timestamp) : new Date();
-  // Format as wall-clock in the configured timezone (what the device would send)
-  const wallClock = localDayKey(at) + ' ' + at.toISOString().slice(11, 19);
+  // Format as wall-clock in the office timezone — exactly what the device sends.
+  // toISOString() gives UTC time, not local; use Intl to get the local time parts.
+  const timeParts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: APP_TZ, hour12: false,
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(at);
+  const get = (t: string) => timeParts.find((p) => p.type === t)?.value ?? '00';
+  const wallClock = `${localDayKey(at)} ${get('hour')}:${get('minute')}:${get('second')}`;
 
   const result = await ingestPunches({
     deviceSerial: device.serial,

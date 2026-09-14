@@ -181,7 +181,7 @@ export async function ingestPunches(input: IngestInput): Promise<IngestResult> {
 
   // 5. For each new punch, assign employeeId and apply to attendance.
   //    Group by (employeeId, local date) to compute min-In / max-Out.
-  type AttendanceKey = string; // `${employeeId}:${dateKey}`
+  type AttendanceKey = string; // `${employeeId}|${dateKey}`
   const byEmployeeDay = new Map<AttendanceKey, { clockIn: Date | null; clockOut: Date | null }>();
 
   for (const punch of newPunchRows) {
@@ -196,7 +196,7 @@ export async function ingestPunches(input: IngestInput): Promise<IngestResult> {
     if (!employeeId) { result.unmapped++; continue; }
 
     const dateKey = localDateOnly(punch.punchedAt);
-    const mapKey: AttendanceKey = `${employeeId}:${dateKey.toISOString()}`;
+    const mapKey: AttendanceKey = `${employeeId}|${dateKey.toISOString()}`;
     const existing = byEmployeeDay.get(mapKey) ?? { clockIn: null, clockOut: null };
 
     if (punch.punchState === '0') {
@@ -218,7 +218,7 @@ export async function ingestPunches(input: IngestInput): Promise<IngestResult> {
   // 6. Write attendance records — one upsert per (employee, day).
   //    Manual corrections (source = MANUAL) win; biometric never overwrites them.
   for (const [key, times] of byEmployeeDay) {
-    const [employeeId, dateIso] = key.split(':');
+    const [employeeId, dateIso] = key.split('|');
     const date = new Date(dateIso);
 
     const existing = await prisma.attendanceRecord.findUnique({
