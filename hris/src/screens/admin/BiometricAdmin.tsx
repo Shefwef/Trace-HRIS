@@ -310,7 +310,17 @@ function PunchesTab() {
         <thead>
           <tr style={{ background: 'var(--color-bg-subtle)', textAlign: 'left' }}>
             {['Time', 'Device', 'Employee', 'Type', 'Method', 'Status'].map((h) => (
-              <th key={h} style={{ padding: '10px 16px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--color-text-muted)', fontWeight: 600 }}>{h}</th>
+              <th
+                key={h}
+                style={{
+                  padding: '10px 16px',
+                  paddingRight: h === 'Employee' ? 8 : undefined,
+                  paddingLeft: h === 'Type' ? 8 : undefined,
+                  fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--color-text-muted)', fontWeight: 600,
+                }}
+              >
+                {h}
+              </th>
             ))}
           </tr>
         </thead>
@@ -325,14 +335,14 @@ function PunchesTab() {
                 {fmtDate(p.punchedAt, 'EEE d MMM')} {fmtTime(p.punchedAt)}
               </td>
               <td style={{ padding: '10px 16px', color: 'var(--color-text-secondary)' }}>{p.deviceAlias}</td>
-              <td style={{ padding: '10px 16px' }}>
+              <td style={{ padding: '10px 16px', paddingRight: 8 }}>
                 {p.employeeName ?? (
                   <span style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>
                     ID {p.deviceUserId}
                   </span>
                 )}
               </td>
-              <td style={{ padding: '10px 16px' }}>
+              <td style={{ padding: '10px 16px', paddingLeft: 8 }}>
                 <span style={{ color: p.punchState === '0' ? 'var(--color-success)' : 'var(--color-danger)', fontWeight: 500 }}>
                   {STATE_LABEL[p.punchState] ?? p.punchState}
                 </span>
