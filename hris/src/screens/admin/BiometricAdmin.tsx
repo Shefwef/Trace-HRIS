@@ -21,7 +21,8 @@ interface EmployeeRow {
 }
 interface PunchRow {
   id: string; deviceSerial: string; deviceAlias: string;
-  deviceUserId: string; punchedAt: string; punchState: string;
+  deviceUserId: string; employeeName: string | null;
+  punchedAt: string; punchState: string;
   verifyType: number | null; employeeId: string | null; appliedAt: string | null;
 }
 interface SyncLogRow {
@@ -308,7 +309,7 @@ function PunchesTab() {
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
         <thead>
           <tr style={{ background: 'var(--color-bg-subtle)', textAlign: 'left' }}>
-            {['Time', 'Device', 'Device user ID', 'Type', 'Method', 'Status'].map((h) => (
+            {['Time', 'Device', 'Employee', 'Type', 'Method', 'Status'].map((h) => (
               <th key={h} style={{ padding: '10px 16px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--color-text-muted)', fontWeight: 600 }}>{h}</th>
             ))}
           </tr>
@@ -324,7 +325,13 @@ function PunchesTab() {
                 {fmtDate(p.punchedAt, 'EEE d MMM')} {fmtTime(p.punchedAt)}
               </td>
               <td style={{ padding: '10px 16px', color: 'var(--color-text-secondary)' }}>{p.deviceAlias}</td>
-              <td style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)' }}>{p.deviceUserId}</td>
+              <td style={{ padding: '10px 16px' }}>
+                {p.employeeName ?? (
+                  <span style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>
+                    ID {p.deviceUserId}
+                  </span>
+                )}
+              </td>
               <td style={{ padding: '10px 16px' }}>
                 <span style={{ color: p.punchState === '0' ? 'var(--color-success)' : 'var(--color-danger)', fontWeight: 500 }}>
                   {STATE_LABEL[p.punchState] ?? p.punchState}

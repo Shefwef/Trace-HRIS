@@ -75,12 +75,23 @@ export async function GET(req: Request) {
     include: { device: { select: { serial: true, alias: true } } },
   });
 
+  // BiometricPunch has no employee relation, so batch-fetch the names.
+  const employeeIds = [...new Set(punches.map((p) => p.employeeId).filter((id): id is string => !!id))];
+  const employees = employeeIds.length > 0
+    ? await prisma.user.findMany({
+        where: { id: { in: employeeIds } },
+        select: { id: true, fullName: true },
+      })
+    : [];
+  const nameById = new Map(employees.map((e) => [e.id, e.fullName]));
+
   return NextResponse.json(
     punches.map((p) => ({
       id: p.id,
       deviceSerial: p.device.serial,
       deviceAlias: p.device.alias,
       deviceUserId: p.deviceUserId,
+      employeeName: p.employeeId ? nameById.get(p.employeeId) ?? null : null,
       punchedAt: p.punchedAt.toISOString(),
       punchState: p.punchState,
       verifyType: p.verifyType,
