@@ -10,7 +10,7 @@
  * We parse it in that zone and convert to UTC before any DB write.
  */
 import { prisma } from './db';
-import { localDateOnly } from './workday';
+import { localDateOnly, localDayKey } from './workday';
 
 export interface RawPunch {
   deviceUserId: string;
@@ -125,7 +125,9 @@ export async function ingestPunches(input: IngestInput): Promise<IngestResult> {
   valid.sort((a, b) => a.punchedAtUtc.getTime() - b.punchedAtUtc.getTime());
 
   // Resolve '255' punches: query the last stored state per employee from the DB,
-  // then toggle within the batch. Explicit '0'/'1' punches pass through unchanged.
+  // then toggle within the batch. State only carries forward *within a single
+  // Dhaka day* — after midnight the toggle resets, so the first tap of a new
+  // day is always a clock-in even if yesterday's clock-out was missed.
   const ids255 = [...new Set(
     valid.filter((p) => p.raw.punchState === '255').map((p) => p.raw.deviceUserId),
   )];
@@ -135,22 +137,30 @@ export async function ingestPunches(input: IngestInput): Promise<IngestResult> {
       where: { deviceId: device.id, deviceUserId: { in: ids255 }, punchState: { in: ['0', '1'] } },
       orderBy: { punchedAt: 'desc' },
       distinct: ['deviceUserId'],
-      select: { deviceUserId: true, punchState: true },
+      select: { deviceUserId: true, punchState: true, punchedAt: true },
     });
-    for (const row of lastRows) stateMap.set(row.deviceUserId, row.punchState as '0' | '1');
+    const todayKey = localDayKey();
+    for (const row of lastRows) {
+      // Only inherit state if the last punch was today (Dhaka time). A punch
+      // from yesterday shouldn't leak into today's toggle — a new day starts fresh.
+      if (localDayKey(row.punchedAt) === todayKey) {
+        stateMap.set(row.deviceUserId, row.punchState as '0' | '1');
+      }
+    }
   }
 
   const parsed: ParsedPunch[] = [];
   for (const punch of valid) {
+    let resolvedState: string = punch.raw.punchState;
     if (punch.raw.punchState === '255') {
-      // No prior punch on record → first tap of day → clock-in ('0')
+      // No state today → default to '1' so toggle gives '0' (clock-in) — first tap of new day.
       const last = stateMap.get(punch.raw.deviceUserId) ?? '1';
-      const resolved: '0' | '1' = last === '0' ? '1' : '0';
-      stateMap.set(punch.raw.deviceUserId, resolved);
-      parsed.push({ raw: { ...punch.raw, punchState: resolved }, punchedAtUtc: punch.punchedAtUtc });
+      resolvedState = last === '0' ? '1' : '0';
+      stateMap.set(punch.raw.deviceUserId, resolvedState as '0' | '1');
     } else {
-      parsed.push(punch);
+      stateMap.set(punch.raw.deviceUserId, punch.raw.punchState as '0' | '1');
     }
+    parsed.push({ raw: { ...punch.raw, punchState: resolvedState }, punchedAtUtc: punch.punchedAtUtc });
   }
 
   if (parsed.length === 0) {
