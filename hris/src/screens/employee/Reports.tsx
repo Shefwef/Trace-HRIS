@@ -206,53 +206,52 @@ export function ReportsPage() {
         </p>
       </div>
 
-      {/* Inline period picker — no dropdown */}
+      {/* Period picker — select dropdown + inline custom date inputs */}
       <div className="rpts-period card">
         <div className="rpts-period-label">
           <CalendarClock size={15} />
           <span>Period</span>
         </div>
-        <div className="rpts-period-presets">
-          {PRESETS.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              className={`rpts-preset${dateRange.preset === p.key ? ' rpts-preset--active' : ''}`}
-              onClick={() => selectPreset(p.key)}
-            >
-              {p.label}
-            </button>
-          ))}
+        <div className="rpts-period-controls">
+          <select
+            className="rpts-period-select"
+            value={dateRange.preset}
+            onChange={(e) => selectPreset(e.target.value as DatePreset)}
+          >
+            {PRESETS.map((p) => (
+              <option key={p.key} value={p.key}>{p.label}</option>
+            ))}
+          </select>
+
+          {/* Date inputs always rendered; only active when Custom is selected */}
+          <span className="rpts-period-custom-label">From</span>
+          <input
+            type="date"
+            className={`rpts-period-date-input${dateRange.preset !== 'custom' ? ' rpts-period-date-input--disabled' : ''}`}
+            value={customStart}
+            max={customEnd || undefined}
+            disabled={dateRange.preset !== 'custom'}
+            onChange={(e) => setCustomStart(e.target.value)}
+          />
+          <span className="rpts-period-custom-sep">—</span>
+          <span className="rpts-period-custom-label">To</span>
+          <input
+            type="date"
+            className={`rpts-period-date-input${dateRange.preset !== 'custom' ? ' rpts-period-date-input--disabled' : ''}`}
+            value={customEnd}
+            min={customStart || undefined}
+            disabled={dateRange.preset !== 'custom'}
+            onChange={(e) => setCustomEnd(e.target.value)}
+          />
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={dateRange.preset !== 'custom' || !customStart || !customEnd || customStart > customEnd}
+            onClick={applyCustom}
+          >
+            Apply
+          </Button>
         </div>
-        {dateRange.preset === 'custom' && (
-          <div className="rpts-period-custom">
-            <label className="rpts-period-custom-label">From</label>
-            <input
-              type="date"
-              className="rpts-period-date-input"
-              value={customStart}
-              max={customEnd || undefined}
-              onChange={(e) => setCustomStart(e.target.value)}
-            />
-            <span className="rpts-period-custom-sep">—</span>
-            <label className="rpts-period-custom-label">To</label>
-            <input
-              type="date"
-              className="rpts-period-date-input"
-              value={customEnd}
-              min={customStart || undefined}
-              onChange={(e) => setCustomEnd(e.target.value)}
-            />
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={!customStart || !customEnd || customStart > customEnd}
-              onClick={applyCustom}
-            >
-              Apply
-            </Button>
-          </div>
-        )}
       </div>
 
       <div className="rpts-grid">
