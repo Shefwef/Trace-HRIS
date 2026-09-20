@@ -33,9 +33,9 @@ export function AvatarUpload({ value, name, onChange }: Props) {
       const fd = new FormData();
       fd.append('file', file);
       const res = await fetch('/api/upload/avatar', { method: 'POST', body: fd });
-      const json = await res.json() as { url?: string; message?: string };
-      if (!res.ok) throw new Error(json.message ?? 'Upload failed');
-      onChange(json.url!);
+      const json = await res.json().catch(() => ({}) as { url?: string; message?: string });
+      if (!res.ok) throw new Error((json as { message?: string }).message ?? `Upload failed (${res.status})`);
+      onChange((json as { url?: string }).url!);
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : 'Upload failed');
     } finally {
