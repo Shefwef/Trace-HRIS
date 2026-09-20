@@ -17,6 +17,7 @@ export async function GET(req: Request) {
     select: {
       id: true, fullName: true, email: true, role: true, roles: true,
       department: true, designation: true, employeeIdCode: true, avatarUrl: true,
+      phone: true, dateOfBirth: true, joiningDate: true,
       isActive: true, lineManagerId: true,
       lineManager: { select: { id: true, fullName: true } },
     },

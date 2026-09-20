@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { Search, Mail, UserPlus, UserX, ShieldCheck, Users, RefreshCw, Gift, Coffee } from 'lucide-react';
+import { Search, Mail, UserPlus, UserX, ShieldCheck, Users, RefreshCw, Gift, Coffee, Pencil } from 'lucide-react';
 import { useUsers, useUpdateEmployee } from '@/lib/hooks';
 import { initials, avatarColorFor, useCurrentUser } from '@/lib/session';
 import { useStore } from '@/lib/store';
@@ -9,6 +9,8 @@ import { Avatar } from '../../components/ui/Avatar';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
+import { Field, TextInput } from '../../components/ui/Field';
+import { AvatarUpload } from '../../components/ui/AvatarUpload';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { InviteEmployeeModal } from '../../components/admin/InviteEmployeeModal';
 import { GrantReplacementLeaveModal } from '../../components/admin/GrantReplacementLeaveModal';
@@ -18,9 +20,6 @@ import './Employees.css';
 
 type AppRole = 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'LINE_MANAGER' | 'EMPLOYEE';
 
-/**
- * Which roles the current actor is allowed to assign.
- */
 function assignableRoles(actorRole: string | undefined): AppRole[] {
   if (actorRole === 'SUPER_ADMIN' || actorRole === 'ADMIN')
     return ['SUPER_ADMIN', 'ADMIN', 'HR', 'LINE_MANAGER', 'EMPLOYEE'];
@@ -44,14 +43,23 @@ const ROLE_BADGE_VARIANT: Record<AppRole, 'info' | 'replacement' | 'success' | '
   EMPLOYEE: 'default',
 };
 
-/** Union of two role sets, preserving hierarchy order. */
 function toggleRole(current: AppRole[], role: AppRole): AppRole[] {
   return current.includes(role) ? current.filter((r) => r !== role) : [...current, role];
 }
 
+interface PendingProfile {
+  fullName: string;
+  department: string;
+  designation: string;
+  employeeIdCode: string;
+  phone: string;
+  dateOfBirth: string;
+  joiningDate: string;
+  avatarUrl: string;
+}
+
 export function EmployeesPage() {
   const currentUser = useCurrentUser();
-  // Fetch all users including deactivated so we can show tabs
   const { data: users = [], isLoading } = useUsers({ includeDeactivated: true });
   const updateEmployee = useUpdateEmployee();
   const addToast = useStore((s) => s.addToast);
@@ -67,20 +75,22 @@ export function EmployeesPage() {
   const [pendingTeam, setPendingTeam] = useState<Set<string>>(new Set());
   const [grantLeaveId, setGrantLeaveId] = useState<string | null>(null);
   const [viewLeavesId, setViewLeavesId] = useState<string | null>(null);
+  const [editProfileId, setEditProfileId] = useState<string | null>(null);
+  const [pendingProfile, setPendingProfile] = useState<PendingProfile>({
+    fullName: '', department: '', designation: '', employeeIdCode: '',
+    phone: '', dateOfBirth: '', joiningDate: '', avatarUrl: '',
+  });
 
   const rolesEditUser = rolesEditId ? users.find((u) => u.id === rolesEditId) : null;
   const teamAssignUser = teamAssignId ? users.find((u) => u.id === teamAssignId) : null;
   const grantLeaveUser = grantLeaveId ? users.find((u) => u.id === grantLeaveId) : null;
   const viewLeavesUser = viewLeavesId ? users.find((u) => u.id === viewLeavesId) : null;
+  const editProfileUser = editProfileId ? users.find((u) => u.id === editProfileId) : null;
 
   const canAssign = assignableRoles(currentUser?.role);
   const canEditRoles = canAssign.length > 0;
-  // HR, Admin, Super Admin can assign teams
   const canAssignTeam = canAssign.length > 0;
 
-  // Replacement leave grant / view permissions. HR/Admin/Super Admin get both
-  // for anyone with an EMPLOYEE tag; Line Manager gets both but limited to
-  // their direct reports (enforced both here and server-side).
   const canGrantReplacement = currentUser
     ? checkPermissionSync(
         { role: currentUser.role as any, roles: (currentUser.roles as any) ?? null },
@@ -100,17 +110,11 @@ export function EmployeesPage() {
     actorRoles.includes('SUPER_ADMIN');
   const isLineManagerOnly = !isFullReviewer && actorRoles.includes('LINE_MANAGER');
 
-  /**
-   * Can the current actor grant / view replacement leave for the given target?
-   * HR/Admin/Super Admin: any employee-tagged, active, non-self user.
-   * Line Manager: only their direct reports (also employee-tagged, active).
-   */
   function canActOnEmployee(target: { id: string; isActive: boolean; role: string; roles?: string[]; lineManagerId?: string | null }): boolean {
     if (!currentUser) return false;
     if (target.id === currentUser.id) return false;
     if (!target.isActive) return false;
     const targetRoles = target.roles?.length ? target.roles : [target.role];
-    // Only employees with the EMPLOYEE tag are grantable targets
     if (!targetRoles.includes('EMPLOYEE')) return false;
     if (isFullReviewer) return true;
     if (isLineManagerOnly) return target.lineManagerId === currentUser.id;
@@ -120,15 +124,11 @@ export function EmployeesPage() {
   const filtered = useMemo(
     () =>
       users
-        // Apply tab filter
         .filter((u) => {
           if (tab === 'ACTIVE') return u.isActive;
           if (tab === 'DEACTIVATED') return !u.isActive;
           return true;
         })
-        // Everyone is listed, including Super Admins and the viewer themselves.
-        // The viewer's own card is rendered read-only further down, because the
-        // API rejects self role-changes and self-deactivation anyway.
         .filter((u) => {
           if (!q.trim()) return true;
           const n = q.trim().toLowerCase();
@@ -142,7 +142,6 @@ export function EmployeesPage() {
     [users, q, tab]
   );
 
-  // Compute team sizes for badge display
   const teamSizes = useMemo(() => {
     const counts = new Map<string, number>();
     for (const u of users) {
@@ -153,9 +152,6 @@ export function EmployeesPage() {
     return counts;
   }, [users]);
 
-  // Candidates for team assignment. Anyone may report to a Line Manager,
-  // including a Super Admin. Other Line Managers are excluded so the picker
-  // can't create a reporting cycle.
   const teamCandidates = useMemo(() => {
     if (!teamAssignUser) return [];
     return users.filter(
@@ -183,7 +179,6 @@ export function EmployeesPage() {
   function handleSaveTeam() {
     if (!teamAssignId) return;
 
-    // Find who was added and removed
     const currentTeam = new Set(users.filter(u => u.lineManagerId === teamAssignId).map(u => u.id));
     const added = [...pendingTeam].filter(id => !currentTeam.has(id));
     const removed = [...currentTeam].filter(id => !pendingTeam.has(id));
@@ -216,6 +211,32 @@ export function EmployeesPage() {
         onSuccess: finalize, onError: () => { errCount++; finalize(); }
       });
     });
+  }
+
+  function handleSaveProfile() {
+    if (!editProfileId) return;
+    updateEmployee.mutate(
+      {
+        id: editProfileId,
+        patch: {
+          fullName: pendingProfile.fullName.trim() || undefined,
+          department: pendingProfile.department.trim() || undefined,
+          designation: pendingProfile.designation.trim() || undefined,
+          employeeIdCode: pendingProfile.employeeIdCode.trim() || undefined,
+          phone: pendingProfile.phone.trim() || undefined,
+          dateOfBirth: pendingProfile.dateOfBirth || undefined,
+          joiningDate: pendingProfile.joiningDate || undefined,
+          avatarUrl: pendingProfile.avatarUrl.trim() || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          setEditProfileId(null);
+          addToast({ kind: 'success', title: 'Profile updated' });
+        },
+        onError: (e: Error) => addToast({ kind: 'error', title: 'Could not update profile', body: e.message }),
+      }
+    );
   }
 
   return (
@@ -276,9 +297,13 @@ export function EmployeesPage() {
             const currentRoles = ((u.roles?.length ? u.roles : [u.role]) as AppRole[]);
             const isLM = currentRoles.includes('LINE_MANAGER');
             const teamSize = teamSizes.get(u.id) || 0;
-            // You can't change your own roles or deactivate yourself — the API
-            // returns SELF_ROLE_CHANGE / SELF_DEACTIVATE — so the card is read-only.
             const isSelf = u.id === currentUser?.id;
+
+            const showGrant = canGrantReplacement && canActOnEmployee(u);
+            const showLeaves = canViewOthersReplacement && canActOnEmployee(u);
+            const showRoles = canEditRoles && u.isActive;
+
+            const showExtraActions = isFullReviewer || (!isSelf && canAssignTeam && isLM && u.isActive);
 
             return (
               <div key={u.id} className={cx('empg-card card', !u.isActive && 'empg-card-deactivated')}>
@@ -319,65 +344,92 @@ export function EmployeesPage() {
                      </div>
                   )}
                 </div>
-                {isSelf ? (
-                  <div className="empg-card-actions">
-                    <span className="muted empg-self-note">
-                      Ask another admin to change your own roles or status.
-                    </span>
-                  </div>
-                ) : (
-                  <>
-                    {(
-                      (canGrantReplacement && canActOnEmployee(u)) ||
-                      (canViewOthersReplacement && canActOnEmployee(u))
-                    ) && (
-                      <div className="empg-card-leave-actions">
-                        {canGrantReplacement && canActOnEmployee(u) && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            leadingIcon={<Gift size={12} />}
-                            onClick={() => setGrantLeaveId(u.id)}
-                          >
-                            Grant leave
-                          </Button>
-                        )}
-                        {canViewOthersReplacement && canActOnEmployee(u) && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            leadingIcon={<Coffee size={12} />}
-                            onClick={() => setViewLeavesId(u.id)}
-                          >
-                            Leaves
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                    <div className="empg-card-actions">
-                      {canEditRoles && u.isActive && (
+
+                {/* Card footer — always rendered for consistent height across the row */}
+                <div className="empg-card-footer">
+                  {/* Extra actions: Edit profile + Assign team (above the main grid) */}
+                  {showExtraActions && (
+                    <div className="empg-card-extra-actions">
+                      {isFullReviewer && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          leadingIcon={<ShieldCheck size={12} />}
-                          onClick={() => { setRolesEditId(u.id); setPendingRoles(currentRoles); }}
+                          leadingIcon={<Pencil size={12} />}
+                          onClick={() => {
+                            setEditProfileId(u.id);
+                            setPendingProfile({
+                              fullName: u.fullName,
+                              department: u.department ?? '',
+                              designation: u.designation ?? '',
+                              employeeIdCode: u.employeeIdCode ?? '',
+                              phone: u.phone ?? '',
+                              dateOfBirth: u.dateOfBirth ? u.dateOfBirth.slice(0, 10) : '',
+                              joiningDate: u.joiningDate ? u.joiningDate.slice(0, 10) : '',
+                              avatarUrl: u.avatarUrl ?? '',
+                            });
+                          }}
                         >
-                          Roles
+                          Edit profile
                         </Button>
                       )}
-                      {canAssignTeam && isLM && u.isActive && (
-                         <Button
-                           variant="ghost"
-                           size="sm"
-                           leadingIcon={<Users size={12} />}
-                           onClick={() => {
-                             setTeamAssignId(u.id);
-                             setPendingTeam(new Set(users.filter(x => x.lineManagerId === u.id).map(x => x.id)));
-                           }}
-                         >
-                           Assign team
-                         </Button>
+                      {!isSelf && canAssignTeam && isLM && u.isActive && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          leadingIcon={<Users size={12} />}
+                          onClick={() => {
+                            setTeamAssignId(u.id);
+                            setPendingTeam(new Set(users.filter(x => x.lineManagerId === u.id).map(x => x.id)));
+                          }}
+                        >
+                          Assign team
+                        </Button>
                       )}
+                    </div>
+                  )}
+
+                  {isSelf ? (
+                    /* Self card: show self-note; the invisible grid below preserves height */
+                    <span className="muted empg-self-note">
+                      Ask another admin to change your own roles or status.
+                    </span>
+                  ) : null}
+
+                  {/* Main 2×2 button grid — always rendered so every card in a row
+                      has identical footer height, keeping buttons vertically aligned.
+                      Buttons that don't apply are hidden with visibility:hidden. */}
+                  <div className="empg-card-main-actions">
+                    <div className={isSelf || !showGrant ? 'empg-btn-invisible' : ''}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        leadingIcon={<Gift size={12} />}
+                        onClick={() => setGrantLeaveId(u.id)}
+                      >
+                        Grant leave
+                      </Button>
+                    </div>
+                    <div className={isSelf || !showLeaves ? 'empg-btn-invisible' : ''}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        leadingIcon={<Coffee size={12} />}
+                        onClick={() => setViewLeavesId(u.id)}
+                      >
+                        Leaves
+                      </Button>
+                    </div>
+                    <div className={isSelf || !showRoles ? 'empg-btn-invisible' : ''}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        leadingIcon={<ShieldCheck size={12} />}
+                        onClick={() => { setRolesEditId(u.id); setPendingRoles(currentRoles); }}
+                      >
+                        Roles
+                      </Button>
+                    </div>
+                    <div className={isSelf ? 'empg-btn-invisible' : ''}>
                       {u.isActive ? (
                         <Button
                           variant="ghost"
@@ -398,8 +450,8 @@ export function EmployeesPage() {
                         </Button>
                       )}
                     </div>
-                  </>
-                )}
+                  </div>
+                </div>
               </div>
             );
           })}
@@ -419,6 +471,95 @@ export function EmployeesPage() {
         onClose={() => setViewLeavesId(null)}
         employee={viewLeavesUser ? { id: viewLeavesUser.id, fullName: viewLeavesUser.fullName } : null}
       />
+
+      {/* Edit profile modal */}
+      <Modal
+        open={!!editProfileId}
+        onClose={() => setEditProfileId(null)}
+        title={editProfileUser ? `Edit profile — ${editProfileUser.fullName}` : 'Edit profile'}
+        size="lg"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setEditProfileId(null)}>Cancel</Button>
+            <Button
+              variant="primary"
+              loading={updateEmployee.isPending}
+              disabled={pendingProfile.fullName.trim().length < 2}
+              onClick={handleSaveProfile}
+            >
+              Save changes
+            </Button>
+          </>
+        }
+      >
+        <div className="empg-edit-form">
+          <Field label="Full name" required>
+            <TextInput
+              value={pendingProfile.fullName}
+              onChange={(e) => setPendingProfile((p) => ({ ...p, fullName: e.target.value }))}
+              placeholder="Jane Doe"
+            />
+          </Field>
+          <div className="empg-edit-row">
+            <Field label="Phone number">
+              <TextInput
+                type="tel"
+                value={pendingProfile.phone}
+                onChange={(e) => setPendingProfile((p) => ({ ...p, phone: e.target.value }))}
+                placeholder="+880 17xx xxxxxx"
+              />
+            </Field>
+            <Field label="Birthday">
+              <input
+                type="date"
+                className="input"
+                value={pendingProfile.dateOfBirth}
+                onChange={(e) => setPendingProfile((p) => ({ ...p, dateOfBirth: e.target.value }))}
+              />
+            </Field>
+          </div>
+          <div className="empg-edit-row">
+            <Field label="Employee ID">
+              <TextInput
+                value={pendingProfile.employeeIdCode}
+                onChange={(e) => setPendingProfile((p) => ({ ...p, employeeIdCode: e.target.value }))}
+                placeholder="TRACE-001"
+              />
+            </Field>
+            <Field label="Joining date">
+              <input
+                type="date"
+                className="input"
+                value={pendingProfile.joiningDate}
+                onChange={(e) => setPendingProfile((p) => ({ ...p, joiningDate: e.target.value }))}
+              />
+            </Field>
+          </div>
+          <div className="empg-edit-row">
+            <Field label="Designation">
+              <TextInput
+                value={pendingProfile.designation}
+                onChange={(e) => setPendingProfile((p) => ({ ...p, designation: e.target.value }))}
+                placeholder="Software Engineer"
+              />
+            </Field>
+            <Field label="Department">
+              <TextInput
+                value={pendingProfile.department}
+                onChange={(e) => setPendingProfile((p) => ({ ...p, department: e.target.value }))}
+                placeholder="Engineering"
+              />
+            </Field>
+          </div>
+          <Field label="Profile picture">
+            <AvatarUpload
+              value={pendingProfile.avatarUrl}
+              name={pendingProfile.fullName || editProfileUser?.fullName || ''}
+              onChange={(url) => setPendingProfile((p) => ({ ...p, avatarUrl: url }))}
+            />
+          </Field>
+        </div>
+      </Modal>
 
       <Modal
         open={!!deactivateId}

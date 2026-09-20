@@ -142,6 +142,9 @@ model User {
   designation      String?
   employeeIdCode   String?  @unique
   avatarUrl        String?
+  phone            String?  @db.VarChar(30)
+  dateOfBirth      DateTime? @db.Date
+  joiningDate      DateTime? @db.Date
   cycleStartMonth  Int      @default(1)
   cycleStartDay    Int      @default(1)
   isActive         Boolean  @default(true)

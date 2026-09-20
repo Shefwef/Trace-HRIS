@@ -100,6 +100,7 @@ export interface UserSummary {
   id: string; fullName: string; email: string; role: string; roles: string[];
   department: string | null; designation: string | null;
   employeeIdCode: string | null; avatarUrl: string | null;
+  phone: string | null; dateOfBirth: string | null; joiningDate: string | null;
   isActive: boolean;
   lineManagerId: string | null;
   lineManager?: { id: string; fullName: string } | null;
@@ -938,14 +939,18 @@ export function useUpdateSettings() {
 export interface InviteEmployeePayload {
   email: string;
   firstName: string;
-  lastName: string;
+  lastName?: string;
   /** Role set to grant on creation. Must be non-empty. */
   roles: ('SUPER_ADMIN' | 'ADMIN' | 'HR' | 'LINE_MANAGER' | 'EMPLOYEE')[];
-  department: string;
+  department?: string;
   designation: string;
   employeeIdCode: string;
   cycleStartMonth: number;
   password?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  joiningDate?: string;
+  avatarUrl?: string;
 }
 export function useInviteEmployee() {
   const qc = useQueryClient();
@@ -968,6 +973,10 @@ export interface UpdateEmployeePayload {
   employeeIdCode?: string;
   isActive?: boolean;
   lineManagerId?: string | null;
+  phone?: string;
+  dateOfBirth?: string;
+  joiningDate?: string;
+  avatarUrl?: string;
 }
 export function useUpdateEmployee() {
   const qc = useQueryClient();

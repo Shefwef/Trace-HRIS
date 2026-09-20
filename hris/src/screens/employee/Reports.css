@@ -2,85 +2,98 @@
 .rpts-head h1 { font-size: var(--text-3xl); letter-spacing: -0.02em; }
 @media (max-width: 640px) { .rpts-head h1 { font-size: var(--text-2xl); } }
 
+/* ── Inline period picker ──────────────────────────────────── */
 .rpts-period {
-  padding: var(--space-5);
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   background: linear-gradient(135deg, var(--color-info-light), var(--color-bg-surface));
   border: 1px solid rgba(49, 130, 206, 0.2);
 }
 .rpts-period-label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   font-family: var(--font-display);
   font-weight: var(--weight-semibold);
   color: var(--color-brand-primary);
   font-size: var(--text-sm);
 }
-.rpts-period-controls {
+
+/* Preset chips row */
+.rpts-period-presets {
   display: flex;
-  gap: var(--space-3);
   flex-wrap: wrap;
-  align-items: flex-end;
-}
-.rpts-period-field {
-  display: flex;
-  flex-direction: column;
   gap: 6px;
-  min-width: 160px;
 }
-.rpts-period-field span {
-  font-size: 10px;
-  color: var(--color-text-muted);
-  font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-.rpts-period-field select {
-  width: 100%;
-  height: 40px;
-  padding: 0 34px 0 12px;
+.rpts-preset {
+  padding: 5px 12px;
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg-surface);
-  color: var(--color-text-primary);
-  font-size: var(--text-sm);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-surface);
   font-family: inherit;
-  font-weight: var(--weight-medium);
-  cursor: pointer;
-  outline: none;
-  transition: border var(--transition-fast), box-shadow var(--transition-fast);
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  /* Custom chevron - identical across browsers, tidy at the right edge. */
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234A5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 12px 12px;
-}
-.rpts-period-field select:hover {
-  border-color: var(--color-brand-secondary);
-}
-.rpts-period-field select:focus {
-  border-color: var(--color-border-focus);
-  box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.15);
-}
-.rpts-period-hint {
-  grid-column: 1 / -1;
   font-size: var(--text-xs);
-  line-height: 1.5;
-  margin: 0;
-  color: var(--color-text-muted);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  white-space: nowrap;
+  line-height: 1.4;
 }
-@media (max-width: 640px) {
-  .rpts-period { grid-template-columns: 1fr; padding: var(--space-4); }
-  .rpts-period-field { min-width: 0; flex: 1; }
+.rpts-preset:hover {
+  background: var(--color-bg-subtle);
+  border-color: var(--color-brand-secondary);
+  color: var(--color-text-primary);
+}
+.rpts-preset--active {
+  background: color-mix(in srgb, var(--color-brand-primary) 12%, var(--color-bg-surface));
+  border-color: var(--color-brand-primary);
+  color: var(--color-brand-primary);
+  font-weight: var(--weight-semibold);
+}
+.rpts-preset--active:hover {
+  background: color-mix(in srgb, var(--color-brand-primary) 18%, var(--color-bg-surface));
 }
 
+/* Custom date range row */
+.rpts-period-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+.rpts-period-custom-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.rpts-period-custom-sep {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+.rpts-period-date-input {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.rpts-period-date-input:focus {
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.12);
+}
+
+/* ── Report cards grid ─────────────────────────────────────── */
 .rpts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -133,12 +146,6 @@
   border-radius: var(--radius-sm);
   display: inline-block;
 }
-/*
- * Excel and PDF sit on one row: Excel is the primary action so it takes the
- * space, PDF stays at its natural width so it reads as the secondary option.
- * `margin-top: auto` keeps both aligned along the bottom of the grid row even
- * when one card's description runs longer than its neighbour's.
- */
 .rpts-actions {
   display: flex;
   align-items: stretch;
@@ -148,6 +155,7 @@
 .rpts-actions .btn:first-child { flex: 1 1 0; min-width: 0; }
 .rpts-actions .btn:nth-child(2) { flex: 0 0 auto; }
 
+/* ── About note ────────────────────────────────────────────── */
 .rpts-note {
   padding: var(--space-5);
   background: linear-gradient(135deg, var(--color-info-light), var(--color-bg-surface));

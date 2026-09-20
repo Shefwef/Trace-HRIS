@@ -133,19 +133,25 @@ export type UpdateSettingsInput = z.infer<typeof UpdateSettingsSchema>;
 export const InviteEmployeeSchema = z.object({
   email: z.email(),
   firstName: z.string().min(1).max(80),
-  lastName: z.string().min(1).max(80),
+  lastName: z.string().max(80).optional(),
   /** One or more roles to grant on creation. Must be non-empty. */
   roles: z
     .array(z.enum(['SUPER_ADMIN', 'ADMIN', 'HR', 'LINE_MANAGER', 'EMPLOYEE']))
     .min(1)
     .max(5),
-  department: z.string().min(1).max(120),
+  department: z.string().max(120).optional(),
   designation: z.string().min(1).max(120),
   employeeIdCode: z.string().min(1).max(50),
   cycleStartMonth: z.int().min(1).max(12).default(1),
   password: z.string().min(8).max(100).optional(),
   /** Optional line manager assignment on invite. */
   lineManagerId: z.string().optional(),
+  phone: z.string().max(30).optional(),
+  /** ISO date string YYYY-MM-DD */
+  dateOfBirth: z.iso.date().optional(),
+  /** ISO date string YYYY-MM-DD */
+  joiningDate: z.iso.date().optional(),
+  avatarUrl: z.string().max(500).optional(),
 });
 export type InviteEmployeeInput = z.infer<typeof InviteEmployeeSchema>;
 
@@ -163,6 +169,12 @@ export const UpdateEmployeeSchema = z.object({
   isActive: z.boolean().optional(),
   /** Set to a user ID to assign a line manager, or null to remove. */
   lineManagerId: z.union([z.string(), z.null()]).optional(),
+  phone: z.string().max(30).optional(),
+  /** ISO date string YYYY-MM-DD */
+  dateOfBirth: z.iso.date().optional(),
+  /** ISO date string YYYY-MM-DD */
+  joiningDate: z.iso.date().optional(),
+  avatarUrl: z.string().max(500).optional(),
 });
 export type UpdateEmployeeInput = z.infer<typeof UpdateEmployeeSchema>;
 

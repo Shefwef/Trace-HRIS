@@ -124,6 +124,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       lineManagerId: input.lineManagerId !== undefined ? input.lineManagerId : undefined,
       deactivatedAt: deactivatedAt !== undefined ? deactivatedAt : undefined,
       deactivatedById: deactivatedById !== undefined ? deactivatedById : undefined,
+      phone: input.phone,
+      dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : undefined,
+      joiningDate: input.joiningDate ? new Date(input.joiningDate) : undefined,
+      avatarUrl: input.avatarUrl,
     },
   });
 

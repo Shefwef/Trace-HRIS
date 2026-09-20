@@ -8,6 +8,7 @@ import {
 import { useCurrentUser } from '@/lib/session';
 import { useStore } from '@/lib/store';
 import { Button } from '../../components/ui/Button';
+import { type DatePreset, makeDateRange, type DateRange } from '../../components/ui/DateRangePicker';
 import './Reports.css';
 
 type ReportType = 'attendance' | 'leaves' | 'summary' | 'all-employees' | 'offsite';
@@ -22,11 +23,6 @@ interface ReportDef {
   bg: string;
   usesMonth: boolean;
   adminOnly?: boolean;
-  /**
-   * False for reports that only make sense as a spreadsheet. The off-site
-   * report is fourteen columns wide including coordinates — a PDF of it would
-   * be unreadable, so the button is simply absent rather than producing one.
-   */
   hasPdf?: boolean;
 }
 
@@ -88,28 +84,77 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
+const PRESETS: { key: DatePreset; label: string }[] = [
+  { key: 'today',         label: 'Today' },
+  { key: 'yesterday',     label: 'Yesterday' },
+  { key: 'this-week',     label: 'This week' },
+  { key: 'last-week',     label: 'Last week' },
+  { key: 'this-month',    label: 'This month' },
+  { key: 'last-month',    label: 'Last month' },
+  { key: 'last-3-months', label: 'Last 3 months' },
+  { key: 'last-6-months', label: 'Last 6 months' },
+  { key: 'this-year',     label: 'This year' },
+  { key: 'last-year',     label: 'Last year' },
+  { key: 'custom',        label: 'Custom' },
+];
+
+function toIso(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
 export function ReportsPage() {
   const user = useCurrentUser();
   const addToast = useStore((s) => s.addToast);
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+
+  const [dateRange, setDateRange] = useState<DateRange>(() => makeDateRange('this-month'));
+  const [customStart, setCustomStart] = useState(() => toIso(new Date()));
+  const [customEnd, setCustomEnd] = useState(() => toIso(new Date()));
   const [busy, setBusy] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
   if (!user) return null;
 
-  // Multi-role holders are the norm here — the COO carries ADMIN + HR + EMPLOYEE,
-  // and reading only the denormalised primary role would hide this card from
-  // half the people entitled to it. The server re-checks via the permission
-  // matrix, so this is presentation only.
   const roles = user.roles.length > 0 ? user.roles : [user.role];
   const isAdmin =
     roles.includes('HR') || roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
   const isManager = isAdmin || roles.includes('LINE_MANAGER');
 
-  const yearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1];
   const list = REPORTS.filter((r) => !r.adminOnly || isAdmin);
+
+  const year = dateRange.start.getFullYear();
+  const month = dateRange.start.getMonth() + 1;
+
+  function scopeLabel(r: ReportDef): string {
+    if (!r.usesMonth) return `Full cycle ${year}`;
+    const isMultiMonth = ['last-3-months', 'last-6-months'].includes(dateRange.preset);
+    if (isMultiMonth) {
+      const startMon = MONTH_NAMES[dateRange.start.getMonth()];
+      const endMon   = MONTH_NAMES[dateRange.end.getMonth()];
+      const endYear  = dateRange.end.getFullYear();
+      return `${startMon} – ${endMon} ${endYear} (start month exported)`;
+    }
+    return `${MONTH_NAMES[month - 1]} ${year}`;
+  }
+
+  function selectPreset(key: DatePreset) {
+    if (key === 'custom') {
+      setCustomStart(toIso(dateRange.start));
+      setCustomEnd(toIso(dateRange.end));
+      setDateRange((dr) => ({ ...dr, preset: 'custom' }));
+    } else {
+      setDateRange(makeDateRange(key));
+    }
+  }
+
+  function applyCustom() {
+    if (!customStart || !customEnd || customStart > customEnd) return;
+    const s = new Date(customStart + 'T00:00:00');
+    const e = new Date(customEnd + 'T23:59:59');
+    setDateRange({ start: s, end: e, preset: 'custom' });
+  }
 
   async function download(r: ReportDef, format: Format) {
     const key = `${r.id}:${format}`;
@@ -128,7 +173,6 @@ export function ReportsPage() {
         throw new Error(msg);
       }
       const blob = await res.blob();
-      // Prefer the server's filename — it carries the resolved date range.
       const cd = res.headers.get('content-disposition') ?? '';
       const filename = cd.match(/filename="([^"]+)"/)?.[1] ?? `${r.id}.${format}`;
 
@@ -162,33 +206,53 @@ export function ReportsPage() {
         </p>
       </div>
 
+      {/* Inline period picker — no dropdown */}
       <div className="rpts-period card">
         <div className="rpts-period-label">
-          <CalendarClock size={16} />
+          <CalendarClock size={15} />
           <span>Period</span>
         </div>
-        <div className="rpts-period-controls">
-          <label className="rpts-period-field">
-            <span>Year</span>
-            <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
-              {yearOptions.map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-          </label>
-          <label className="rpts-period-field">
-            <span>Month</span>
-            <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
-              {MONTH_NAMES.map((name, i) => (
-                <option key={name} value={i + 1}>{name}</option>
-              ))}
-            </select>
-          </label>
+        <div className="rpts-period-presets">
+          {PRESETS.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              className={`rpts-preset${dateRange.preset === p.key ? ' rpts-preset--active' : ''}`}
+              onClick={() => selectPreset(p.key)}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
-        <p className="rpts-period-hint muted">
-          Every export contains exactly the period selected here — nothing wider, nothing
-          cached. Leave History always covers the full cycle year.
-        </p>
+        {dateRange.preset === 'custom' && (
+          <div className="rpts-period-custom">
+            <label className="rpts-period-custom-label">From</label>
+            <input
+              type="date"
+              className="rpts-period-date-input"
+              value={customStart}
+              max={customEnd || undefined}
+              onChange={(e) => setCustomStart(e.target.value)}
+            />
+            <span className="rpts-period-custom-sep">—</span>
+            <label className="rpts-period-custom-label">To</label>
+            <input
+              type="date"
+              className="rpts-period-date-input"
+              value={customEnd}
+              min={customStart || undefined}
+              onChange={(e) => setCustomEnd(e.target.value)}
+            />
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={!customStart || !customEnd || customStart > customEnd}
+              onClick={applyCustom}
+            >
+              Apply
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="rpts-grid">
@@ -207,7 +271,7 @@ export function ReportsPage() {
               <h4>{r.title}</h4>
               <p>{r.body}</p>
               <div className="rpts-scope">
-                {r.usesMonth ? `${MONTH_NAMES[month - 1]} ${year}` : `Full cycle ${year}`}
+                {scopeLabel(r)}
                 {r.adminOnly ? ' · HR / Admin only' : ''}
                 {r.id === 'offsite'
                   ? isAdmin
@@ -265,7 +329,8 @@ export function ReportsPage() {
           numbers rather than text, so they sort and total correctly, and each sheet ends with
           a live <span className="mono">SUM()</span> row. Times are shown in Dhaka time.
           Everything is generated fresh on request, and you only ever receive rows you already
-          have permission to see in the app.
+          have permission to see in the app. For multi-month presets (Last 3 months, Last 6
+          months), the report uses the <strong>start month</strong> of the selected range.
         </p>
       </div>
     </div>

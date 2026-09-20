@@ -9,40 +9,48 @@
   .empg-head h1 { font-size: var(--text-2xl); }
   .empg-head { flex-direction: column; align-items: stretch; }
 }
-.empg-card-leave-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+/* ── Card footer ── */
+.empg-card-footer {
+  margin-top: auto;
   padding-top: 12px;
   border-top: 1px dashed var(--color-border-default);
-  margin-top: auto;
-}
-.empg-card-leave-actions > * { min-width: 0; }
-.empg-card-leave-actions .btn { width: 100%; justify-content: center; }
-.empg-card-leave-actions:has(> :only-child) {
-  grid-template-columns: 1fr;
-}
-/* When both rows are present, only the top one keeps the divider. */
-.empg-card-leave-actions + .empg-card-actions {
-  border-top: none;
-  padding-top: 6px;
-  margin-top: 0;
-}
-.empg-card-actions {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding-top: 12px;
-  border-top: 1px dashed var(--color-border-default);
-  margin-top: auto;
+  flex-direction: column;
+  gap: 6px;
 }
 
-/* Shown on the viewer's own card, where every action is blocked server-side. */
+/* Extra actions row: Edit profile, Assign team (above the main 2×2 grid) */
+.empg-card-extra-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.empg-card-extra-actions:has(> :only-child) {
+  grid-template-columns: 1fr;
+}
+.empg-card-extra-actions .btn { width: 100%; justify-content: center; }
+
+/* Main 2×2 action grid — always rendered so all cards in a row share the
+   same footer height and buttons align perfectly across columns. */
+.empg-card-main-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.empg-card-main-actions > div { display: flex; }
+.empg-card-main-actions .btn { width: 100%; justify-content: center; }
+
+/* Invisible placeholder — takes up grid space but shows nothing */
+.empg-btn-invisible {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Shown on the viewer's own card where role/status actions are blocked. */
 .empg-self-note {
   font-size: 12px;
   line-height: 1.4;
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 /* Phase 7 Employees Tab and Modal Additions */
@@ -230,8 +238,14 @@
 }
 .empg-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-4);
+}
+@media (max-width: 1100px) {
+  .empg-grid { grid-template-columns: repeat(2, 1fr); gap: var(--space-3); }
+}
+@media (max-width: 640px) {
+  .empg-grid { grid-template-columns: 1fr; }
 }
 .empg-card {
   padding: var(--space-5);
@@ -243,11 +257,9 @@
 }
 @media (max-width: 1280px) {
   .empg-card { padding: var(--space-4); min-height: 244px; }
-  .empg-grid { gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 }
 @media (max-width: 640px) {
   .empg-card { min-height: 224px; }
-  .empg-grid { grid-template-columns: 1fr; }
 }
 .empg-card:hover {
   transform: translateY(-2px);
@@ -290,6 +302,12 @@
   flex-wrap: wrap;
   margin-top: 4px;
   min-height: 22px;
+}
+/* Compact badge size inside cards to prevent tag overflow */
+.empg-dept .badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  line-height: 1.6;
 }
 .empg-card-body {
   display: flex;
@@ -453,4 +471,19 @@
 .empg-card-role select:disabled {
   opacity: 0.6;
   cursor: wait;
+}
+
+/* Edit profile modal form */
+.empg-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.empg-edit-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 480px) {
+  .empg-edit-row { grid-template-columns: 1fr; }
 }

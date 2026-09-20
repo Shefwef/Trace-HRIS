@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   const clerkUser = await clerk.users.createUser({
     emailAddress: [input.email],
     firstName: input.firstName,
-    lastName: input.lastName,
+    lastName: input.lastName || undefined,
     password: initialPassword,
     skipPasswordChecks: true,
     publicMetadata: {
@@ -59,15 +59,19 @@ export async function POST(req: Request) {
   await prisma.user.create({
     data: {
       id: clerkUser.id,
-      fullName: `${input.firstName} ${input.lastName}`.trim(),
+      fullName: `${input.firstName}${input.lastName ? ' ' + input.lastName : ''}`.trim(),
       email: input.email,
       role: primary,
       roles: dedupedRoles,
-      department: input.department,
+      department: input.department || undefined,
       designation: input.designation,
       employeeIdCode: input.employeeIdCode,
       cycleStartMonth: input.cycleStartMonth,
       lineManagerId: input.lineManagerId,
+      phone: input.phone || undefined,
+      dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : undefined,
+      joiningDate: input.joiningDate ? new Date(input.joiningDate) : undefined,
+      avatarUrl: input.avatarUrl || undefined,
     },
   });
 

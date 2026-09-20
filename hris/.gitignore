@@ -33,3 +33,7 @@ tsconfig.tsbuildinfo
 *.njsproj
 *.sln
 *.sw?
+
+# Uploaded avatars — tracked by .gitkeep, images themselves stay local
+public/avatars/*
+!public/avatars/.gitkeep
