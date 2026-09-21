@@ -10,7 +10,7 @@
  * We parse it in that zone and convert to UTC before any DB write.
  */
 import { prisma } from './db';
-import { localDateOnly, localDayKey } from './workday';
+import { localDateOnly, localDayBounds } from './workday';
 
 export interface RawPunch {
   deviceUserId: string;
@@ -103,15 +103,12 @@ export async function ingestPunches(input: IngestInput): Promise<IngestResult> {
     data: { lastSeenAt: new Date() },
   });
 
-  // 2. Filter to clock-in (0), clock-out (1), and unknown (255); parse times.
-  //    Unknown punches ("255") are resolved via toggle: the second tap of the day
-  //    becomes clock-out, the third becomes clock-in again, and so on. This matches
-  //    the ZKTeco M2-LR at Trace, which sends "255" for all taps because it is not
-  //    configured with explicit In/Out states.
-  type ParsedPunch = {
-    raw: RawPunch;
-    punchedAtUtc: Date;
-  };
+  // 2. Filter to known punch states and parse timestamps.
+  //    We accept '0'/'1'/'255' but never rely on that value to decide In vs Out;
+  //    the time-of-day rule (see rebuildAttendanceDay) is the source of truth,
+  //    because the ZKTeco M2-LR at Trace sends '255' for every tap and any
+  //    toggle-based interpretation reverses when polls arrive out of order.
+  type ParsedPunch = { raw: RawPunch; punchedAtUtc: Date };
 
   const valid: ParsedPunch[] = [];
   for (const p of input.punches) {
@@ -121,61 +118,18 @@ export async function ingestPunches(input: IngestInput): Promise<IngestResult> {
     valid.push({ raw: p, punchedAtUtc });
   }
 
-  // Sort chronologically so within-batch toggle ordering is correct.
   valid.sort((a, b) => a.punchedAtUtc.getTime() - b.punchedAtUtc.getTime());
 
-  // Resolve '255' punches: query the last stored state per employee from the DB,
-  // then toggle within the batch. State only carries forward *within a single
-  // Dhaka day* — after midnight the toggle resets, so the first tap of a new
-  // day is always a clock-in even if yesterday's clock-out was missed.
-  const ids255 = [...new Set(
-    valid.filter((p) => p.raw.punchState === '255').map((p) => p.raw.deviceUserId),
-  )];
-  const stateMap = new Map<string, '0' | '1'>();
-  if (ids255.length > 0) {
-    const lastRows = await prisma.biometricPunch.findMany({
-      where: { deviceId: device.id, deviceUserId: { in: ids255 }, punchState: { in: ['0', '1'] } },
-      orderBy: { punchedAt: 'desc' },
-      distinct: ['deviceUserId'],
-      select: { deviceUserId: true, punchState: true, punchedAt: true },
-    });
-    const todayKey = localDayKey();
-    for (const row of lastRows) {
-      // Only inherit state if the last punch was today (Dhaka time). A punch
-      // from yesterday shouldn't leak into today's toggle — a new day starts fresh.
-      if (localDayKey(row.punchedAt) === todayKey) {
-        stateMap.set(row.deviceUserId, row.punchState as '0' | '1');
-      }
-    }
-  }
-
-  const parsed: ParsedPunch[] = [];
-  for (const punch of valid) {
-    let resolvedState: string = punch.raw.punchState;
-    if (punch.raw.punchState === '255') {
-      // No state today → default to '1' so toggle gives '0' (clock-in) — first tap of new day.
-      const last = stateMap.get(punch.raw.deviceUserId) ?? '1';
-      resolvedState = last === '0' ? '1' : '0';
-      stateMap.set(punch.raw.deviceUserId, resolvedState as '0' | '1');
-    } else {
-      stateMap.set(punch.raw.deviceUserId, punch.raw.punchState as '0' | '1');
-    }
-    parsed.push({ raw: { ...punch.raw, punchState: resolvedState }, punchedAtUtc: punch.punchedAtUtc });
-  }
-
-  if (parsed.length === 0) {
+  if (valid.length === 0) {
     await prisma.biometricSyncLog.create({
-      data: {
-        deviceId: device.id,
-        received: result.received,
-      },
+      data: { deviceId: device.id, received: result.received },
     });
     return result;
   }
 
-  // 3. Upsert punches — the unique index on (deviceId, deviceUserId, punchedAt)
-  //    makes duplicates a no-op. We use createMany with skipDuplicates.
-  const toInsert = parsed.map((p) => ({
+  // 3. Upsert punches — unique index on (deviceId, deviceUserId, punchedAt)
+  //    makes duplicates a no-op via skipDuplicates.
+  const toInsert = valid.map((p) => ({
     deviceId: device.id,
     deviceUserId: p.raw.deviceUserId,
     punchedAt: p.punchedAtUtc,
@@ -189,10 +143,9 @@ export async function ingestPunches(input: IngestInput): Promise<IngestResult> {
     skipDuplicates: true,
   });
 
-  result.duplicates = parsed.length - createResult.count;
-  const newPunches = createResult.count; // actual rows inserted
+  result.duplicates = valid.length - createResult.count;
 
-  if (newPunches === 0) {
+  if (createResult.count === 0) {
     await prisma.biometricSyncLog.create({
       data: {
         deviceId: device.id,
@@ -205,111 +158,45 @@ export async function ingestPunches(input: IngestInput): Promise<IngestResult> {
     return result;
   }
 
-  // 4. Map deviceUserId → User.biometricUserId for newly-inserted punches.
-  //    We need to re-fetch the inserted rows to get their ids.
+  // 4. Map deviceUserId → User.biometricUserId for newly-inserted rows.
   const newPunchRows = await prisma.biometricPunch.findMany({
     where: {
       deviceId: device.id,
-      punchedAt: { in: parsed.map((p) => p.punchedAtUtc) },
+      punchedAt: { in: valid.map((p) => p.punchedAtUtc) },
       appliedAt: null,
     },
   });
 
-  // Build a mapping cache: deviceUserId -> employeeId (or null)
   const deviceUserIds = [...new Set(newPunchRows.map((r) => r.deviceUserId))];
   const userRows = await prisma.user.findMany({
     where: { biometricUserId: { in: deviceUserIds } },
     select: { id: true, biometricUserId: true },
   });
-  const deviceToEmployee = new Map(
-    userRows.map((u) => [u.biometricUserId!, u.id]),
-  );
+  const deviceToEmployee = new Map(userRows.map((u) => [u.biometricUserId!, u.id]));
 
-  // 5. For each new punch, assign employeeId and apply to attendance.
-  //    Group by (employeeId, local date) to compute min-In / max-Out.
-  type AttendanceKey = string; // `${employeeId}|${dateKey}`
-  const byEmployeeDay = new Map<AttendanceKey, { clockIn: Date | null; clockOut: Date | null }>();
+  // 5. Mark each new punch as applied and collect (employee, day) pairs to rebuild.
+  const affectedDays = new Map<string, { employeeId: string; date: Date }>();
 
   for (const punch of newPunchRows) {
     const employeeId = deviceToEmployee.get(punch.deviceUserId) ?? null;
-
-    // Update the punch row with the resolved employeeId
     await prisma.biometricPunch.update({
       where: { id: punch.id },
       data: { employeeId, appliedAt: employeeId ? new Date() : null },
     });
-
     if (!employeeId) { result.unmapped++; continue; }
-
-    const dateKey = localDateOnly(punch.punchedAt);
-    const mapKey: AttendanceKey = `${employeeId}|${dateKey.toISOString()}`;
-    const existing = byEmployeeDay.get(mapKey) ?? { clockIn: null, clockOut: null };
-
-    if (punch.punchState === '0') {
-      existing.clockIn =
-        !existing.clockIn || punch.punchedAt < existing.clockIn
-          ? punch.punchedAt
-          : existing.clockIn;
-    } else if (punch.punchState === '1') {
-      existing.clockOut =
-        !existing.clockOut || punch.punchedAt > existing.clockOut
-          ? punch.punchedAt
-          : existing.clockOut;
-    }
-
-    byEmployeeDay.set(mapKey, existing);
+    const date = localDateOnly(punch.punchedAt);
+    affectedDays.set(`${employeeId}|${date.toISOString()}`, { employeeId, date });
     result.applied++;
   }
 
-  // 6. Write attendance records — one upsert per (employee, day).
-  //    Manual corrections (source = MANUAL) win; biometric never overwrites them.
-  for (const [key, times] of byEmployeeDay) {
-    const [employeeId, dateIso] = key.split('|');
-    const date = new Date(dateIso);
-
-    const existing = await prisma.attendanceRecord.findUnique({
-      where: { employeeId_date: { employeeId, date } },
-    });
-
-    const data: Record<string, unknown> = {
-      source: input.isMock ? 'MOCK' : 'BIOMETRIC',
-      biometricDeviceId: device.serial,
-    };
-
-    if (times.clockIn) {
-      // Only overwrite if no manual clock-in exists
-      if (!existing || !existing.clockInTime || existing.source !== 'MANUAL') {
-        data.clockInTime = times.clockIn;
-        data.status = 'PRESENT';
-      }
-    }
-    if (times.clockOut) {
-      if (!existing || !existing.clockOutTime || existing.source !== 'MANUAL') {
-        data.clockOutTime = times.clockOut;
-      }
-    }
-
-    if (existing) {
-      await prisma.attendanceRecord.update({
-        where: { id: existing.id },
-        data,
-      });
-    } else if (times.clockIn) {
-      await prisma.attendanceRecord.create({
-        data: {
-          employeeId,
-          date,
-          clockInTime: times.clockIn,
-          clockOutTime: times.clockOut ?? undefined,
-          status: 'PRESENT',
-          source: input.isMock ? 'MOCK' : 'BIOMETRIC',
-          biometricDeviceId: device.serial,
-        },
-      });
-    }
+  // 6. Recompute attendance for every affected (employee, day) from ALL stored
+  //    punches — new + prior — using the time-of-day rule. This is idempotent
+  //    and self-healing, so late-arriving punches will always produce the right
+  //    clock-in / clock-out.
+  for (const { employeeId, date } of affectedDays.values()) {
+    await rebuildAttendanceDay(employeeId, date, device.serial, tz, input.isMock ?? false);
   }
 
-  // 7. Write sync log
   await prisma.biometricSyncLog.create({
     data: {
       deviceId: device.id,
@@ -321,4 +208,126 @@ export async function ingestPunches(input: IngestInput): Promise<IngestResult> {
   });
 
   return result;
+}
+
+// ─── Time-of-day attendance rebuild ────────────────────────
+
+/** Hour boundary between clock-in and clock-out. Matches ZKBioTime's setting. */
+const CLOCK_OUT_HOUR = 11;
+/** Standard workday, minutes; anything beyond this counts as overtime. */
+const WORK_DAY_MINUTES = 8 * 60;
+
+/** Local wall-clock hour (0–23) of a UTC instant in the given IANA zone. */
+function getLocalHour(at: Date, tz: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, hour12: false, hour: '2-digit',
+  }).formatToParts(at);
+  return Number(parts.find((p) => p.type === 'hour')?.value ?? 0) % 24;
+}
+
+/**
+ * Recomputes one attendance record from every biometric punch belonging to
+ * `employeeId` on the local `date`. Never touches MANUAL records.
+ *
+ * Rule: punches before 11:00 local are clock-in candidates, at/after are
+ * clock-out candidates; clockIn = earliest candidate, clockOut = latest
+ * candidate. Works even when only one class exists (single tap in the morning
+ * gives just a clockIn; a single evening tap gives just a clockOut).
+ */
+async function rebuildAttendanceDay(
+  employeeId: string,
+  date: Date,
+  deviceSerial: string | null,
+  tz: string,
+  isMock: boolean,
+): Promise<void> {
+  const dayKey = date.toISOString().slice(0, 10);
+  const { start, end } = localDayBounds(dayKey);
+
+  const allPunches = await prisma.biometricPunch.findMany({
+    where: { employeeId, punchedAt: { gte: start, lt: end } },
+    orderBy: { punchedAt: 'asc' },
+    select: { punchedAt: true },
+  });
+
+  if (allPunches.length === 0) return;
+
+  const clockIns  = allPunches.filter((p) => getLocalHour(p.punchedAt, tz) <  CLOCK_OUT_HOUR);
+  const clockOuts = allPunches.filter((p) => getLocalHour(p.punchedAt, tz) >= CLOCK_OUT_HOUR);
+
+  const clockIn  = clockIns[0]?.punchedAt  ?? null;
+  const clockOut = clockOuts[clockOuts.length - 1]?.punchedAt ?? null;
+
+  const totalWorkedMinutes = clockIn && clockOut
+    ? Math.max(0, Math.round((clockOut.getTime() - clockIn.getTime()) / 60_000))
+    : 0;
+  const overtimeMinutes = Math.max(0, totalWorkedMinutes - WORK_DAY_MINUTES);
+
+  const existing = await prisma.attendanceRecord.findUnique({
+    where: { employeeId_date: { employeeId, date } },
+  });
+
+  // Manual corrections always win.
+  if (existing && existing.source === 'MANUAL') return;
+
+  if (existing) {
+    await prisma.attendanceRecord.update({
+      where: { id: existing.id },
+      data: {
+        clockInTime: clockIn,
+        clockOutTime: clockOut,
+        totalWorkedMinutes,
+        overtimeMinutes,
+        status: 'PRESENT',
+        source: isMock ? 'MOCK' : 'BIOMETRIC',
+        ...(deviceSerial ? { biometricDeviceId: deviceSerial } : {}),
+      },
+    });
+  } else {
+    await prisma.attendanceRecord.create({
+      data: {
+        employeeId,
+        date,
+        clockInTime: clockIn,
+        clockOutTime: clockOut,
+        totalWorkedMinutes,
+        overtimeMinutes,
+        status: 'PRESENT',
+        source: isMock ? 'MOCK' : 'BIOMETRIC',
+        ...(deviceSerial ? { biometricDeviceId: deviceSerial } : {}),
+      },
+    });
+  }
+}
+
+/**
+ * Rebuild attendance for every (employee, day) that has stored punches in
+ * [from, to). Used by the admin "Recompute" button to fix historical rows
+ * after a bugfix or manual DB tinkering. `from`/`to` are UTC instants.
+ */
+export async function rebuildAttendanceRange(
+  from: Date,
+  to: Date,
+): Promise<{ rebuilt: number; employees: number }> {
+  const punches = await prisma.biometricPunch.findMany({
+    where: { punchedAt: { gte: from, lt: to }, employeeId: { not: null } },
+    select: { employeeId: true, punchedAt: true },
+  });
+
+  const dayMap = new Map<string, { employeeId: string; date: Date }>();
+  for (const p of punches) {
+    if (!p.employeeId) continue;
+    const date = localDateOnly(p.punchedAt);
+    const key = `${p.employeeId}|${date.toISOString()}`;
+    if (!dayMap.has(key)) dayMap.set(key, { employeeId: p.employeeId, date });
+  }
+
+  for (const { employeeId, date } of dayMap.values()) {
+    await rebuildAttendanceDay(employeeId, date, null, BIOMETRIC_TZ, false);
+  }
+
+  return {
+    rebuilt: dayMap.size,
+    employees: new Set([...dayMap.values()].map((v) => v.employeeId)).size,
+  };
 }

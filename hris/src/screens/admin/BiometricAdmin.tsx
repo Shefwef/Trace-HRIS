@@ -25,6 +25,7 @@ interface SyncLogRow {
   received: number; applied: number; duplicates: number; unmapped: number; error: string | null;
 }
 interface SessionRow {
+  date: string;
   employeeId: string; employeeName: string;
   employeeIdCode: string | null; department: string | null;
   clockInTime: string | null; clockOutTime: string | null;
@@ -42,10 +43,16 @@ function useEmployees() {
 function useSyncLog() {
   return useQuery({ queryKey: ['biometric', 'sync-log'], queryFn: () => api<SyncLogRow[]>('/api/biometric/sync-log') });
 }
-function useSessions(date: string) {
+function useSessions(params: { date?: string; from?: string; to?: string }) {
+  const qs = new URLSearchParams();
+  if (params.date) qs.set('date', params.date);
+  if (params.from) qs.set('from', params.from);
+  if (params.to)   qs.set('to', params.to);
+  const q = qs.toString();
   return useQuery({
-    queryKey: ['biometric', 'sessions', date],
-    queryFn: () => api<SessionRow[]>(`/api/biometric/sessions?date=${date}`),
+    queryKey: ['biometric', 'sessions', q],
+    queryFn: () => api<SessionRow[]>(`/api/biometric/sessions?${q}`),
+    refetchInterval: 60_000,
   });
 }
 
@@ -305,11 +312,42 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 function PunchesTab() {
-  const [date, setDate] = useState(localDayKey());
-  const { data: sessions, isLoading } = useSessions(date);
+  const qc = useQueryClient();
+  const user = useCurrentUser();
+  const canManage = user ? checkPermissionSync(user, 'biometric.manage') : false;
   const todayKey = localDayKey();
+  const [mode, setMode] = useState<'day' | 'range'>('day');
+  const [date, setDate] = useState(todayKey);
 
-  const COLS = ['Name', 'Employee ID', 'Department', 'Clock In', 'Clock Out', 'Total Work', 'Overtime'];
+  // Range mode defaults to the last 7 days (inclusive).
+  const rangeFrom = new Date(new Date().getTime() - 6 * 86_400_000).toISOString().slice(0, 10);
+
+  const { data: sessions, isLoading, isFetching } = useSessions(
+    mode === 'day' ? { date } : { from: rangeFrom, to: todayKey },
+  );
+
+  const rebuild = useMutation({
+    mutationFn: () =>
+      api<{ rebuilt: number; employees: number }>('/api/biometric/rebuild', {
+        method: 'POST',
+        body: JSON.stringify(
+          mode === 'day' ? { from: date, to: date } : { from: rangeFrom, to: todayKey },
+        ),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['biometric', 'sessions'] });
+      qc.invalidateQueries({ queryKey: ['attendance'] });
+    },
+  });
+
+  const showDateCol = mode === 'range';
+  const cols = showDateCol
+    ? ['Date', 'Name', 'Employee ID', 'Department', 'Clock In', 'Clock Out', 'Total Work', 'Overtime']
+    : ['Name', 'Employee ID', 'Department', 'Clock In', 'Clock Out', 'Total Work', 'Overtime'];
+
+  const headerDateLabel = mode === 'day'
+    ? fmtDate(`${date}T12:00:00`, 'EEEE · d MMM yyyy')
+    : `${fmtDate(`${rangeFrom}T12:00:00`, 'd MMM')} – ${fmtDate(`${todayKey}T12:00:00`, 'd MMM yyyy')}`;
 
   return (
     <div className="card" style={{ overflow: 'hidden' }}>
@@ -318,25 +356,71 @@ function PunchesTab() {
         borderBottom: '1px solid var(--color-border-default)',
         display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
       }}>
-        <div style={{ flex: 1, minWidth: 200 }}>
+        <div style={{ flex: 1, minWidth: 220 }}>
           <h3 style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 600 }}>Daily attendance</h3>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: 'var(--text-sm)' }}>
-            Clock-in/out summary for all employees on the selected date.
+            {headerDateLabel}
+            {isFetching && <span style={{ marginLeft: 8, fontSize: 'var(--text-xs)' }}>· refreshing…</span>}
           </p>
         </div>
-        <input
-          type="date"
-          className="form-input"
-          value={date}
-          max={todayKey}
-          onChange={(e) => setDate(e.target.value)}
-          style={{ width: 150 }}
-        />
+
+        <div style={{ display: 'inline-flex', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+          {(['day', 'range'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              style={{
+                padding: '6px 12px', border: 'none', cursor: 'pointer',
+                background: mode === m ? 'var(--color-bg-subtle)' : 'transparent',
+                color: mode === m ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: '.04em',
+              }}
+            >
+              {m === 'day' ? 'Single day' : 'Last 7 days'}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'day' && (
+          <input
+            type="date"
+            className="form-input"
+            value={date}
+            max={todayKey}
+            onChange={(e) => setDate(e.target.value)}
+            style={{ width: 150 }}
+          />
+        )}
+
+        {canManage && (
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={rebuild.isPending}
+            onClick={() => rebuild.mutate()}
+            title="Recompute attendance from stored biometric punches (safe — never overwrites manual records)"
+          >
+            Recompute
+          </Button>
+        )}
       </div>
+
+      {rebuild.data && (
+        <div style={{ padding: '8px 20px', background: 'var(--color-bg-subtle)', fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>
+          Recomputed {rebuild.data.rebuilt} attendance record{rebuild.data.rebuilt === 1 ? '' : 's'} across {rebuild.data.employees} employee{rebuild.data.employees === 1 ? '' : 's'}.
+        </div>
+      )}
+      {rebuild.error && (
+        <div style={{ padding: '8px 20px', background: 'var(--color-danger-light, #FEF2F2)', fontSize: 'var(--text-xs)', color: 'var(--color-danger)' }}>
+          Recompute failed: {(rebuild.error as Error).message}
+        </div>
+      )}
+
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
         <thead>
           <tr style={{ background: 'var(--color-bg-subtle)', textAlign: 'left' }}>
-            {COLS.map((h) => (
+            {cols.map((h) => (
               <th key={h} style={{ padding: '10px 16px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--color-text-muted)', fontWeight: 600 }}>
                 {h}
               </th>
@@ -345,11 +429,16 @@ function PunchesTab() {
         </thead>
         <tbody>
           {isLoading ? (
-            <tr><td colSpan={COLS.length} style={{ padding: 24, textAlign: 'center', color: 'var(--color-text-muted)' }}>Loading…</td></tr>
+            <tr><td colSpan={cols.length} style={{ padding: 24, textAlign: 'center', color: 'var(--color-text-muted)' }}>Loading…</td></tr>
           ) : !sessions?.length ? (
-            <tr><td colSpan={COLS.length} style={{ padding: 24, textAlign: 'center', color: 'var(--color-text-muted)' }}>No attendance records for this date.</td></tr>
+            <tr><td colSpan={cols.length} style={{ padding: 24, textAlign: 'center', color: 'var(--color-text-muted)' }}>No attendance records for this {mode === 'day' ? 'date' : 'range'}.</td></tr>
           ) : sessions.map((s) => (
-            <tr key={s.employeeId} style={{ borderTop: '1px solid var(--color-border-default)' }}>
+            <tr key={`${s.date}-${s.employeeId}`} style={{ borderTop: '1px solid var(--color-border-default)' }}>
+              {showDateCol && (
+                <td style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+                  {fmtDate(`${s.date}T12:00:00`, 'EEE, d MMM')}
+                </td>
+              )}
               <td style={{ padding: '10px 16px', fontWeight: 500 }}>{s.employeeName}</td>
               <td style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
                 {s.employeeIdCode ?? <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
