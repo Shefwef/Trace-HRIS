@@ -15,6 +15,9 @@
  *   BIOTIME_TERMINAL_SN    Device serial — FQQ2251600181
  *   POLL_SECONDS           How often to poll (default 60)
  *   LOOKBACK_MINUTES       Overlap window each poll (default 15)
+ *   INITIAL_LOOKBACK_HOURS Cold-start lookback (default 12). Bump to 720
+ *                          (30d) or higher for a one-time historical backfill,
+ *                          restart the agent, then reset. Duplicates are safe.
  *
  * IP address note: BIOTIME_BASE_URL uses the office PC's LAN IP. If DHCP
  * reassigns that IP, update this value and restart the agent. The permanent
@@ -57,6 +60,13 @@ const BIOTIME_AUTH         = process.env.BIOTIME_AUTH ?? 'basic';
 const BIOTIME_TERMINAL_SN  = required('BIOTIME_TERMINAL_SN');
 const POLL_SECONDS         = Number(process.env.POLL_SECONDS ?? '60');
 const LOOKBACK_MINUTES     = Number(process.env.LOOKBACK_MINUTES ?? '15');
+/**
+ * Cold-start lookback. Overriding this is the way to backfill historical
+ * punches: temporarily set INITIAL_LOOKBACK_HOURS=720 (30 days) or higher,
+ * restart the agent once, wait for the first poll to finish, then set it
+ * back. Duplicates are no-ops on the HRIS side, so it's always safe.
+ */
+const INITIAL_LOOKBACK_HRS = Number(process.env.INITIAL_LOOKBACK_HOURS ?? '12');
 
 function required(key) {
   const val = process.env[key];
@@ -204,11 +214,13 @@ function warn(...args) {
 let cursor = null; // last successful poll time; null = cold start
 
 async function poll() {
-  // On cold start, look back 12 hours so reboots mid-day don't lose morning punches.
+  // On cold start, look back INITIAL_LOOKBACK_HOURS (default 12h) so reboots
+  // mid-day don't lose morning punches. Bump this env var temporarily to
+  // backfill historical data — e.g. 720 for 30 days. Duplicates are no-ops.
   // On subsequent polls, overlap by LOOKBACK_MINUTES to handle clock skew.
   const since = cursor
     ? new Date(cursor.getTime() - LOOKBACK_MINUTES * 60 * 1000)
-    : new Date(Date.now() - 12 * 60 * 60 * 1000);
+    : new Date(Date.now() - INITIAL_LOOKBACK_HRS * 60 * 60 * 1000);
 
   log(`Polling since ${formatBiotimeDate(since)} (cursor: ${cursor ? formatBiotimeDate(cursor) : 'cold start'})`);
 
@@ -241,7 +253,7 @@ async function run() {
   log('Trace HRIS Biometric Agent starting');
   log(`HRIS:    ${HRIS_BASE_URL}`);
   log(`BioTime: ${BIOTIME_BASE_URL}  auth=${BIOTIME_AUTH}  sn=${BIOTIME_TERMINAL_SN}`);
-  log(`Poll every ${POLL_SECONDS}s, lookback ${LOOKBACK_MINUTES}min`);
+  log(`Poll every ${POLL_SECONDS}s, incremental lookback ${LOOKBACK_MINUTES}min, cold-start lookback ${INITIAL_LOOKBACK_HRS}h`);
 
   // Verify ZKBioTime is reachable before entering the loop
   try {

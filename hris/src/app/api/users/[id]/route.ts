@@ -20,6 +20,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const canRole = await checkPermission(actor, 'employee.assign_role');
   const canDeactivate = await checkPermission(actor, 'employee.deactivate');
   const canAssignLM = await checkPermission(actor, 'employee.assign_line_manager');
+  const isSelf = id === actor.id;
 
   if (input.roles !== undefined && !canRole)
     return err(403, 'FORBIDDEN', 'You do not have permission to assign roles.');
@@ -28,8 +29,23 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (input.lineManagerId !== undefined && !canAssignLM)
     return err(403, 'FORBIDDEN', 'You do not have permission to assign line managers.');
 
-  // If they are just updating name/department/etc, ensure they have at least one employee management perm
-  if (!canRole && !canDeactivate && !canAssignLM) {
+  // Anyone can edit their own personal info (name, phone, birthday, avatar).
+  // Admin-controlled fields (employeeIdCode, designation, department, joining
+  // date) require an admin permission. Reject a self-edit that tries to
+  // change any admin-only field.
+  const SELF_EDITABLE = new Set(['fullName', 'phone', 'dateOfBirth', 'avatarUrl']);
+  if (isSelf && !canRole && !canDeactivate && !canAssignLM) {
+    for (const [key, value] of Object.entries(input)) {
+      if (value === undefined) continue;
+      if (!SELF_EDITABLE.has(key)) {
+        return err(
+          403,
+          'FORBIDDEN_FIELD',
+          `You can only edit these fields on your own profile: ${[...SELF_EDITABLE].join(', ')}. Ask HR to change '${key}'.`,
+        );
+      }
+    }
+  } else if (!canRole && !canDeactivate && !canAssignLM) {
     return err(403, 'FORBIDDEN', 'You do not have permission to edit employees.');
   }
 

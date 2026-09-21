@@ -9,10 +9,9 @@ import { Avatar } from '../../components/ui/Avatar';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { Field, TextInput } from '../../components/ui/Field';
-import { AvatarUpload } from '../../components/ui/AvatarUpload';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { InviteEmployeeModal } from '../../components/admin/InviteEmployeeModal';
+import { EmployeeProfileForm, type ProfileFormValues } from '../../components/admin/EmployeeProfileForm';
 import { GrantReplacementLeaveModal } from '../../components/admin/GrantReplacementLeaveModal';
 import { ReplacementLeavesModal } from '../../components/admin/ReplacementLeavesModal';
 import { cx } from '../../lib/utils';
@@ -47,16 +46,20 @@ function toggleRole(current: AppRole[], role: AppRole): AppRole[] {
   return current.includes(role) ? current.filter((r) => r !== role) : [...current, role];
 }
 
-interface PendingProfile {
-  fullName: string;
-  department: string;
-  designation: string;
-  employeeIdCode: string;
-  phone: string;
-  dateOfBirth: string;
-  joiningDate: string;
-  avatarUrl: string;
+/** Split "Full Name" into first / last so the shared form can round-trip. */
+function splitName(full: string): { firstName: string; lastName: string } {
+  const parts = full.trim().split(/\s+/);
+  return { firstName: parts[0] ?? '', lastName: parts.slice(1).join(' ') };
 }
+
+const EMPTY_PROFILE: ProfileFormValues = {
+  firstName: '', lastName: '', email: '', phone: '',
+  dateOfBirth: '', avatarUrl: '',
+  employeeIdCode: '', joiningDate: '',
+  designation: '', department: '',
+  cycleStartMonth: 1,
+  roles: [],
+};
 
 export function EmployeesPage() {
   const currentUser = useCurrentUser();
@@ -76,10 +79,7 @@ export function EmployeesPage() {
   const [grantLeaveId, setGrantLeaveId] = useState<string | null>(null);
   const [viewLeavesId, setViewLeavesId] = useState<string | null>(null);
   const [editProfileId, setEditProfileId] = useState<string | null>(null);
-  const [pendingProfile, setPendingProfile] = useState<PendingProfile>({
-    fullName: '', department: '', designation: '', employeeIdCode: '',
-    phone: '', dateOfBirth: '', joiningDate: '', avatarUrl: '',
-  });
+  const [pendingProfile, setPendingProfile] = useState<ProfileFormValues>(EMPTY_PROFILE);
 
   const rolesEditUser = rolesEditId ? users.find((u) => u.id === rolesEditId) : null;
   const teamAssignUser = teamAssignId ? users.find((u) => u.id === teamAssignId) : null;
@@ -215,11 +215,12 @@ export function EmployeesPage() {
 
   function handleSaveProfile() {
     if (!editProfileId) return;
+    const fullName = `${pendingProfile.firstName} ${pendingProfile.lastName}`.trim();
     updateEmployee.mutate(
       {
         id: editProfileId,
         patch: {
-          fullName: pendingProfile.fullName.trim() || undefined,
+          fullName: fullName || undefined,
           department: pendingProfile.department.trim() || undefined,
           designation: pendingProfile.designation.trim() || undefined,
           employeeIdCode: pendingProfile.employeeIdCode.trim() || undefined,
@@ -356,9 +357,11 @@ export function EmployeesPage() {
                           size="sm"
                           leadingIcon={<Pencil size={12} />}
                           onClick={() => {
+                            const { firstName, lastName } = splitName(u.fullName);
                             setEditProfileId(u.id);
                             setPendingProfile({
-                              fullName: u.fullName,
+                              firstName, lastName,
+                              email: u.email,
                               department: u.department ?? '',
                               designation: u.designation ?? '',
                               employeeIdCode: u.employeeIdCode ?? '',
@@ -366,6 +369,8 @@ export function EmployeesPage() {
                               dateOfBirth: u.dateOfBirth ? u.dateOfBirth.slice(0, 10) : '',
                               joiningDate: u.joiningDate ? u.joiningDate.slice(0, 10) : '',
                               avatarUrl: u.avatarUrl ?? '',
+                              cycleStartMonth: 1,
+                              roles: [],
                             });
                           }}
                         >
@@ -484,7 +489,7 @@ export function EmployeesPage() {
             <Button
               variant="primary"
               loading={updateEmployee.isPending}
-              disabled={pendingProfile.fullName.trim().length < 2}
+              disabled={`${pendingProfile.firstName} ${pendingProfile.lastName}`.trim().length < 2}
               onClick={handleSaveProfile}
             >
               Save changes
@@ -492,73 +497,11 @@ export function EmployeesPage() {
           </>
         }
       >
-        <div className="empg-edit-form">
-          <Field label="Full name" required>
-            <TextInput
-              value={pendingProfile.fullName}
-              onChange={(e) => setPendingProfile((p) => ({ ...p, fullName: e.target.value }))}
-              placeholder="Jane Doe"
-            />
-          </Field>
-          <div className="empg-edit-row">
-            <Field label="Phone number">
-              <TextInput
-                type="tel"
-                value={pendingProfile.phone}
-                onChange={(e) => setPendingProfile((p) => ({ ...p, phone: e.target.value }))}
-                placeholder="+880 17xx xxxxxx"
-              />
-            </Field>
-            <Field label="Birthday">
-              <input
-                type="date"
-                className="input"
-                value={pendingProfile.dateOfBirth}
-                onChange={(e) => setPendingProfile((p) => ({ ...p, dateOfBirth: e.target.value }))}
-              />
-            </Field>
-          </div>
-          <div className="empg-edit-row">
-            <Field label="Employee ID">
-              <TextInput
-                value={pendingProfile.employeeIdCode}
-                onChange={(e) => setPendingProfile((p) => ({ ...p, employeeIdCode: e.target.value }))}
-                placeholder="TRACE-001"
-              />
-            </Field>
-            <Field label="Joining date">
-              <input
-                type="date"
-                className="input"
-                value={pendingProfile.joiningDate}
-                onChange={(e) => setPendingProfile((p) => ({ ...p, joiningDate: e.target.value }))}
-              />
-            </Field>
-          </div>
-          <div className="empg-edit-row">
-            <Field label="Designation">
-              <TextInput
-                value={pendingProfile.designation}
-                onChange={(e) => setPendingProfile((p) => ({ ...p, designation: e.target.value }))}
-                placeholder="Software Engineer"
-              />
-            </Field>
-            <Field label="Department">
-              <TextInput
-                value={pendingProfile.department}
-                onChange={(e) => setPendingProfile((p) => ({ ...p, department: e.target.value }))}
-                placeholder="Engineering"
-              />
-            </Field>
-          </div>
-          <Field label="Profile picture">
-            <AvatarUpload
-              value={pendingProfile.avatarUrl}
-              name={pendingProfile.fullName || editProfileUser?.fullName || ''}
-              onChange={(url) => setPendingProfile((p) => ({ ...p, avatarUrl: url }))}
-            />
-          </Field>
-        </div>
+        <EmployeeProfileForm
+          mode="edit-admin"
+          values={pendingProfile}
+          onChange={(patch) => setPendingProfile((p) => ({ ...p, ...patch }))}
+        />
       </Modal>
 
       <Modal

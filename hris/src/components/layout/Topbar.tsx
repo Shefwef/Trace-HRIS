@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { Bell, ChevronDown, LogOut, UserCog, Menu, CheckCircle2, XCircle, Clock as ClockIcon, Star, CalendarDays, Info } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, UserCog, Menu, CheckCircle2, XCircle, Clock as ClockIcon, Star, CalendarDays, Info, User as UserIcon } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useClerk } from '@clerk/nextjs';
 import Link from 'next/link';
@@ -11,6 +11,7 @@ import { notificationHref } from '@/lib/notificationHref';
 import { Avatar } from '../ui/Avatar';
 import { cx, fmtRelative } from '../../lib/utils';
 import { useMobileNav } from './navContext';
+import { MyProfileModal } from './MyProfileModal';
 import './Topbar.css';
 
 const NOTIF_ICONS: Record<string, React.ReactNode> = {
@@ -32,6 +33,7 @@ export function Topbar() {
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
   const openMobileNav = useMobileNav((s) => s.open);
@@ -188,6 +190,16 @@ export function Topbar() {
                   className="topbar-menu-item"
                   onClick={() => {
                     setUserOpen(false);
+                    setProfileOpen(true);
+                  }}
+                >
+                  <UserIcon size={14} />
+                  My profile
+                </button>
+                <button
+                  className="topbar-menu-item"
+                  onClick={() => {
+                    setUserOpen(false);
                     openUserProfile();
                   }}
                 >
@@ -209,6 +221,7 @@ export function Topbar() {
           </AnimatePresence>
         </div>
       </div>
+      <MyProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
     </header>
   );
 }

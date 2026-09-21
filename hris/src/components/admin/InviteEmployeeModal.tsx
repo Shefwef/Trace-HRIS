@@ -6,16 +6,13 @@ import { useInviteEmployee } from '@/lib/hooks';
 import { useCurrentUser } from '@/lib/session';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
-import { Field, TextInput } from '../ui/Field';
-import { AvatarUpload } from '../ui/AvatarUpload';
+import { EmployeeProfileForm, type ProfileFormValues, type Role } from './EmployeeProfileForm';
 import './InviteEmployeeModal.css';
 
 interface Props {
   open: boolean;
   onClose: () => void;
 }
-
-type Role = 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'LINE_MANAGER' | 'EMPLOYEE';
 
 function invitableRoles(actorRole: string | undefined): Role[] {
   if (actorRole === 'SUPER_ADMIN' || actorRole === 'ADMIN')
@@ -24,50 +21,32 @@ function invitableRoles(actorRole: string | undefined): Role[] {
   return [];
 }
 
-const ROLE_LABEL: Record<Role, string> = {
-  SUPER_ADMIN: 'Super Admin',
-  ADMIN: 'Admin (CEO/CTO)',
-  HR: 'HR',
-  LINE_MANAGER: 'Line Manager',
-  EMPLOYEE: 'Employee',
+const EMPTY: ProfileFormValues = {
+  firstName: '', lastName: '', email: '', phone: '',
+  dateOfBirth: '', avatarUrl: '',
+  employeeIdCode: '', joiningDate: '',
+  designation: '', department: '',
+  cycleStartMonth: 1,
+  roles: ['EMPLOYEE'],
 };
-
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
 
 export function InviteEmployeeModal({ open, onClose }: Props) {
   const actor = useCurrentUser();
   const allowedRoles = invitableRoles(actor?.role);
   const invite = useInviteEmployee();
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [employeeIdCode, setEmployeeIdCode] = useState('');
-  const [joiningDate, setJoiningDate] = useState('');
-  const [cycleStartMonth, setCycleStartMonth] = useState(1);
-  const [department, setDepartment] = useState('');
-  const [designation, setDesignation] = useState('');
-  const [roles, setRoles] = useState<Role[]>(['EMPLOYEE']);
+  const [values, setValues] = useState<ProfileFormValues>(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ email: string; password: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  function reset() {
-    setFirstName(''); setLastName(''); setEmail(''); setPhone('');
-    setDateOfBirth(''); setAvatarUrl(''); setEmployeeIdCode('');
-    setJoiningDate(''); setCycleStartMonth(1);
-    setDepartment(''); setDesignation(''); setRoles(['EMPLOYEE']);
-    setError(null); setResult(null); setCopied(false);
+  function patchValues(patch: Partial<ProfileFormValues>) {
+    setValues((v) => ({ ...v, ...patch }));
   }
 
-  function toggleRoleAt(r: Role) {
-    setRoles((cur) => (cur.includes(r) ? cur.filter((x) => x !== r) : [...cur, r]));
+  function reset() {
+    setValues(EMPTY);
+    setError(null); setResult(null); setCopied(false);
   }
 
   function handleClose() {
@@ -76,26 +55,26 @@ export function InviteEmployeeModal({ open, onClose }: Props) {
   }
 
   function submit() {
-    if (!email || !firstName || !designation || !employeeIdCode) return;
-    if (roles.length === 0) {
+    if (!values.email || !values.firstName || !values.designation || !values.employeeIdCode) return;
+    if (values.roles.length === 0) {
       setError('Pick at least one role for the new employee.');
       return;
     }
     setError(null);
     invite.mutate(
       {
-        email: email.trim(),
-        firstName: firstName.trim(),
-        lastName: lastName.trim() || undefined,
-        roles,
-        department: department.trim() || undefined,
-        designation: designation.trim(),
-        employeeIdCode: employeeIdCode.trim(),
-        cycleStartMonth,
-        phone: phone.trim() || undefined,
-        dateOfBirth: dateOfBirth || undefined,
-        joiningDate: joiningDate || undefined,
-        avatarUrl: avatarUrl.trim() || undefined,
+        email: values.email.trim(),
+        firstName: values.firstName.trim(),
+        lastName: values.lastName.trim() || undefined,
+        roles: values.roles,
+        department: values.department.trim() || undefined,
+        designation: values.designation.trim(),
+        employeeIdCode: values.employeeIdCode.trim(),
+        cycleStartMonth: values.cycleStartMonth,
+        phone: values.phone.trim() || undefined,
+        dateOfBirth: values.dateOfBirth || undefined,
+        joiningDate: values.joiningDate || undefined,
+        avatarUrl: values.avatarUrl.trim() || undefined,
       },
       {
         onSuccess: (data) => setResult({ email: data.email, password: data.initialPassword }),
@@ -114,7 +93,8 @@ export function InviteEmployeeModal({ open, onClose }: Props) {
   }
 
   const canSubmit =
-    email && firstName && designation && employeeIdCode && roles.length > 0 && !invite.isPending;
+    values.email && values.firstName && values.designation && values.employeeIdCode &&
+    values.roles.length > 0 && !invite.isPending;
 
   return (
     <Modal
@@ -187,104 +167,21 @@ export function InviteEmployeeModal({ open, onClose }: Props) {
           <div className="inv-signin-note">
             <strong>Tell them to sign in with email + password.</strong> Their
             email is pre-verified in the system, so no verification code is
-            needed. If Clerk offers "Email code" on the sign-in page, they
+            needed. If Clerk offers &quot;Email code&quot; on the sign-in page, they
             should skip it and use the password field instead — a code email
             may be delayed or filtered by their corporate spam rules.
           </div>
         </motion.div>
       ) : (
-        <div className="inv-form">
-          {/* Personal info */}
-          <div className="inv-section-label">Personal info</div>
-          <div className="inv-row">
-            <Field label="First name" required>
-              <TextInput value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-            </Field>
-            <Field label="Last name">
-              <TextInput value={lastName} onChange={(e) => setLastName(e.target.value)} />
-            </Field>
-          </div>
-          <div className="inv-row">
-            <Field label="Official email" required hint="They'll use this to sign in.">
-              <TextInput type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane.doe@company.com" />
-            </Field>
-            <Field label="Phone number">
-              <TextInput type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+880 17xx xxxxxx" />
-            </Field>
-          </div>
-          <Field label="Birthday">
-            <input
-              type="date"
-              className="input"
-              value={dateOfBirth}
-              onChange={(e) => setDateOfBirth(e.target.value)}
-            />
-          </Field>
-          <Field label="Profile picture">
-            <AvatarUpload
-              value={avatarUrl}
-              name={`${firstName} ${lastName}`.trim() || 'New Employee'}
-              onChange={setAvatarUrl}
-            />
-          </Field>
-
-          {/* Employment details */}
-          <div className="inv-section-label">Employment</div>
-          <div className="inv-row">
-            <Field label="Employee ID" required>
-              <TextInput value={employeeIdCode} onChange={(e) => setEmployeeIdCode(e.target.value)} placeholder="TRACE-104" />
-            </Field>
-            <Field label="Joining date">
-              <input
-                type="date"
-                className="input"
-                value={joiningDate}
-                onChange={(e) => setJoiningDate(e.target.value)}
-              />
-            </Field>
-          </div>
-          <div className="inv-row">
-            <Field label="Designation" required>
-              <TextInput value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="Software Engineer" />
-            </Field>
-            <Field label="Department">
-              <TextInput value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="Engineering" />
-            </Field>
-          </div>
-          <Field label="Cycle starts in" hint="When the annual 12+12 quota resets.">
-            <select
-              className="input"
-              value={cycleStartMonth}
-              onChange={(e) => setCycleStartMonth(Number(e.target.value))}
-            >
-              {MONTHS.map((m, i) => (
-                <option key={m} value={i + 1}>{m}</option>
-              ))}
-            </select>
-          </Field>
-
-          {/* Roles */}
-          <div className="inv-section-label">Roles</div>
-          <Field label="Assign roles" required hint="A person can hold more than one role (e.g. a COO who is both Admin and HR).">
-            <div className="inv-roles-grid">
-              {allowedRoles.map((r) => {
-                const checked = roles.includes(r);
-                return (
-                  <label key={r} className={`inv-role-check ${checked ? 'is-checked' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleRoleAt(r)}
-                    />
-                    <span>{ROLE_LABEL[r]}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </Field>
-
-          {error && <div className="inv-error">{error}</div>}
-        </div>
+        <>
+          <EmployeeProfileForm
+            mode="invite"
+            values={values}
+            onChange={patchValues}
+            allowedRoles={allowedRoles}
+          />
+          {error && <div className="inv-error" style={{ marginTop: 12 }}>{error}</div>}
+        </>
       )}
     </Modal>
   );
