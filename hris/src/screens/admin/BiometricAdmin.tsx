@@ -59,7 +59,7 @@ function useSessions(params: { date?: string; from?: string; to?: string }) {
 // ─── Main screen ─────────────────────────────────────────
 
 export function BiometricAdmin() {
-  const [tab, setTab] = useState<'devices' | 'mapping' | 'punches' | 'simulate' | 'log'>('devices');
+  const [tab, setTab] = useState<'punches' | 'devices' | 'mapping' | 'simulate' | 'log'>('punches');
   const user = useCurrentUser();
   const canManage = user ? checkPermissionSync(user, 'biometric.manage') : false;
   const canSimulate = user ? checkPermissionSync(user, 'biometric.simulate') : false;
@@ -98,9 +98,9 @@ export function BiometricAdmin() {
 
       <div className="tab-bar" style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--color-border-default)', marginBottom: 24 }}>
         {([
-          { key: 'devices',  label: 'Devices',  icon: <Server size={14} /> },
-          { key: 'mapping',  label: 'Mapping',   icon: <Users size={14} /> },
           { key: 'punches',  label: 'Punches',   icon: <Activity size={14} /> },
+          { key: 'devices',  label: 'Devices',   icon: <Server size={14} /> },
+          { key: 'mapping',  label: 'Mapping',   icon: <Users size={14} /> },
           ...(canSimulate ? [{ key: 'simulate', label: 'Simulate', icon: <Play size={14} /> }] : []),
           { key: 'log',      label: 'Sync log',  icon: <CheckCircle2 size={14} /> },
         ] as { key: string; label: string; icon: React.ReactNode }[]).map((t) => (
@@ -311,28 +311,102 @@ const STATUS_COLOR: Record<string, string> = {
   LEAVE:    'var(--color-info, #3182CE)',
 };
 
+// ─── Period presets (mirrors ZKBioTime's Date Period dropdown) ──
+
+type Preset =
+  | 'today' | 'yesterday'
+  | 'this-week' | 'this-month' | 'this-year'
+  | 'last-week' | 'last-month'
+  | 'last-3-months' | 'last-6-months' | 'last-year'
+  | 'custom';
+
+const PRESET_OPTIONS: { key: Preset; label: string }[] = [
+  { key: 'today',         label: 'Today' },
+  { key: 'yesterday',     label: 'Yesterday' },
+  { key: 'this-week',     label: 'This week' },
+  { key: 'this-month',    label: 'This month' },
+  { key: 'this-year',     label: 'This year' },
+  { key: 'last-week',     label: 'Last week' },
+  { key: 'last-month',    label: 'Last month' },
+  { key: 'last-3-months', label: 'Last three months' },
+  { key: 'last-6-months', label: 'Last six months' },
+  { key: 'last-year',     label: 'Last year' },
+  { key: 'custom',        label: 'User Defined' },
+];
+
+function fmtDayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Compute the [from, to] date-keys for the given preset. Weeks start Sunday. */
+function rangeForPreset(preset: Preset, customFrom: string, customTo: string): { from: string; to: string } {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+  const dow = now.getDay(); // 0 = Sunday
+  const todayKey = fmtDayKey(now);
+
+  switch (preset) {
+    case 'today':
+      return { from: todayKey, to: todayKey };
+    case 'yesterday': {
+      const y2 = new Date(now.getTime() - 86_400_000);
+      const k = fmtDayKey(y2);
+      return { from: k, to: k };
+    }
+    case 'this-week': {
+      const start = new Date(now.getTime() - dow * 86_400_000);
+      return { from: fmtDayKey(start), to: todayKey };
+    }
+    case 'this-month':
+      return { from: fmtDayKey(new Date(y, m, 1)), to: todayKey };
+    case 'this-year':
+      return { from: fmtDayKey(new Date(y, 0, 1)), to: todayKey };
+    case 'last-week': {
+      const thisStart = new Date(now.getTime() - dow * 86_400_000);
+      const lastStart = new Date(thisStart.getTime() - 7 * 86_400_000);
+      const lastEnd   = new Date(thisStart.getTime() - 86_400_000);
+      return { from: fmtDayKey(lastStart), to: fmtDayKey(lastEnd) };
+    }
+    case 'last-month': {
+      const start = new Date(y, m - 1, 1);
+      const end   = new Date(y, m, 0); // day 0 of current month = last day of previous
+      return { from: fmtDayKey(start), to: fmtDayKey(end) };
+    }
+    case 'last-3-months':
+      return { from: fmtDayKey(new Date(y, m - 3, d)), to: todayKey };
+    case 'last-6-months':
+      return { from: fmtDayKey(new Date(y, m - 6, d)), to: todayKey };
+    case 'last-year':
+      return { from: fmtDayKey(new Date(y - 1, 0, 1)), to: fmtDayKey(new Date(y - 1, 11, 31)) };
+    case 'custom':
+      return { from: customFrom || todayKey, to: customTo || todayKey };
+  }
+}
+
 function PunchesTab() {
   const qc = useQueryClient();
   const user = useCurrentUser();
   const canManage = user ? checkPermissionSync(user, 'biometric.manage') : false;
   const todayKey = localDayKey();
-  const [mode, setMode] = useState<'day' | 'range'>('day');
-  const [date, setDate] = useState(todayKey);
 
-  // Range mode defaults to the last 7 days (inclusive).
-  const rangeFrom = new Date(new Date().getTime() - 6 * 86_400_000).toISOString().slice(0, 10);
+  const [preset, setPreset] = useState<Preset>('today');
+  const [customFrom, setCustomFrom] = useState(todayKey);
+  const [customTo, setCustomTo]     = useState(todayKey);
+
+  const { from, to } = rangeForPreset(preset, customFrom, customTo);
+  const rangeValid = from <= to;
 
   const { data: sessions, isLoading, isFetching } = useSessions(
-    mode === 'day' ? { date } : { from: rangeFrom, to: todayKey },
+    rangeValid ? { from, to } : { date: todayKey },
   );
 
   const rebuild = useMutation({
     mutationFn: () =>
       api<{ rebuilt: number; employees: number }>('/api/biometric/rebuild', {
         method: 'POST',
-        body: JSON.stringify(
-          mode === 'day' ? { from: date, to: date } : { from: rangeFrom, to: todayKey },
-        ),
+        body: JSON.stringify({ from, to }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['biometric', 'sessions'] });
@@ -340,14 +414,20 @@ function PunchesTab() {
     },
   });
 
-  const showDateCol = mode === 'range';
+  const showDateCol = from !== to;
   const cols = showDateCol
     ? ['Date', 'Name', 'Employee ID', 'Department', 'Clock In', 'Clock Out', 'Total Work', 'Overtime']
     : ['Name', 'Employee ID', 'Department', 'Clock In', 'Clock Out', 'Total Work', 'Overtime'];
 
-  const headerDateLabel = mode === 'day'
-    ? fmtDate(`${date}T12:00:00`, 'EEEE · d MMM yyyy')
-    : `${fmtDate(`${rangeFrom}T12:00:00`, 'd MMM')} – ${fmtDate(`${todayKey}T12:00:00`, 'd MMM yyyy')}`;
+  const headerLabel = from === to
+    ? fmtDate(`${from}T12:00:00`, 'EEEE · d MMM yyyy')
+    : `${fmtDate(`${from}T12:00:00`, 'd MMM yyyy')} – ${fmtDate(`${to}T12:00:00`, 'd MMM yyyy')}`;
+
+  const dateInputStyle: React.CSSProperties = {
+    width: 150,
+    opacity: preset === 'custom' ? 1 : 0.5,
+    cursor: preset === 'custom' ? 'text' : 'not-allowed',
+  };
 
   return (
     <div className="card" style={{ overflow: 'hidden' }}>
@@ -359,51 +439,61 @@ function PunchesTab() {
         <div style={{ flex: 1, minWidth: 220 }}>
           <h3 style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 600 }}>Daily attendance</h3>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: 'var(--text-sm)' }}>
-            {headerDateLabel}
+            {headerLabel}
             {isFetching && <span style={{ marginLeft: 8, fontSize: 'var(--text-xs)' }}>· refreshing…</span>}
           </p>
         </div>
 
-        <div style={{ display: 'inline-flex', border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-          {(['day', 'range'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              style={{
-                padding: '6px 12px', border: 'none', cursor: 'pointer',
-                background: mode === m ? 'var(--color-bg-subtle)' : 'transparent',
-                color: mode === m ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
-                fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: '.04em',
-              }}
-            >
-              {m === 'day' ? 'Single day' : 'Last 7 days'}
-            </button>
-          ))}
-        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+            Period
+          </label>
+          <select
+            className="form-input"
+            value={preset}
+            onChange={(e) => setPreset(e.target.value as Preset)}
+            style={{ width: 170 }}
+          >
+            {PRESET_OPTIONS.map((opt) => (
+              <option key={opt.key} value={opt.key}>{opt.label}</option>
+            ))}
+          </select>
 
-        {mode === 'day' && (
           <input
             type="date"
             className="form-input"
-            value={date}
-            max={todayKey}
-            onChange={(e) => setDate(e.target.value)}
-            style={{ width: 150 }}
+            value={customFrom}
+            max={customTo || todayKey}
+            disabled={preset !== 'custom'}
+            onChange={(e) => setCustomFrom(e.target.value)}
+            style={dateInputStyle}
+            aria-label="From date"
           />
-        )}
+          <span style={{ color: 'var(--color-text-muted)' }}>–</span>
+          <input
+            type="date"
+            className="form-input"
+            value={customTo}
+            min={customFrom}
+            max={todayKey}
+            disabled={preset !== 'custom'}
+            onChange={(e) => setCustomTo(e.target.value)}
+            style={dateInputStyle}
+            aria-label="To date"
+          />
 
-        {canManage && (
-          <Button
-            variant="secondary"
-            size="sm"
-            loading={rebuild.isPending}
-            onClick={() => rebuild.mutate()}
-            title="Recompute attendance from stored biometric punches (safe — never overwrites manual records)"
-          >
-            Recompute
-          </Button>
-        )}
+          {canManage && (
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={rebuild.isPending}
+              onClick={() => rebuild.mutate()}
+              title="Recompute attendance from stored biometric punches (safe — never overwrites manual records)"
+            >
+              Recompute
+            </Button>
+          )}
+        </div>
       </div>
 
       {rebuild.data && (
@@ -431,7 +521,7 @@ function PunchesTab() {
           {isLoading ? (
             <tr><td colSpan={cols.length} style={{ padding: 24, textAlign: 'center', color: 'var(--color-text-muted)' }}>Loading…</td></tr>
           ) : !sessions?.length ? (
-            <tr><td colSpan={cols.length} style={{ padding: 24, textAlign: 'center', color: 'var(--color-text-muted)' }}>No attendance records for this {mode === 'day' ? 'date' : 'range'}.</td></tr>
+            <tr><td colSpan={cols.length} style={{ padding: 24, textAlign: 'center', color: 'var(--color-text-muted)' }}>No attendance records for this period.</td></tr>
           ) : sessions.map((s) => (
             <tr key={`${s.date}-${s.employeeId}`} style={{ borderTop: '1px solid var(--color-border-default)' }}>
               {showDateCol && (
