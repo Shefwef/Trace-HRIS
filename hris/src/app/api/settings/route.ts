@@ -6,7 +6,6 @@ import { UpdateSettingsSchema } from '@/lib/validation';
 
 function serialize(s: {
   senderEmail: string; senderName: string; fromEmail: string;
-  qaRedirectEmail: string | null;
   standardHoursPerDay: number; workStartTime: string; workEndTime: string;
   workDaysBitmask: number; overtimeThresholdMinutes: number; updatedAt: Date;
 }) {
@@ -14,7 +13,6 @@ function serialize(s: {
     senderEmail: s.senderEmail,
     senderName: s.senderName,
     fromEmail: s.fromEmail,
-    qaRedirectEmail: s.qaRedirectEmail,
     standardHoursPerDay: s.standardHoursPerDay,
     workStartTime: s.workStartTime,
     workEndTime: s.workEndTime,
@@ -46,29 +44,15 @@ export async function PATCH(req: Request) {
   const [input, badReq] = await parseBody(req, UpdateSettingsSchema);
   if (badReq) return badReq;
 
-  if (input.qaRedirectEmail !== undefined) {
-    const hasQaPerm = await checkPermission(user, 'settings.edit_qa_redirect');
-    if (!hasQaPerm) {
-      return err(403, 'FORBIDDEN', 'You do not have permission to edit the QA redirect email.');
-    }
-  }
-
   const before = await prisma.systemSettings.upsert({
     where: { id: 'singleton' },
     update: {},
     create: { id: 'singleton' },
   });
 
-  // Empty string in the UI means "clear this field" — persist as null.
-  const patch = {
-    ...input,
-    qaRedirectEmail:
-      input.qaRedirectEmail === '' ? null : input.qaRedirectEmail,
-  };
-
   const updated = await prisma.systemSettings.update({
     where: { id: 'singleton' },
-    data: patch,
+    data: input,
   });
 
   await prisma.auditLog.create({

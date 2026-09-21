@@ -122,7 +122,6 @@ export const UpdateSettingsSchema = z.object({
   senderEmail: z.email().optional(),
   senderName: z.string().min(2).max(80).optional(),
   fromEmail: z.email().optional(),
-  qaRedirectEmail: z.union([z.email(), z.literal('')]).optional(),
   standardHoursPerDay: z.int().min(1).max(24).optional(),
   workStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Must be HH:mm').optional(),
   workEndTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Must be HH:mm').optional(),

@@ -434,7 +434,6 @@ model SystemSettings {
   senderEmail               String   @default("shefadib@gmail.com")
   senderName                String   @default("Trace HRIS")
   fromEmail                 String   @default("onboarding@resend.dev")
-  qaRedirectEmail           String?  // If set, every outgoing email is redirected here (QA mode)
   standardHoursPerDay       Int      @default(8)
   workStartTime             String   @default("09:00")
   workEndTime               String   @default("17:00")

@@ -26,7 +26,6 @@ export const ACTION_PERMISSIONS = [
   'employee.assign_role',
   'employee.assign_line_manager',
   'settings.edit',
-  'settings.edit_qa_redirect',
   'reports.company',
   'reports.per_employee_others',
   'audit.view',
@@ -73,7 +72,6 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'employee.assign_role': 'Assign roles to employees',
   'employee.assign_line_manager': 'Assign line managers',
   'settings.edit': 'Edit system settings',
-  'settings.edit_qa_redirect': 'Edit QA redirect email',
   'reports.company': 'View company-wide reports',
   'reports.per_employee_others': 'View other employees\' reports',
   'audit.view': 'View audit logs',
@@ -116,7 +114,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: string[] }[] = [
   },
   {
     label: 'Settings & System',
-    permissions: ['settings.edit', 'settings.edit_qa_redirect', 'reports.company', 'reports.per_employee_others', 'audit.view', 'system.view'],
+    permissions: ['settings.edit', 'reports.company', 'reports.per_employee_others', 'audit.view', 'system.view'],
   },
   {
     label: 'Work Location',
@@ -176,7 +174,6 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'employee.assign_role': true,
     'employee.assign_line_manager': true,
     'settings.edit': true,
-    'settings.edit_qa_redirect': false,
     'reports.company': true,
     'reports.per_employee_others': true,
     'audit.view': true,
@@ -212,7 +209,6 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'employee.assign_role': true, // HR+EMPLOYEE only; ADMIN/SUPER_ADMIN promotion blocked server-side
     'employee.assign_line_manager': true,
     'settings.edit': true,
-    'settings.edit_qa_redirect': false,
     'reports.company': true,
     'reports.per_employee_others': true,
     'audit.view': true,
@@ -247,7 +243,6 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'employee.assign_role': false,
     'employee.assign_line_manager': false,
     'settings.edit': false,
-    'settings.edit_qa_redirect': false,
     'reports.company': false,
     'reports.per_employee_others': true, // team only
     'audit.view': true,
@@ -282,7 +277,6 @@ export const DEFAULT_MATRIX: Record<Role, Record<string, boolean>> = {
     'employee.assign_role': false,
     'employee.assign_line_manager': false,
     'settings.edit': false,
-    'settings.edit_qa_redirect': false,
     'reports.company': false,
     'reports.per_employee_others': false,
     'audit.view': false,

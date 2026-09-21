@@ -1,25 +1,15 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Save, Clock, Mail, Users, Fingerprint, Info, FlaskConical } from 'lucide-react';
+import { Save, Clock, Mail, Users, Fingerprint, Info } from 'lucide-react';
 import { useSettings, useUpdateSettings, type SystemSettings } from '@/lib/hooks';
-import { useCurrentUser } from '@/lib/session';
-import { checkPermissionSync } from '@/lib/permissionsMeta';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Field, TextInput } from '../../components/ui/Field';
 import './Settings.css';
 
 export function AdminSettings() {
-  const currentUser = useCurrentUser();
   const { data: settings, isLoading } = useSettings();
   const update = useUpdateSettings();
-
-  const canEditQaRedirect = currentUser
-    ? checkPermissionSync(
-        { role: currentUser.role as any, roles: (currentUser.roles as any) ?? null },
-        'settings.edit_qa_redirect',
-      )
-    : false;
 
   const [form, setForm] = useState<Partial<SystemSettings>>({});
   const [saved, setSaved] = useState(false);
@@ -116,35 +106,6 @@ export function AdminSettings() {
                 value={value('fromEmail') ?? ''}
                 onChange={(e) => setField('fromEmail', e.target.value)}
                 placeholder="onboarding@resend.dev"
-              />
-            </Field>
-          </section>
-
-          <section className="card stg-card">
-            <div className="stg-card-icon" style={{ background: 'var(--color-warning-light)', color: 'var(--color-warning)' }}>
-              <FlaskConical size={18} />
-            </div>
-            <h3>
-              QA mode {value('qaRedirectEmail') ? <Badge variant="warning">Active</Badge> : <Badge>Off</Badge>}
-              {!canEditQaRedirect && <Badge>Super Admin</Badge>}
-            </h3>
-            <p>
-              When set, every outgoing HRIS email is redirected to this single inbox instead of the real recipient. The original To / Cc are preserved in the email body and subject prefix. Perfect for end-to-end testing before real employee inboxes are wired up. <strong>Clear this field to return to normal delivery.</strong>
-            </p>
-            <Field
-              label="Redirect all emails to"
-              hint={
-                canEditQaRedirect
-                  ? 'Leave empty for normal (per-recipient) delivery.'
-                  : 'Only Super Admin can change this. HR / Admin can still see the current value.'
-              }
-            >
-              <TextInput
-                type="email"
-                value={value('qaRedirectEmail') ?? ''}
-                onChange={(e) => setField('qaRedirectEmail', e.target.value)}
-                placeholder="shefayatadib@iut-dhaka.edu"
-                disabled={!canEditQaRedirect}
               />
             </Field>
           </section>

@@ -27,16 +27,6 @@ export async function sendEmail(input: SendEmailInput) {
   const fromAddress = `${s.senderName} <${s.fromEmail}>`;
   const replyTo = s.senderEmail;
 
-  // If qaRedirectEmail is set, every outgoing message is silently redirected
-  // to that inbox instead of the real recipient. The real to/cc are still
-  // recorded in emailLog for audit; the email itself looks identical to
-  // what the real recipient would have received (no banner, no subject tag).
-  const qa = s.qaRedirectEmail?.trim();
-  const effectiveTo = qa ? [qa] : input.to;
-  const effectiveCc = qa ? undefined : input.cc;
-  const effectiveSubject = input.subject;
-  const effectiveHtml = input.html;
-
   const log = await prisma.emailLog.create({
     data: {
       toAddresses: input.to,
@@ -51,11 +41,11 @@ export async function sendEmail(input: SendEmailInput) {
   try {
     const result = await resend.emails.send({
       from: fromAddress,
-      to: effectiveTo,
-      cc: effectiveCc,
+      to: input.to,
+      cc: input.cc,
       replyTo,
-      subject: effectiveSubject,
-      html: effectiveHtml,
+      subject: input.subject,
+      html: input.html,
       text: input.text,
     });
 

@@ -907,7 +907,6 @@ export interface SystemSettings {
   senderEmail: string;
   senderName: string;
   fromEmail: string;
-  qaRedirectEmail: string | null;
   standardHoursPerDay: number;
   workStartTime: string;
   workEndTime: string;
