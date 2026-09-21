@@ -11,16 +11,43 @@ import { LogExtraWorkModal } from '../../components/attendance/LogExtraWorkModal
 import { fmtDate, fmtDuration, fmtTime } from '../../lib/utils';
 import './Attendance.css';
 
+type DayEntry =
+  | { kind: 'record'; record: AttendanceRecordData }
+  | { kind: 'empty'; date: string; isWeekend: boolean };
+
 export function AttendancePage() {
   const [extraOpen, setExtraOpen] = useState(false);
   const now = new Date();
-  const { data } = useAttendanceHistory(now.getFullYear(), now.getMonth() + 1);
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const todayDate = now.getDate();
+
+  const { data } = useAttendanceHistory(year, month);
   const { data: balance } = useBalance();
 
   const attendance = useMemo(
     () => (data?.records ?? []).slice().sort((a, b) => (a.date < b.date ? 1 : -1)),
     [data]
   );
+
+  // Full month calendar from day 1 to today, filling empty days with virtual rows
+  const allDays = useMemo<DayEntry[]>(() => {
+    const byDate = new Map((data?.records ?? []).map((r) => [r.date, r]));
+    const entries: DayEntry[] = [];
+    for (let d = todayDate; d >= 1; d--) {
+      const ds = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const rec = byDate.get(ds);
+      if (rec) {
+        entries.push({ kind: 'record', record: rec });
+      } else {
+        // Use noon to avoid any local-midnight ambiguity when reading getDay()
+        const dow = new Date(`${ds}T12:00:00`).getDay();
+        // Bangladesh weekend: Friday (5) + Saturday (6)
+        entries.push({ kind: 'empty', date: ds, isWeekend: dow === 5 || dow === 6 });
+      }
+    }
+    return entries;
+  }, [data, year, month, todayDate]);
 
   const present = attendance.filter((a) => a.status === 'PRESENT').length;
   const absent = attendance.filter((a) => a.status === 'ABSENT').length;
@@ -130,14 +157,10 @@ export function AttendancePage() {
             <span>Status</span>
             <span>Location</span>
           </div>
-          {attendance.length === 0 ? (
-            <div className="atpg-row" style={{ gridTemplateColumns: '1fr', color: 'var(--color-text-muted)', padding: 24, justifyContent: 'center' }}>
-              No attendance records this month yet.
-            </div>
-          ) : (
-            attendance.map((a) => (
-              <AttendanceRow key={a.id} record={a} />
-            ))
+          {allDays.map((entry) =>
+            entry.kind === 'record'
+              ? <AttendanceRow key={entry.record.id} record={entry.record} />
+              : <EmptyDayRow key={entry.date} date={entry.date} isWeekend={entry.isWeekend} />
           )}
         </div>
       </div>
@@ -233,6 +256,23 @@ function LocEventRow({ event: e }: { event: LocationEventSummary }) {
       {e.durationMinutes != null && (
         <span className="atpg-loc-dur">{fmtDuration(e.durationMinutes)}</span>
       )}
+    </div>
+  );
+}
+
+function EmptyDayRow({ date, isWeekend }: { date: string; isWeekend: boolean }) {
+  return (
+    <div className="atpg-row" style={{ opacity: isWeekend ? 0.45 : 0.65 }}>
+      <span data-label="Date">{fmtDate(date, 'EEE, d MMM')}</span>
+      <span className="mono" data-label="Clock in" style={{ color: 'var(--color-text-muted)' }}>—</span>
+      <span className="mono" data-label="Clock out" style={{ color: 'var(--color-text-muted)' }}>—</span>
+      <span className="mono" data-label="Break" style={{ color: 'var(--color-text-muted)' }}>—</span>
+      <span className="mono" data-label="Worked" style={{ color: 'var(--color-text-muted)' }}>—</span>
+      <span className="mono" data-label="Overtime" style={{ color: 'var(--color-text-muted)' }}>—</span>
+      <span data-label="Status">
+        <StatusDot status={isWeekend ? 'WEEKEND' : 'ABSENT'} />
+      </span>
+      <span data-label="Location" style={{ color: 'var(--color-text-muted)', justifyContent: 'center', display: 'flex' }}>—</span>
     </div>
   );
 }

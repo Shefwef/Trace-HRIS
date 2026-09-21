@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Fingerprint, Server, Users, AlertCircle, Activity, Play, Plus, CheckCircle2, XCircle, Wifi, WifiOff } from 'lucide-react';
 import { api } from '@/lib/hooks';
-import { fmtDate, fmtTime } from '@/lib/utils';
+import { fmtDate, fmtTime, fmtDuration } from '@/lib/utils';
+import { localDayKey } from '@/lib/workday';
 import { Button } from '@/components/ui/Button';
 import { useCurrentUser } from '@/lib/session';
 import { checkPermissionSync } from '@/lib/permissionsMeta';
@@ -19,15 +20,15 @@ interface EmployeeRow {
   designation: string | null; employeeIdCode: string | null;
   biometricUserId: string | null;
 }
-interface PunchRow {
-  id: string; deviceSerial: string; deviceAlias: string;
-  deviceUserId: string; employeeName: string | null;
-  punchedAt: string; punchState: string;
-  verifyType: number | null; employeeId: string | null; appliedAt: string | null;
-}
 interface SyncLogRow {
   id: string; deviceId: string | null; startedAt: string;
   received: number; applied: number; duplicates: number; unmapped: number; error: string | null;
+}
+interface SessionRow {
+  employeeId: string; employeeName: string;
+  employeeIdCode: string | null; department: string | null;
+  clockInTime: string | null; clockOutTime: string | null;
+  totalWorkedMinutes: number; overtimeMinutes: number; status: string;
 }
 
 // ─── Hooks ───────────────────────────────────────────────
@@ -38,12 +39,14 @@ function useDevices() {
 function useEmployees() {
   return useQuery({ queryKey: ['biometric', 'employees'], queryFn: () => api<EmployeeRow[]>('/api/biometric/employees') });
 }
-function usePunches(deviceId?: string) {
-  const qs = deviceId ? `?deviceId=${deviceId}` : '';
-  return useQuery({ queryKey: ['biometric', 'punches', deviceId ?? 'all'], queryFn: () => api<PunchRow[]>(`/api/biometric/punches${qs}`) });
-}
 function useSyncLog() {
   return useQuery({ queryKey: ['biometric', 'sync-log'], queryFn: () => api<SyncLogRow[]>('/api/biometric/sync-log') });
+}
+function useSessions(date: string) {
+  return useQuery({
+    queryKey: ['biometric', 'sessions', date],
+    queryFn: () => api<SessionRow[]>(`/api/biometric/sessions?date=${date}`),
+  });
 }
 
 // ─── Main screen ─────────────────────────────────────────
@@ -294,31 +297,47 @@ function MappingTab({ canManage }: { canManage: boolean }) {
 
 // ─── Punches tab ─────────────────────────────────────────
 
-const STATE_LABEL: Record<string, string> = { '0': 'Clock In', '1': 'Clock Out' };
-const VERIFY_LABEL: Record<number, string> = { 1: 'Fingerprint', 2: 'PIN', 3: 'Card', 15: 'Face', 99: 'Simulated' };
+const STATUS_COLOR: Record<string, string> = {
+  PRESENT:  'var(--color-success)',
+  ABSENT:   'var(--color-danger)',
+  HALF_DAY: 'var(--color-warning)',
+  LEAVE:    'var(--color-info, #3182CE)',
+};
 
 function PunchesTab() {
-  const { data: punches, isLoading } = usePunches();
+  const [date, setDate] = useState(localDayKey());
+  const { data: sessions, isLoading } = useSessions(date);
+  const todayKey = localDayKey();
+
+  const COLS = ['Name', 'Employee ID', 'Department', 'Clock In', 'Clock Out', 'Total Work', 'Overtime'];
 
   return (
     <div className="card" style={{ overflow: 'hidden' }}>
-      <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--color-border-default)' }}>
-        <h3 style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 600 }}>Recent punches</h3>
-        <p className="muted" style={{ margin: '4px 0 0', fontSize: 'var(--text-sm)' }}>Last 100 punches across all devices. Unmapped ones have no employee name.</p>
+      <div style={{
+        padding: '14px 20px',
+        borderBottom: '1px solid var(--color-border-default)',
+        display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+      }}>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <h3 style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 600 }}>Daily attendance</h3>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: 'var(--text-sm)' }}>
+            Clock-in/out summary for all employees on the selected date.
+          </p>
+        </div>
+        <input
+          type="date"
+          className="form-input"
+          value={date}
+          max={todayKey}
+          onChange={(e) => setDate(e.target.value)}
+          style={{ width: 150 }}
+        />
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
         <thead>
           <tr style={{ background: 'var(--color-bg-subtle)', textAlign: 'left' }}>
-            {['Time', 'Device', 'Employee', 'Type', 'Method', 'Status'].map((h) => (
-              <th
-                key={h}
-                style={{
-                  padding: '10px 16px',
-                  paddingRight: h === 'Employee' ? 8 : undefined,
-                  paddingLeft: h === 'Type' ? 8 : undefined,
-                  fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--color-text-muted)', fontWeight: 600,
-                }}
-              >
+            {COLS.map((h) => (
+              <th key={h} style={{ padding: '10px 16px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--color-text-muted)', fontWeight: 600 }}>
                 {h}
               </th>
             ))}
@@ -326,40 +345,29 @@ function PunchesTab() {
         </thead>
         <tbody>
           {isLoading ? (
-            <tr><td colSpan={6} style={{ padding: 24, textAlign: 'center', color: 'var(--color-text-muted)' }}>Loading…</td></tr>
-          ) : !punches?.length ? (
-            <tr><td colSpan={6} style={{ padding: 24, textAlign: 'center', color: 'var(--color-text-muted)' }}>No punches received yet.</td></tr>
-          ) : punches.map((p) => (
-            <tr key={p.id} style={{ borderTop: '1px solid var(--color-border-default)' }}>
-              <td style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
-                {fmtDate(p.punchedAt, 'EEE d MMM')} {fmtTime(p.punchedAt)}
-              </td>
-              <td style={{ padding: '10px 16px', color: 'var(--color-text-secondary)' }}>{p.deviceAlias}</td>
-              <td style={{ padding: '10px 16px', paddingRight: 8 }}>
-                {p.employeeName ?? (
-                  <span style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>
-                    ID {p.deviceUserId}
-                  </span>
-                )}
-              </td>
-              <td style={{ padding: '10px 16px', paddingLeft: 8 }}>
-                <span style={{ color: p.punchState === '0' ? 'var(--color-success)' : 'var(--color-danger)', fontWeight: 500 }}>
-                  {STATE_LABEL[p.punchState] ?? p.punchState}
-                </span>
+            <tr><td colSpan={COLS.length} style={{ padding: 24, textAlign: 'center', color: 'var(--color-text-muted)' }}>Loading…</td></tr>
+          ) : !sessions?.length ? (
+            <tr><td colSpan={COLS.length} style={{ padding: 24, textAlign: 'center', color: 'var(--color-text-muted)' }}>No attendance records for this date.</td></tr>
+          ) : sessions.map((s) => (
+            <tr key={s.employeeId} style={{ borderTop: '1px solid var(--color-border-default)' }}>
+              <td style={{ padding: '10px 16px', fontWeight: 500 }}>{s.employeeName}</td>
+              <td style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                {s.employeeIdCode ?? <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
               </td>
               <td style={{ padding: '10px 16px', color: 'var(--color-text-secondary)' }}>
-                {p.verifyType != null ? (VERIFY_LABEL[p.verifyType] ?? `Type ${p.verifyType}`) : '—'}
+                {s.department ?? <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
               </td>
-              <td style={{ padding: '10px 16px' }}>
-                {p.employeeId ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--color-success)', fontSize: 'var(--text-xs)' }}>
-                    <CheckCircle2 size={12} /> Applied
-                  </span>
-                ) : (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--color-warning)', fontSize: 'var(--text-xs)' }}>
-                    <AlertCircle size={12} /> Unmapped
-                  </span>
-                )}
+              <td style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', color: s.clockInTime ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
+                {s.clockInTime ? fmtTime(s.clockInTime) : '—'}
+              </td>
+              <td style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', color: s.clockOutTime ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>
+                {s.clockOutTime ? fmtTime(s.clockOutTime) : '—'}
+              </td>
+              <td style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', fontWeight: s.totalWorkedMinutes > 0 ? 500 : undefined, color: s.totalWorkedMinutes > 0 ? undefined : 'var(--color-text-muted)' }}>
+                {s.totalWorkedMinutes > 0 ? fmtDuration(s.totalWorkedMinutes) : '—'}
+              </td>
+              <td style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', color: s.overtimeMinutes > 0 ? STATUS_COLOR.PRESENT : 'var(--color-text-muted)' }}>
+                {s.overtimeMinutes > 0 ? fmtDuration(s.overtimeMinutes) : '—'}
               </td>
             </tr>
           ))}
