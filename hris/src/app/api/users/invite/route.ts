@@ -27,10 +27,20 @@ export async function POST(req: Request) {
   const dedupedRoles = Array.from(new Set(input.roles));
   const primary = primaryRole(dedupedRoles);
 
-  // Check for existing user by email (in Clerk or in our DB)
+  // Pre-checks: email + employee ID must be unique in both our DB and Clerk.
   const existingDb = await prisma.user.findUnique({ where: { email: input.email } });
   if (existingDb)
     return err(409, 'ALREADY_EXISTS', 'A user with this email already exists.');
+
+  const existingByCode = await prisma.user.findUnique({
+    where: { employeeIdCode: input.employeeIdCode },
+  });
+  if (existingByCode)
+    return err(
+      409,
+      'EMPLOYEE_ID_TAKEN',
+      `Employee ID "${input.employeeIdCode}" is already assigned to ${existingByCode.fullName}. Pick a different ID.`,
+    );
 
   const existingClerk = await clerk.users.getUserList({ emailAddress: [input.email] });
   if (existingClerk.data.length > 0)
@@ -58,24 +68,45 @@ export async function POST(req: Request) {
   const cycleStartDate = new Date(year, input.cycleStartMonth - 1, 1);
   const cycleEndDate = new Date(year, input.cycleStartMonth - 1 + 12, 0);
 
-  await prisma.user.create({
-    data: {
-      id: clerkUser.id,
-      fullName: `${input.firstName}${input.lastName ? ' ' + input.lastName : ''}`.trim(),
-      email: input.email,
-      role: primary,
-      roles: dedupedRoles,
-      department: input.department || undefined,
-      designation: input.designation,
-      employeeIdCode: input.employeeIdCode,
-      cycleStartMonth: input.cycleStartMonth,
-      lineManagerId: input.lineManagerId,
-      phone: input.phone || undefined,
-      dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : undefined,
-      joiningDate: input.joiningDate ? new Date(input.joiningDate) : undefined,
-      avatarUrl: input.avatarUrl || undefined,
-    },
-  });
+  // Race-condition safety net: even after the pre-check above, a concurrent
+  // invite could race the same email/employeeIdCode. If the DB insert fails,
+  // roll back the Clerk user so we don't leave an orphan account that would
+  // then block every subsequent attempt with the same email.
+  try {
+    await prisma.user.create({
+      data: {
+        id: clerkUser.id,
+        fullName: `${input.firstName}${input.lastName ? ' ' + input.lastName : ''}`.trim(),
+        email: input.email,
+        role: primary,
+        roles: dedupedRoles,
+        department: input.department || undefined,
+        designation: input.designation,
+        employeeIdCode: input.employeeIdCode,
+        cycleStartMonth: input.cycleStartMonth,
+        lineManagerId: input.lineManagerId,
+        phone: input.phone || undefined,
+        dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : undefined,
+        joiningDate: input.joiningDate ? new Date(input.joiningDate) : undefined,
+        avatarUrl: input.avatarUrl || undefined,
+      },
+    });
+  } catch (dbErr: unknown) {
+    // Best-effort rollback of the Clerk user we just created.
+    await clerk.users.deleteUser(clerkUser.id).catch(() => { /* logged below */ });
+
+    const code = (dbErr as { code?: string })?.code;
+    const target = (dbErr as { meta?: { target?: string[] } })?.meta?.target;
+    if (code === 'P2002') {
+      if (target?.includes('employeeIdCode'))
+        return err(409, 'EMPLOYEE_ID_TAKEN', `Employee ID "${input.employeeIdCode}" is already in use.`);
+      if (target?.includes('email'))
+        return err(409, 'ALREADY_EXISTS', 'A user with this email already exists.');
+      return err(409, 'ALREADY_EXISTS', `Unique constraint hit on: ${target?.join(', ') ?? 'unknown field'}.`);
+    }
+    console.error('[POST /api/users/invite] DB insert failed, rolled back Clerk user', dbErr);
+    return err(500, 'INTERNAL', 'Could not create the employee. The Clerk account has been rolled back; you can retry.');
+  }
 
   await prisma.leaveBalance.create({
     data: {
