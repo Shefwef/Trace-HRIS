@@ -78,6 +78,20 @@ export function monthRange(year: number, month: number): { from: Date; to: Date 
 }
 
 /**
+ * Combine a local dayKey ("YYYY-MM-DD") with a wall-clock "HH:mm" time and
+ * return the corresponding UTC instant. Used to turn the office `workEndTime`
+ * setting into a comparable Date for overtime calculations.
+ *
+ * Example: dayKey="2026-09-21", time="17:30", APP_TZ="Asia/Dhaka" →
+ *          2026-09-21T11:30:00Z (17:30 Dhaka).
+ */
+export function localTimeOnDayToUtc(dayKey: string, time: string): Date {
+  const { start } = localDayBounds(dayKey); // local midnight, as a UTC Date
+  const [h = 0, m = 0] = time.split(':').map(Number);
+  return new Date(start.getTime() + (h * 60 + m) * 60_000);
+}
+
+/**
  * UTC instants bounding an office-local day — for querying `DateTime` columns
  * (as opposed to `@db.Date`) such as `WorkLocationEvent.startedAt`.
  */

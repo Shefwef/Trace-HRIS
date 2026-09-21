@@ -10,7 +10,7 @@
  * We parse it in that zone and convert to UTC before any DB write.
  */
 import { prisma } from './db';
-import { localDateOnly, localDayBounds } from './workday';
+import { localDateOnly, localDayBounds, localTimeOnDayToUtc } from './workday';
 
 export interface RawPunch {
   deviceUserId: string;
@@ -212,17 +212,18 @@ export async function ingestPunches(input: IngestInput): Promise<IngestResult> {
 
 // ─── Attendance rebuild ────────────────────────────────────
 
-/** Standard workday, minutes; anything beyond this counts as overtime. */
-const WORK_DAY_MINUTES = 8 * 60;
-
 /**
  * Recomputes one attendance record from every biometric punch belonging to
  * `employeeId` on the local `date`. Never touches MANUAL records.
  *
- * Rule: **earliest punch of the day = clock-in, latest punch = clock-out.**
- * No time-of-day heuristic. If there's only one punch on the day it's treated
- * as the clock-in (the employee is presumed still at work / didn't tap out),
- * and clock-out is left blank.
+ * Rules:
+ *   * clockIn  = earliest stored punch of the day
+ *   * clockOut = latest stored punch of the day (null when there's only one tap)
+ *   * totalWorked = clockOut − clockIn
+ *   * overtime  = clockOut − workEndTime (0 when clockOut ≤ workEndTime)
+ *
+ * `workEndTime` is read from SystemSettings each call so admins can change
+ * the office end-of-day (e.g. 17:30) and future rebuilds pick it up.
  */
 async function rebuildAttendanceDay(
   employeeId: string,
@@ -252,7 +253,17 @@ async function rebuildAttendanceDay(
   const totalWorkedMinutes = clockIn && clockOut
     ? Math.max(0, Math.round((clockOut.getTime() - clockIn.getTime()) / 60_000))
     : 0;
-  const overtimeMinutes = Math.max(0, totalWorkedMinutes - WORK_DAY_MINUTES);
+
+  // Overtime is the tail beyond the office end-of-day, not total hours over 8.
+  const settings = await prisma.systemSettings.upsert({
+    where: { id: 'singleton' },
+    update: {},
+    create: { id: 'singleton' },
+  });
+  const workEndUtc = localTimeOnDayToUtc(dayKey, settings.workEndTime);
+  const overtimeMinutes = clockOut && clockOut > workEndUtc
+    ? Math.round((clockOut.getTime() - workEndUtc.getTime()) / 60_000)
+    : 0;
 
   const existing = await prisma.attendanceRecord.findUnique({
     where: { employeeId_date: { employeeId, date } },

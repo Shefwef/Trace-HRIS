@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { requireAuth, err, parseBody } from '@/lib/api';
-import { localDateOnly } from '@/lib/workday';
+import { localDateOnly, localDayKey, localTimeOnDayToUtc } from '@/lib/workday';
 import { closeOpenPeriodOnClockOut } from '@/lib/workLocation';
 
 const Body = z
@@ -15,8 +15,8 @@ const Body = z
 
 /**
  * POST /api/attendance/clock-out
- *   Ends the current session. Auto-closes any open break session.
- *   Computes worked minutes + break minutes + overtime beyond 8h.
+ *   Ends the current session. Auto-closes any open break session. Computes
+ *   worked minutes + break minutes + overtime beyond the office end-of-day.
  */
 export async function POST(req: Request) {
   const [user, error] = await requireAuth(req);
@@ -47,7 +47,6 @@ export async function POST(req: Request) {
     update: {},
     create: { id: 'singleton' },
   });
-  const standardMinutes = settings.standardHoursPerDay * 60;
 
   // Close any open break. Computed here, written inside the transaction below
   // so a failure can't leave a closed break on a still-open session.
@@ -59,7 +58,14 @@ export async function POST(req: Request) {
   const totalBreakMinutes = record.totalBreakMinutes + addedBreakMinutes;
   const rawMinutes = Math.round((now.getTime() - record.clockInTime.getTime()) / 60000);
   const totalWorkedMinutes = Math.max(0, rawMinutes - totalBreakMinutes);
-  const overtimeMinutes = Math.max(0, totalWorkedMinutes - standardMinutes);
+
+  // Overtime = time worked past the office end-of-day (settings.workEndTime),
+  // not "worked beyond 8h". Someone clocking out at 6:30 PM when workEndTime
+  // is 17:30 gets exactly 1h of overtime regardless of arrival time.
+  const workEndUtc = localTimeOnDayToUtc(localDayKey(now), settings.workEndTime);
+  const overtimeMinutes = now > workEndUtc
+    ? Math.round((now.getTime() - workEndUtc.getTime()) / 60_000)
+    : 0;
 
   const location = await prisma.$transaction(async (tx) => {
     if (openBreak) {
