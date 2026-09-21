@@ -210,35 +210,25 @@ export async function ingestPunches(input: IngestInput): Promise<IngestResult> {
   return result;
 }
 
-// ─── Time-of-day attendance rebuild ────────────────────────
+// ─── Attendance rebuild ────────────────────────────────────
 
-/** Hour boundary between clock-in and clock-out. Matches ZKBioTime's setting. */
-const CLOCK_OUT_HOUR = 11;
 /** Standard workday, minutes; anything beyond this counts as overtime. */
 const WORK_DAY_MINUTES = 8 * 60;
-
-/** Local wall-clock hour (0–23) of a UTC instant in the given IANA zone. */
-function getLocalHour(at: Date, tz: string): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz, hour12: false, hour: '2-digit',
-  }).formatToParts(at);
-  return Number(parts.find((p) => p.type === 'hour')?.value ?? 0) % 24;
-}
 
 /**
  * Recomputes one attendance record from every biometric punch belonging to
  * `employeeId` on the local `date`. Never touches MANUAL records.
  *
- * Rule: punches before 11:00 local are clock-in candidates, at/after are
- * clock-out candidates; clockIn = earliest candidate, clockOut = latest
- * candidate. Works even when only one class exists (single tap in the morning
- * gives just a clockIn; a single evening tap gives just a clockOut).
+ * Rule: **earliest punch of the day = clock-in, latest punch = clock-out.**
+ * No time-of-day heuristic. If there's only one punch on the day it's treated
+ * as the clock-in (the employee is presumed still at work / didn't tap out),
+ * and clock-out is left blank.
  */
 async function rebuildAttendanceDay(
   employeeId: string,
   date: Date,
   deviceSerial: string | null,
-  tz: string,
+  _tz: string,
   isMock: boolean,
 ): Promise<void> {
   const dayKey = date.toISOString().slice(0, 10);
@@ -252,11 +242,12 @@ async function rebuildAttendanceDay(
 
   if (allPunches.length === 0) return;
 
-  const clockIns  = allPunches.filter((p) => getLocalHour(p.punchedAt, tz) <  CLOCK_OUT_HOUR);
-  const clockOuts = allPunches.filter((p) => getLocalHour(p.punchedAt, tz) >= CLOCK_OUT_HOUR);
+  const earliest = allPunches[0].punchedAt;
+  const latest   = allPunches[allPunches.length - 1].punchedAt;
 
-  const clockIn  = clockIns[0]?.punchedAt  ?? null;
-  const clockOut = clockOuts[clockOuts.length - 1]?.punchedAt ?? null;
+  const clockIn  = earliest;
+  // Single tap of the day → only a clock-in, no clock-out.
+  const clockOut = latest.getTime() === earliest.getTime() ? null : latest;
 
   const totalWorkedMinutes = clockIn && clockOut
     ? Math.max(0, Math.round((clockOut.getTime() - clockIn.getTime()) / 60_000))
