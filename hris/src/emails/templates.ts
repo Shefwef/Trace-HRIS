@@ -272,3 +272,66 @@ export function extraWorkDecisionEmail(input: {
     }),
   };
 }
+
+/**
+ * Welcome email sent to a newly-invited employee. Contains their login email,
+ * the initial password generated at invite time, and the sign-in URL.
+ * The password block uses monospace + a light background so it's easy to
+ * copy from any email client. Also sent as plain text for clients that
+ * strip HTML.
+ */
+export function welcomeInviteEmail(input: {
+  employeeName: string;
+  loginEmail: string;
+  initialPassword: string;
+  signInUrl: string;
+  inviterName: string;
+  designation?: string | null;
+}, s: Skin) {
+  const credsBlock = `
+    <div style="margin:18px 0;padding:16px 18px;background:#f7f9fc;border:1px solid #e2e8f0;border-radius:10px;">
+      <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#718096;font-weight:600;margin-bottom:10px;">Your sign-in credentials</div>
+      <div style="margin:4px 0;font-size:14px;"><strong style="color:#4a5568;">Email:</strong>
+        <span style="font-family:'SFMono-Regular',Menlo,Consolas,monospace;color:#1a202c;">${escape(input.loginEmail)}</span>
+      </div>
+      <div style="margin:4px 0;font-size:14px;"><strong style="color:#4a5568;">Password:</strong>
+        <span style="font-family:'SFMono-Regular',Menlo,Consolas,monospace;background:#edf2f7;padding:2px 8px;border-radius:4px;color:#1a202c;">${escape(input.initialPassword)}</span>
+      </div>
+    </div>`;
+
+  const content = `
+    ${p(`Hi ${input.employeeName},`)}
+    ${p(`Welcome to Trace! ${input.inviterName} has created an account for you on the Trace HRIS${input.designation ? ` as ${input.designation}` : ''}. You can now sign in and access your leaves, attendance, and profile.`)}
+    ${credsBlock}
+    ${p(`For your security, please change this password the first time you sign in — head to your profile from the top-right avatar menu after logging in.`)}
+    ${p(`If you weren't expecting this invitation, please let us know by replying to this email.`)}
+  `;
+
+  const text = [
+    `Hi ${input.employeeName},`,
+    ``,
+    `Welcome to Trace! ${input.inviterName} has created an account for you on the Trace HRIS${input.designation ? ` as ${input.designation}` : ''}.`,
+    ``,
+    `Your sign-in credentials:`,
+    `  Email:    ${input.loginEmail}`,
+    `  Password: ${input.initialPassword}`,
+    ``,
+    `Sign in here: ${input.signInUrl}`,
+    ``,
+    `For your security, please change this password the first time you sign in.`,
+    ``,
+    `If you weren't expecting this invitation, please let us know by replying to this email.`,
+  ].join('\n');
+
+  return {
+    subject: `Welcome to Trace HRIS — your account is ready`,
+    html: shell({
+      title: 'Welcome to Trace HRIS',
+      senderName: s.senderName,
+      content,
+      ctaLabel: 'Sign in to Trace HRIS',
+      ctaHref: input.signInUrl,
+    }),
+    text,
+  };
+}

@@ -5,6 +5,8 @@ import { requireAuth, parseBody, err } from '@/lib/api';
 import { checkPermission } from '@/lib/permissions';
 import { InviteEmployeeSchema } from '@/lib/validation';
 import { primaryRole, validateRoleAssignment } from '@/lib/roles';
+import { sendEmail } from '@/lib/email';
+import { welcomeInviteEmail } from '@/emails/templates';
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
 
@@ -96,6 +98,36 @@ export async function POST(req: Request) {
         department: input.department,
       },
     },
+  });
+
+  // Send welcome email with sign-in credentials. Fire-and-forget so a mail
+  // provider hiccup never blocks the invite response — the credentials are
+  // still returned in the API response for the inviter to hand off manually
+  // if needed, and every attempt is captured in emailLog for audit.
+  const settings = await prisma.systemSettings.upsert({
+    where: { id: 'singleton' },
+    update: {},
+    create: { id: 'singleton' },
+  });
+  const signInUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/sign-in`;
+  const { subject, html, text } = welcomeInviteEmail(
+    {
+      employeeName: input.firstName,
+      loginEmail: input.email,
+      initialPassword,
+      signInUrl,
+      inviterName: actor.fullName,
+      designation: input.designation,
+    },
+    { senderName: settings.senderName },
+  );
+  void sendEmail({
+    to: [input.email],
+    subject,
+    html,
+    text,
+    referenceType: 'user_invite',
+    referenceId: clerkUser.id,
   });
 
   return NextResponse.json(
