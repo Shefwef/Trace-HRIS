@@ -68,7 +68,8 @@ export function CalendarPage() {
           // not the day UTC happens to hold at midnight local time.
           const iso = format(d, 'yyyy-MM-dd');
           const weekday = d.getDay();
-          const isWeekend = weekday === 0 || weekday === 6;
+          // Bangladesh weekend: Friday (5) + Saturday (6).
+          const isWeekend = weekday === 5 || weekday === 6;
           const holiday = holidays.find((h) => h.date === iso);
           const leave = requests.find(
             (r) => r.status === 'APPROVED' && iso >= r.startDate && iso <= r.endDate
@@ -80,6 +81,7 @@ export function CalendarPage() {
             att?.status === 'HALF_DAY' ? 'calpg-cell-halfday' :
             att?.status === 'PRESENT' ? 'calpg-cell-present' :
             att?.status === 'ABSENT' ? 'calpg-cell-absent' :
+            isWeekend ? 'calpg-cell-weekend-day' :
             '';
           return (
             <div

@@ -48,7 +48,8 @@ export function MiniCalendar() {
     // ones the user sees, showing leaves on the wrong day.)
     const iso = format(d, 'yyyy-MM-dd');
     const weekday = d.getDay();
-    const isWeekend = weekday === 0 || weekday === 6;
+    // Bangladesh weekend: Friday (5) + Saturday (6).
+    const isWeekend = weekday === 5 || weekday === 6;
     const holiday = holidays.find((h) => h.date === iso);
     const approvedLeave = requests.find(
       (r) => r.status === 'APPROVED' && iso >= r.startDate && iso <= r.endDate
