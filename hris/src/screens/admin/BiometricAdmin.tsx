@@ -1,11 +1,12 @@
 'use client';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Fingerprint, Server, Users, AlertCircle, Activity, Play, Plus, CheckCircle2, XCircle, Wifi, WifiOff } from 'lucide-react';
+import { Fingerprint, Server, Users, AlertCircle, Activity, Play, Plus, CheckCircle2, XCircle, Wifi, WifiOff, ClipboardEdit } from 'lucide-react';
 import { api } from '@/lib/hooks';
 import { fmtDate, fmtTime, fmtDuration } from '@/lib/utils';
 import { localDayKey } from '@/lib/workday';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { useCurrentUser } from '@/lib/session';
 import { checkPermissionSync } from '@/lib/permissionsMeta';
 
@@ -394,6 +395,7 @@ function PunchesTab() {
   const [preset, setPreset] = useState<Preset>('today');
   const [customFrom, setCustomFrom] = useState(todayKey);
   const [customTo, setCustomTo]     = useState(todayKey);
+  const [manualOpen, setManualOpen] = useState(false);
 
   const { from, to } = rangeForPreset(preset, customFrom, customTo);
   const rangeValid = from <= to;
@@ -483,18 +485,33 @@ function PunchesTab() {
           />
 
           {canManage && (
-            <Button
-              variant="secondary"
-              size="sm"
-              loading={rebuild.isPending}
-              onClick={() => rebuild.mutate()}
-              title="Recompute attendance from stored biometric punches (safe — never overwrites manual records)"
-            >
-              Recompute
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                leadingIcon={<ClipboardEdit size={14} />}
+                onClick={() => setManualOpen(true)}
+                title="Record a missed clock-in / clock-out on someone's behalf. Overrides any biometric record for that day."
+              >
+                Manual entry
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={rebuild.isPending}
+                onClick={() => rebuild.mutate()}
+                title="Recompute attendance from stored biometric punches (safe — never overwrites manual records)"
+              >
+                Recompute
+              </Button>
+            </>
           )}
         </div>
       </div>
+
+      {canManage && (
+        <ManualPunchModal open={manualOpen} onClose={() => setManualOpen(false)} defaultDate={todayKey} />
+      )}
 
       {rebuild.data && (
         <div style={{ padding: '8px 20px', background: 'var(--color-bg-subtle)', fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>
@@ -686,5 +703,156 @@ function SyncLogTab() {
         </tbody>
       </table>
     </div>
+  );
+}
+
+// ─── Manual punch modal (HR/Admin override) ─────────────
+
+function ManualPunchModal({
+  open,
+  onClose,
+  defaultDate,
+}: {
+  open: boolean;
+  onClose: () => void;
+  defaultDate: string;
+}) {
+  const qc = useQueryClient();
+  const { data: employees } = useEmployees();
+  const [employeeId, setEmployeeId] = useState('');
+  const [date, setDate] = useState(defaultDate);
+  const [clockIn, setClockIn] = useState('');
+  const [clockOut, setClockOut] = useState('');
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  // Reset when reopened so a stale entry doesn't leak between sessions.
+  const reset = () => {
+    setEmployeeId(''); setDate(defaultDate);
+    setClockIn(''); setClockOut(''); setReason(''); setError(null);
+  };
+
+  const save = useMutation({
+    mutationFn: () =>
+      api<{ ok: true }>('/api/biometric/manual-punch', {
+        method: 'POST',
+        body: JSON.stringify({
+          employeeId,
+          date,
+          clockIn: clockIn || undefined,
+          clockOut: clockOut || undefined,
+          reason,
+        }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['biometric', 'sessions'] });
+      qc.invalidateQueries({ queryKey: ['attendance'] });
+      onClose();
+      reset();
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  const canSubmit =
+    !!employeeId && !!date && (!!clockIn || !!clockOut) && reason.trim().length >= 3 && !save.isPending;
+
+  return (
+    <Modal
+      open={open}
+      onClose={() => { onClose(); reset(); }}
+      title="Manual attendance entry"
+      size="md"
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => { onClose(); reset(); }}>Cancel</Button>
+          <Button
+            variant="primary"
+            loading={save.isPending}
+            disabled={!canSubmit}
+            onClick={() => { setError(null); save.mutate(); }}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <p className="muted" style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+          Use this when someone forgot to tap or the device missed a punch. The
+          record is saved with source <code>MANUAL</code> and will not be
+          overwritten by later biometric recomputes.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label className="form-label">Employee</label>
+          <select
+            className="form-input"
+            value={employeeId}
+            onChange={(e) => setEmployeeId(e.target.value)}
+          >
+            <option value="">— Select employee —</option>
+            {employees?.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.fullName}{e.employeeIdCode ? ` (${e.employeeIdCode})` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label className="form-label">Date</label>
+          <input
+            type="date"
+            className="form-input"
+            value={date}
+            max={defaultDate}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label className="form-label">Clock in</label>
+            <input
+              type="time"
+              className="form-input"
+              value={clockIn}
+              onChange={(e) => setClockIn(e.target.value)}
+            />
+          </div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label className="form-label">Clock out</label>
+            <input
+              type="time"
+              className="form-input"
+              value={clockOut}
+              onChange={(e) => setClockOut(e.target.value)}
+            />
+          </div>
+        </div>
+        <p className="muted" style={{ margin: '-4px 0 0', fontSize: 'var(--text-xs)' }}>
+          Leave one blank to only set the other side. Blank fields keep any
+          existing value for that day.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label className="form-label">Reason</label>
+          <input
+            type="text"
+            className="form-input"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. Forgot to tap at entrance"
+            maxLength={200}
+          />
+        </div>
+
+        {error && (
+          <div style={{ padding: 10, background: 'var(--color-danger-light, #FEF2F2)', color: 'var(--color-danger)', borderRadius: 8, fontSize: 13 }}>
+            {error}
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }
