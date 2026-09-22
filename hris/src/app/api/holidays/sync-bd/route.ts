@@ -6,11 +6,11 @@ import { holidaysForYear } from '@/lib/bdHolidays';
 
 /**
  * POST /api/holidays/sync-bd?year=YYYY
- * Seeds the fixed Bangladesh public holidays (Independence Day, Victory Day,
- * Pahela Baishakh, etc.) for the given year. Idempotent — a holiday with the
- * same (name, date) is skipped rather than duplicated. Moon-dependent
- * Islamic and Hindu holidays are NOT included; add them manually as the
- * Ministry gazette confirms each year.
+ * Seeds Bangladesh public holidays for the given year from Google's official
+ * "Holidays in Bangladesh" ICS feed — includes fixed dates AND moon-dependent
+ * Islamic/Hindu observances (Eids, Puja, Ashura, etc.). Falls back to a
+ * hardcoded fixed-date list if the Google fetch fails. Idempotent — a holiday
+ * with the same (name, date) is skipped rather than duplicated.
  */
 export async function POST(req: Request) {
   const [user, error] = await requireAuth(req);
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
   if (!Number.isInteger(year) || year < 2000 || year > 3000)
     return err(400, 'BAD_YEAR', 'Invalid year.');
 
-  const seed = holidaysForYear(year);
+  const seed = await holidaysForYear(year);
 
   const from = new Date(Date.UTC(year, 0, 1));
   const to = new Date(Date.UTC(year + 1, 0, 1));
@@ -81,6 +81,6 @@ export async function POST(req: Request) {
     year,
     created: toCreate.length,
     skipped: seed.length - toCreate.length,
-    message: `Added ${toCreate.length} fixed BD holidays for ${year}. Add lunar-calendar holidays (Eids, Puja, etc.) manually as the Ministry gazette confirms them.`,
+    message: `Added ${toCreate.length} BD holidays for ${year} from Google's official calendar (includes Eids, Puja, and other moon-dependent dates).`,
   });
 }

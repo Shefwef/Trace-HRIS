@@ -114,7 +114,7 @@ export function HolidayManager() {
                 onError: (e: Error) => addToast({ kind: 'error', title: 'Sync failed', body: e.message }),
               });
             }}
-            title="Add Bangladesh government fixed-date holidays for the current year (Independence Day, Victory Day, Pahela Baishakh, etc.). Lunar-calendar holidays still need to be added manually."
+            title="Sync Bangladesh public holidays for the current year from Google's official BD holiday calendar. Covers both fixed dates (Independence Day, Victory Day, etc.) and moon-dependent ones (Eids, Puja, Ashura)."
           >
             Sync BD holidays
           </Button>
