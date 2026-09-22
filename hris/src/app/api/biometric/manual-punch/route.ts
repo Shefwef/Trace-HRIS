@@ -5,6 +5,13 @@ import { requireAuth, err, parseBody } from '@/lib/api';
 import { checkPermission } from '@/lib/permissions';
 import { dayKeyToDateOnly, localTimeOnDayToUtc } from '@/lib/workday';
 
+function standardMinutesFromWindow(workStartTime: string, workEndTime: string): number {
+  const [sh, sm] = workStartTime.split(':').map(Number);
+  const [eh, em] = workEndTime.split(':').map(Number);
+  const diff = (eh * 60 + em) - (sh * 60 + sm);
+  return diff > 0 ? diff : 0;
+}
+
 /**
  * HR/Admin override for a missed biometric punch. Writes an AttendanceRecord
  * directly with source=MANUAL, so the biometric rebuild loop (which skips
@@ -31,6 +38,38 @@ const ManualPunchSchema = z
     path: ['clockOut'],
   });
 
+/**
+ * GET /api/biometric/manual-punch?employeeId=…&date=YYYY-MM-DD
+ * Look up what's already recorded so the modal can disable inputs for
+ * fields the admin isn't allowed to overwrite.
+ */
+export async function GET(req: Request) {
+  const [actor, error] = await requireAuth(req);
+  if (error) return error;
+
+  const hasPerm = await checkPermission(actor, 'biometric.manage');
+  if (!hasPerm) return err(403, 'FORBIDDEN', 'biometric.manage required.');
+
+  const url = new URL(req.url);
+  const employeeId = url.searchParams.get('employeeId');
+  const date = url.searchParams.get('date');
+  if (!employeeId || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return err(400, 'BAD_INPUT', 'employeeId and date=YYYY-MM-DD are required.');
+  }
+
+  const dateOnly = dayKeyToDateOnly(date);
+  const rec = await prisma.attendanceRecord.findUnique({
+    where: { employeeId_date: { employeeId, date: dateOnly } },
+    select: { clockInTime: true, clockOutTime: true, source: true },
+  });
+
+  return NextResponse.json({
+    clockInTime:  rec?.clockInTime?.toISOString() ?? null,
+    clockOutTime: rec?.clockOutTime?.toISOString() ?? null,
+    source: rec?.source ?? null,
+  });
+}
+
 export async function POST(req: Request) {
   const [actor, error] = await requireAuth(req);
   if (error) return error;
@@ -56,8 +95,26 @@ export async function POST(req: Request) {
     where: { employeeId_date: { employeeId: employee.id, date: dateOnly } },
   });
 
-  const nextClockIn  = clockInUtc  ?? existing?.clockInTime  ?? null;
-  const nextClockOut = clockOutUtc ?? existing?.clockOutTime ?? null;
+  // Manual entry only FILLS missing slots — it never overwrites an existing
+  // clock-in or clock-out (biometric or otherwise). If the day already has
+  // a value on the same side that's being submitted, reject.
+  if (clockInUtc && existing?.clockInTime && clockInUtc.getTime() !== existing.clockInTime.getTime()) {
+    return err(
+      409,
+      'CLOCK_IN_LOCKED',
+      'Clock-in is already registered for this day and cannot be changed. Only missing fields can be filled.',
+    );
+  }
+  if (clockOutUtc && existing?.clockOutTime && clockOutUtc.getTime() !== existing.clockOutTime.getTime()) {
+    return err(
+      409,
+      'CLOCK_OUT_LOCKED',
+      'Clock-out is already registered for this day and cannot be changed. Only missing fields can be filled.',
+    );
+  }
+
+  const nextClockIn  = existing?.clockInTime  ?? clockInUtc  ?? null;
+  const nextClockOut = existing?.clockOutTime ?? clockOutUtc ?? null;
 
   const totalWorkedMinutes = nextClockIn && nextClockOut
     ? Math.max(0, Math.round((nextClockOut.getTime() - nextClockIn.getTime()) / 60_000))
@@ -68,10 +125,9 @@ export async function POST(req: Request) {
     update: {},
     create: { id: 'singleton' },
   });
-  const workEndUtc = localTimeOnDayToUtc(input.date, settings.workEndTime);
-  const overtimeMinutes = nextClockOut && nextClockOut > workEndUtc
-    ? Math.round((nextClockOut.getTime() - workEndUtc.getTime()) / 60_000)
-    : 0;
+  const standardMinutes = standardMinutesFromWindow(settings.workStartTime, settings.workEndTime);
+  const overtimeMinutes = nextClockOut ? Math.max(0, totalWorkedMinutes - standardMinutes) : 0;
+  const deficitMinutes  = nextClockOut ? Math.max(0, standardMinutes - totalWorkedMinutes) : 0;
 
   const noteLine = `Manual ${input.clockIn ? 'clock-in' : ''}${input.clockIn && input.clockOut ? '/' : ''}${input.clockOut ? 'clock-out' : ''} by ${actor.fullName}: ${input.reason}`;
 
@@ -84,6 +140,7 @@ export async function POST(req: Request) {
       clockOutTime: nextClockOut,
       totalWorkedMinutes,
       overtimeMinutes,
+      deficitMinutes,
       status: 'PRESENT',
       source: 'MANUAL',
       notes: noteLine,
@@ -93,6 +150,7 @@ export async function POST(req: Request) {
       clockOutTime: nextClockOut,
       totalWorkedMinutes,
       overtimeMinutes,
+      deficitMinutes,
       status: 'PRESENT',
       source: 'MANUAL',
       notes: existing?.notes ? `${existing.notes}\n${noteLine}` : noteLine,

@@ -10,7 +10,22 @@
  * We parse it in that zone and convert to UTC before any DB write.
  */
 import { prisma } from './db';
-import { localDateOnly, localDayBounds, localTimeOnDayToUtc } from './workday';
+import { localDateOnly, localDayBounds } from './workday';
+
+/**
+ * Minutes in a scheduled workday derived from the office window.
+ * `workStartTime`/`workEndTime` are "HH:mm" strings in office-local time.
+ * A 08:30 → 17:30 window yields 540 minutes (9 h) — the value used to
+ * split worked time into overtime vs deficit.
+ */
+function standardMinutesFromWindow(workStartTime: string, workEndTime: string): number {
+  const [sh, sm] = workStartTime.split(':').map(Number);
+  const [eh, em] = workEndTime.split(':').map(Number);
+  const startMin = sh * 60 + sm;
+  const endMin = eh * 60 + em;
+  const diff = endMin - startMin;
+  return diff > 0 ? diff : 0;
+}
 
 export interface RawPunch {
   deviceUserId: string;
@@ -220,10 +235,9 @@ export async function ingestPunches(input: IngestInput): Promise<IngestResult> {
  *   * clockIn  = earliest stored punch of the day
  *   * clockOut = latest stored punch of the day (null when there's only one tap)
  *   * totalWorked = clockOut − clockIn
- *   * overtime  = clockOut − workEndTime (0 when clockOut ≤ workEndTime)
- *
- * `workEndTime` is read from SystemSettings each call so admins can change
- * the office end-of-day (e.g. 17:30) and future rebuilds pick it up.
+ *   * standard  = workEndTime − workStartTime (from SystemSettings)
+ *   * overtime  = max(0, worked − standard)
+ *   * deficit   = max(0, standard − worked)  (only when both taps exist)
  */
 async function rebuildAttendanceDay(
   employeeId: string,
@@ -231,7 +245,7 @@ async function rebuildAttendanceDay(
   deviceSerial: string | null,
   _tz: string,
   isMock: boolean,
-  cachedWorkEndTime?: string,
+  cachedStandardMinutes?: number,
 ): Promise<void> {
   const dayKey = date.toISOString().slice(0, 10);
   const { start, end } = localDayBounds(dayKey);
@@ -255,15 +269,21 @@ async function rebuildAttendanceDay(
     ? Math.max(0, Math.round((clockOut.getTime() - clockIn.getTime()) / 60_000))
     : 0;
 
-  // Overtime is the tail beyond the office end-of-day, not total hours over 8.
-  const workEndTime = cachedWorkEndTime ?? (await prisma.systemSettings.upsert({
-    where: { id: 'singleton' },
-    update: {},
-    create: { id: 'singleton' },
-  })).workEndTime;
-  const workEndUtc = localTimeOnDayToUtc(dayKey, workEndTime);
-  const overtimeMinutes = clockOut && clockOut > workEndUtc
-    ? Math.round((clockOut.getTime() - workEndUtc.getTime()) / 60_000)
+  let standardMinutes = cachedStandardMinutes ?? 0;
+  if (cachedStandardMinutes === undefined) {
+    const s = await prisma.systemSettings.upsert({
+      where: { id: 'singleton' },
+      update: {},
+      create: { id: 'singleton' },
+    });
+    standardMinutes = standardMinutesFromWindow(s.workStartTime, s.workEndTime);
+  }
+
+  const overtimeMinutes = clockOut
+    ? Math.max(0, totalWorkedMinutes - standardMinutes)
+    : 0;
+  const deficitMinutes = clockOut
+    ? Math.max(0, standardMinutes - totalWorkedMinutes)
     : 0;
 
   const existing = await prisma.attendanceRecord.findUnique({
@@ -281,6 +301,7 @@ async function rebuildAttendanceDay(
         clockOutTime: clockOut,
         totalWorkedMinutes,
         overtimeMinutes,
+        deficitMinutes,
         status: 'PRESENT',
         source: isMock ? 'MOCK' : 'BIOMETRIC',
         ...(deviceSerial ? { biometricDeviceId: deviceSerial } : {}),
@@ -295,6 +316,7 @@ async function rebuildAttendanceDay(
         clockOutTime: clockOut,
         totalWorkedMinutes,
         overtimeMinutes,
+        deficitMinutes,
         status: 'PRESENT',
         source: isMock ? 'MOCK' : 'BIOMETRIC',
         ...(deviceSerial ? { biometricDeviceId: deviceSerial } : {}),
@@ -389,6 +411,7 @@ async function doRebuildAttendanceRange(
     update: {},
     create: { id: 'singleton' },
   });
+  const standardMinutes = standardMinutesFromWindow(settings.workStartTime, settings.workEndTime);
 
   const allEmployeeIds = [...new Set([...dayMap.values()].map((d) => d.employeeId))];
   const allDates = [...new Set([...dayMap.values()].map((d) => d.date.toISOString()))].map(
@@ -434,13 +457,13 @@ async function doRebuildAttendanceRange(
   const toCreate: Array<{
     employeeId: string; date: Date;
     clockInTime: Date; clockOutTime: Date | null;
-    totalWorkedMinutes: number; overtimeMinutes: number;
+    totalWorkedMinutes: number; overtimeMinutes: number; deficitMinutes: number;
     status: 'PRESENT'; source: 'BIOMETRIC';
   }> = [];
   const toUpdate: Array<{
     id: string;
     clockInTime: Date; clockOutTime: Date | null;
-    totalWorkedMinutes: number; overtimeMinutes: number;
+    totalWorkedMinutes: number; overtimeMinutes: number; deficitMinutes: number;
   }> = [];
 
   for (const { employeeId, date } of dayMap.values()) {
@@ -460,17 +483,15 @@ async function doRebuildAttendanceRange(
       ? Math.max(0, Math.round((clockOut.getTime() - clockIn.getTime()) / 60_000))
       : 0;
 
-    const workEndUtc = localTimeOnDayToUtc(date.toISOString().slice(0, 10), settings.workEndTime);
-    const overtimeMinutes = clockOut && clockOut > workEndUtc
-      ? Math.round((clockOut.getTime() - workEndUtc.getTime()) / 60_000)
-      : 0;
+    const overtimeMinutes = clockOut ? Math.max(0, totalWorkedMinutes - standardMinutes) : 0;
+    const deficitMinutes  = clockOut ? Math.max(0, standardMinutes - totalWorkedMinutes) : 0;
 
     if (existing) {
-      toUpdate.push({ id: existing.id, clockInTime: clockIn, clockOutTime: clockOut, totalWorkedMinutes, overtimeMinutes });
+      toUpdate.push({ id: existing.id, clockInTime: clockIn, clockOutTime: clockOut, totalWorkedMinutes, overtimeMinutes, deficitMinutes });
     } else {
       toCreate.push({
         employeeId, date, clockInTime: clockIn, clockOutTime: clockOut,
-        totalWorkedMinutes, overtimeMinutes, status: 'PRESENT', source: 'BIOMETRIC',
+        totalWorkedMinutes, overtimeMinutes, deficitMinutes, status: 'PRESENT', source: 'BIOMETRIC',
       });
     }
   }
@@ -486,6 +507,7 @@ async function doRebuildAttendanceRange(
         clockOutTime: u.clockOutTime,
         totalWorkedMinutes: u.totalWorkedMinutes,
         overtimeMinutes: u.overtimeMinutes,
+        deficitMinutes: u.deficitMinutes,
         status: 'PRESENT',
         source: 'BIOMETRIC',
       },

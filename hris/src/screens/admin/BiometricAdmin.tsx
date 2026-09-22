@@ -30,7 +30,7 @@ interface SessionRow {
   employeeId: string; employeeName: string;
   employeeIdCode: string | null; department: string | null;
   clockInTime: string | null; clockOutTime: string | null;
-  totalWorkedMinutes: number; overtimeMinutes: number; status: string;
+  totalWorkedMinutes: number; overtimeMinutes: number; deficitMinutes: number; status: string;
 }
 
 // ─── Hooks ───────────────────────────────────────────────
@@ -418,8 +418,8 @@ function PunchesTab() {
 
   const showDateCol = from !== to;
   const cols = showDateCol
-    ? ['Date', 'Name', 'Employee ID', 'Department', 'Clock In', 'Clock Out', 'Total Work', 'Overtime']
-    : ['Name', 'Employee ID', 'Department', 'Clock In', 'Clock Out', 'Total Work', 'Overtime'];
+    ? ['Date', 'Name', 'Employee ID', 'Department', 'Clock In', 'Clock Out', 'Total Work', 'Overtime', 'Deficit']
+    : ['Name', 'Employee ID', 'Department', 'Clock In', 'Clock Out', 'Total Work', 'Overtime', 'Deficit'];
 
   const headerLabel = from === to
     ? fmtDate(`${from}T12:00:00`, 'EEEE · d MMM yyyy')
@@ -491,7 +491,7 @@ function PunchesTab() {
                 size="sm"
                 leadingIcon={<ClipboardEdit size={14} />}
                 onClick={() => setManualOpen(true)}
-                title="Record a missed clock-in / clock-out on someone's behalf. Overrides any biometric record for that day."
+                title="Fill in a missed clock-in or clock-out. Cannot edit an already-registered value — only blank sides can be filled."
               >
                 Manual entry
               </Button>
@@ -565,6 +565,9 @@ function PunchesTab() {
               </td>
               <td style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', color: s.overtimeMinutes > 0 ? STATUS_COLOR.PRESENT : 'var(--color-text-muted)' }}>
                 {s.overtimeMinutes > 0 ? fmtDuration(s.overtimeMinutes) : '—'}
+              </td>
+              <td style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', color: s.deficitMinutes > 0 ? STATUS_COLOR.ABSENT : 'var(--color-text-muted)' }}>
+                {s.deficitMinutes > 0 ? fmtDuration(s.deficitMinutes) : '—'}
               </td>
             </tr>
           ))}
@@ -727,6 +730,25 @@ function ManualPunchModal({
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // Look up whichever fields are already filled on this (employee, date) so
+  // the modal can lock the corresponding inputs. Manual entry only fills
+  // blanks — an existing clock-in or clock-out can never be edited here.
+  const existing = useQuery({
+    queryKey: ['biometric', 'manual-punch', employeeId, date],
+    enabled: !!employeeId && !!date,
+    queryFn: () =>
+      api<{ clockInTime: string | null; clockOutTime: string | null; source: string | null }>(
+        `/api/biometric/manual-punch?employeeId=${employeeId}&date=${date}`,
+      ),
+  });
+  const clockInLocked  = !!existing.data?.clockInTime;
+  const clockOutLocked = !!existing.data?.clockOutTime;
+
+  const fmtLockedTime = (iso: string) => {
+    const d = new Date(iso);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
   // Reset when reopened so a stale entry doesn't leak between sessions.
   const reset = () => {
     setEmployeeId(''); setDate(defaultDate);
@@ -740,22 +762,30 @@ function ManualPunchModal({
         body: JSON.stringify({
           employeeId,
           date,
-          clockIn: clockIn || undefined,
-          clockOut: clockOut || undefined,
+          // Never resubmit a locked side — the server rejects it anyway.
+          clockIn:  clockInLocked  ? undefined : (clockIn  || undefined),
+          clockOut: clockOutLocked ? undefined : (clockOut || undefined),
           reason,
         }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['biometric', 'sessions'] });
       qc.invalidateQueries({ queryKey: ['attendance'] });
+      qc.invalidateQueries({ queryKey: ['biometric', 'manual-punch'] });
       onClose();
       reset();
     },
     onError: (e: Error) => setError(e.message),
   });
 
+  // At least one *unlocked* side must have a value. If both are locked there's
+  // nothing to fill, so submit is disabled.
+  const willFillClockIn  = !clockInLocked  && !!clockIn;
+  const willFillClockOut = !clockOutLocked && !!clockOut;
   const canSubmit =
-    !!employeeId && !!date && (!!clockIn || !!clockOut) && reason.trim().length >= 3 && !save.isPending;
+    !!employeeId && !!date &&
+    (willFillClockIn || willFillClockOut) &&
+    reason.trim().length >= 3 && !save.isPending;
 
   return (
     <Modal
@@ -779,9 +809,11 @@ function ManualPunchModal({
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <p className="muted" style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
-          Use this when someone forgot to tap or the device missed a punch. The
-          record is saved with source <code>MANUAL</code> and will not be
-          overwritten by later biometric recomputes.
+          Use this when someone forgot to tap or the device missed a punch. Only
+          missing sides can be filled — if the day already has a clock-in or
+          clock-out, that side is locked. The record is saved with source
+          <code>MANUAL</code> and will not be overwritten by later biometric
+          recomputes.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -811,29 +843,57 @@ function ManualPunchModal({
           />
         </div>
 
-        <div style={{ display: 'flex', gap: 12 }}>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label className="form-label">Clock in</label>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <label className="form-label" style={{ marginBottom: 0 }}>Clock in</label>
+            <span
+              style={{
+                fontSize: 'var(--text-xs)',
+                color: 'var(--color-text-muted)',
+                minHeight: 16,
+                lineHeight: '16px',
+              }}
+            >
+              {clockInLocked
+                ? `· already registered (${fmtLockedTime(existing.data!.clockInTime!)})`
+                : ' '}
+            </span>
             <input
               type="time"
               className="form-input"
-              value={clockIn}
+              value={clockInLocked ? fmtLockedTime(existing.data!.clockInTime!) : clockIn}
               onChange={(e) => setClockIn(e.target.value)}
+              disabled={clockInLocked}
+              title={clockInLocked ? 'Clock-in is already registered and cannot be changed.' : ''}
             />
           </div>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label className="form-label">Clock out</label>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <label className="form-label" style={{ marginBottom: 0 }}>Clock out</label>
+            <span
+              style={{
+                fontSize: 'var(--text-xs)',
+                color: 'var(--color-text-muted)',
+                minHeight: 16,
+                lineHeight: '16px',
+              }}
+            >
+              {clockOutLocked
+                ? `· already registered (${fmtLockedTime(existing.data!.clockOutTime!)})`
+                : ' '}
+            </span>
             <input
               type="time"
               className="form-input"
-              value={clockOut}
+              value={clockOutLocked ? fmtLockedTime(existing.data!.clockOutTime!) : clockOut}
               onChange={(e) => setClockOut(e.target.value)}
+              disabled={clockOutLocked}
+              title={clockOutLocked ? 'Clock-out is already registered and cannot be changed.' : ''}
             />
           </div>
         </div>
         <p className="muted" style={{ margin: '-4px 0 0', fontSize: 'var(--text-xs)' }}>
-          Leave one blank to only set the other side. Blank fields keep any
-          existing value for that day.
+          Manual entry only fills missing sides. An already-registered clock-in
+          or clock-out cannot be edited — pick the blank field to fill in.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

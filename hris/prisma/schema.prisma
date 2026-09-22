@@ -290,6 +290,7 @@ model AttendanceRecord {
   totalWorkedMinutes    Int               @default(0)
   totalBreakMinutes     Int               @default(0)
   overtimeMinutes       Int               @default(0)
+  deficitMinutes        Int               @default(0)
   status                AttendanceStatus
   source                AttendanceSource  @default(MANUAL)
   biometricDeviceId     String?

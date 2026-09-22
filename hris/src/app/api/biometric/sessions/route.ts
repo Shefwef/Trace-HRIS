@@ -71,6 +71,7 @@ export async function GET(req: Request) {
         clockOutTime: r.clockOutTime?.toISOString() ?? null,
         totalWorkedMinutes: worked,
         overtimeMinutes: r.overtimeMinutes,
+        deficitMinutes: r.deficitMinutes,
         status: r.status,
       };
     }),
