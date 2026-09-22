@@ -188,10 +188,10 @@ model LeaveBalance {
   cycleYear               Int
   cycleStartDate          DateTime @db.Date
   cycleEndDate            DateTime @db.Date
-  casualTotal             Decimal  @default(12.0) @db.Decimal(4, 1)
+  casualTotal             Decimal  @default(8.0)  @db.Decimal(4, 1)
   casualUsed              Decimal  @default(0.0)  @db.Decimal(4, 1)
   casualPending           Decimal  @default(0.0)  @db.Decimal(4, 1)
-  sickTotal               Decimal  @default(12.0) @db.Decimal(4, 1)
+  sickTotal               Decimal  @default(10.0) @db.Decimal(4, 1)
   sickUsed                Decimal  @default(0.0)  @db.Decimal(4, 1)
   sickPending             Decimal  @default(0.0)  @db.Decimal(4, 1)
   replacementBalance      Decimal  @default(0.0)  @db.Decimal(4, 1)
