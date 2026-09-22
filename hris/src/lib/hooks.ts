@@ -515,7 +515,7 @@ export function useAttendanceHistory(year?: number, month?: number) {
   return useQuery({
     queryKey: ['attendance', 'history', year, month],
     queryFn: () =>
-      api<{ year: number; month: number; records: AttendanceRecordData[] }>(
+      api<{ year: number; month: number; joiningDate: string | null; records: AttendanceRecordData[] }>(
         `/api/attendance/history${qs}`
       ),
   });

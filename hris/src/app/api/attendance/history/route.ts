@@ -34,18 +34,25 @@ export async function GET(req: Request) {
   const from = new Date(Date.UTC(year, month - 1, 1));
   const to = new Date(Date.UTC(year, month, 1));
 
-  const records = await prisma.attendanceRecord.findMany({
-    where: { employeeId: targetId, date: { gte: from, lt: to } },
-    orderBy: { date: 'asc' },
-    include: {
-      breaks: { orderBy: { breakStart: 'asc' } },
-      locationEvents: { orderBy: { startedAt: 'asc' } },
-    },
-  });
+  const [target, records] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: targetId },
+      select: { joiningDate: true },
+    }),
+    prisma.attendanceRecord.findMany({
+      where: { employeeId: targetId, date: { gte: from, lt: to } },
+      orderBy: { date: 'asc' },
+      include: {
+        breaks: { orderBy: { breakStart: 'asc' } },
+        locationEvents: { orderBy: { startedAt: 'asc' } },
+      },
+    }),
+  ]);
 
   return NextResponse.json({
     year,
     month,
+    joiningDate: target?.joiningDate ? target.joiningDate.toISOString().slice(0, 10) : null,
     records: records.map((r) => ({
       ...serialize(r),
       locationEvents: r.locationEvents.map((e) => ({

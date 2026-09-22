@@ -25,9 +25,16 @@ export function AttendancePage() {
   const { data } = useAttendanceHistory(year, month);
   const { data: balance } = useBalance();
 
+  // Employee joining date: pre-joining days are not counted as absent and
+  // are hidden from the daily breakdown entirely.
+  const joiningDate = data?.joiningDate ?? null;
+
   const attendance = useMemo(
-    () => (data?.records ?? []).slice().sort((a, b) => (a.date < b.date ? 1 : -1)),
-    [data]
+    () => (data?.records ?? [])
+      .filter((r) => !joiningDate || r.date >= joiningDate)
+      .slice()
+      .sort((a, b) => (a.date < b.date ? 1 : -1)),
+    [data, joiningDate]
   );
 
   // Full month calendar from day 1 to today, filling empty days with virtual rows
@@ -36,6 +43,8 @@ export function AttendancePage() {
     const entries: DayEntry[] = [];
     for (let d = todayDate; d >= 1; d--) {
       const ds = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      // Skip days before the employee joined — they weren't employed yet.
+      if (joiningDate && ds < joiningDate) continue;
       const rec = byDate.get(ds);
       if (rec) {
         entries.push({ kind: 'record', record: rec });
@@ -47,7 +56,7 @@ export function AttendancePage() {
       }
     }
     return entries;
-  }, [data, year, month, todayDate]);
+  }, [data, year, month, todayDate, joiningDate]);
 
   const present = attendance.filter((a) => a.status === 'PRESENT').length;
   const absent = attendance.filter((a) => a.status === 'ABSENT').length;

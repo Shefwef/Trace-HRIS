@@ -28,7 +28,11 @@ export function AnalyticsPage() {
     [myLeaves],
   );
 
-  const records = history?.records ?? [];
+  // Pre-joining days shouldn't count against attendance metrics.
+  const joiningDate = history?.joiningDate ?? null;
+  const records = (history?.records ?? []).filter(
+    (r) => !joiningDate || r.date >= joiningDate,
+  );
 
   const leaveTypeData = useMemo(() => {
     if (!balance) return [];
