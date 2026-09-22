@@ -231,6 +231,7 @@ async function rebuildAttendanceDay(
   deviceSerial: string | null,
   _tz: string,
   isMock: boolean,
+  cachedWorkEndTime?: string,
 ): Promise<void> {
   const dayKey = date.toISOString().slice(0, 10);
   const { start, end } = localDayBounds(dayKey);
@@ -255,12 +256,12 @@ async function rebuildAttendanceDay(
     : 0;
 
   // Overtime is the tail beyond the office end-of-day, not total hours over 8.
-  const settings = await prisma.systemSettings.upsert({
+  const workEndTime = cachedWorkEndTime ?? (await prisma.systemSettings.upsert({
     where: { id: 'singleton' },
     update: {},
     create: { id: 'singleton' },
-  });
-  const workEndUtc = localTimeOnDayToUtc(dayKey, settings.workEndTime);
+  })).workEndTime;
+  const workEndUtc = localTimeOnDayToUtc(dayKey, workEndTime);
   const overtimeMinutes = clockOut && clockOut > workEndUtc
     ? Math.round((clockOut.getTime() - workEndUtc.getTime()) / 60_000)
     : 0;
@@ -306,30 +307,194 @@ async function rebuildAttendanceDay(
  * Rebuild attendance for every (employee, day) that has stored punches in
  * [from, to). Used by the admin "Recompute" button to fix historical rows
  * after a bugfix or manual DB tinkering. `from`/`to` are UTC instants.
+ *
+ * Also re-maps any biometricPunch rows with employeeId=null across ALL history
+ * (not just the date range) so that employees added to the mapping after their
+ * punches were first ingested get their historical attendance built correctly.
+ *
+ * A module-level mutex serialises concurrent calls — two admins clicking
+ * Recompute at once would otherwise exhaust the Prisma connection pool
+ * because each pass loops over thousands of days.
  */
+let rebuildInFlight: Promise<{ rebuilt: number; employees: number; remapped: number }> | null = null;
+
 export async function rebuildAttendanceRange(
   from: Date,
   to: Date,
-): Promise<{ rebuilt: number; employees: number }> {
-  const punches = await prisma.biometricPunch.findMany({
+): Promise<{ rebuilt: number; employees: number; remapped: number }> {
+  if (rebuildInFlight) return rebuildInFlight;
+  rebuildInFlight = doRebuildAttendanceRange(from, to).finally(() => { rebuildInFlight = null; });
+  return rebuildInFlight;
+}
+
+async function doRebuildAttendanceRange(
+  from: Date,
+  to: Date,
+): Promise<{ rebuilt: number; employees: number; remapped: number }> {
+  // Step 1: re-map orphaned punches (employeeId=null) across all history.
+  const unmapped = await prisma.biometricPunch.findMany({
+    where: { employeeId: null },
+    select: { deviceUserId: true, punchedAt: true },
+  });
+
+  let remapped = 0;
+  const remappedDays = new Map<string, { employeeId: string; date: Date }>();
+
+  if (unmapped.length > 0) {
+    const deviceUserIds = [...new Set(unmapped.map((p) => p.deviceUserId))];
+    const userRows = await prisma.user.findMany({
+      where: { biometricUserId: { in: deviceUserIds } },
+      select: { id: true, biometricUserId: true },
+    });
+    const deviceToEmployee = new Map(userRows.map((u) => [u.biometricUserId!, u.id]));
+
+    // One updateMany per distinct deviceUserId instead of one UPDATE per row.
+    for (const [deviceUserId, employeeId] of deviceToEmployee.entries()) {
+      const result = await prisma.biometricPunch.updateMany({
+        where: { employeeId: null, deviceUserId },
+        data: { employeeId, appliedAt: new Date() },
+      });
+      remapped += result.count;
+    }
+
+    for (const punch of unmapped) {
+      const employeeId = deviceToEmployee.get(punch.deviceUserId);
+      if (!employeeId) continue;
+      const date = localDateOnly(punch.punchedAt);
+      remappedDays.set(`${employeeId}|${date.toISOString()}`, { employeeId, date });
+    }
+  }
+
+  // Step 2: collect (employee, day) pairs to rebuild.
+  const rangePunches = await prisma.biometricPunch.findMany({
     where: { punchedAt: { gte: from, lt: to }, employeeId: { not: null } },
     select: { employeeId: true, punchedAt: true },
   });
 
-  const dayMap = new Map<string, { employeeId: string; date: Date }>();
-  for (const p of punches) {
+  const dayMap = new Map<string, { employeeId: string; date: Date }>(remappedDays);
+  for (const p of rangePunches) {
     if (!p.employeeId) continue;
     const date = localDateOnly(p.punchedAt);
     const key = `${p.employeeId}|${date.toISOString()}`;
     if (!dayMap.has(key)) dayMap.set(key, { employeeId: p.employeeId, date });
   }
 
+  if (dayMap.size === 0) {
+    return { rebuilt: 0, employees: 0, remapped };
+  }
+
+  // Step 3: bulk-fetch settings + existing records + all relevant punches.
+  const settings = await prisma.systemSettings.upsert({
+    where: { id: 'singleton' },
+    update: {},
+    create: { id: 'singleton' },
+  });
+
+  const allEmployeeIds = [...new Set([...dayMap.values()].map((d) => d.employeeId))];
+  const allDates = [...new Set([...dayMap.values()].map((d) => d.date.toISOString()))].map(
+    (s) => new Date(s),
+  );
+
+  // Overall time window covering every day we'll rebuild.
+  const minDate = allDates.reduce((a, b) => (a < b ? a : b));
+  const maxDate = allDates.reduce((a, b) => (a > b ? a : b));
+  const windowStart = localDayBounds(minDate.toISOString().slice(0, 10)).start;
+  const windowEnd   = localDayBounds(maxDate.toISOString().slice(0, 10)).end;
+
+  const [existingRecords, allPunches] = await Promise.all([
+    prisma.attendanceRecord.findMany({
+      where: { employeeId: { in: allEmployeeIds }, date: { in: allDates } },
+      select: { id: true, employeeId: true, date: true, source: true },
+    }),
+    prisma.biometricPunch.findMany({
+      where: {
+        employeeId: { in: allEmployeeIds },
+        punchedAt: { gte: windowStart, lt: windowEnd },
+      },
+      orderBy: { punchedAt: 'asc' },
+      select: { employeeId: true, punchedAt: true },
+    }),
+  ]);
+
+  const existingByKey = new Map<string, { id: string; source: string }>();
+  for (const r of existingRecords) {
+    existingByKey.set(`${r.employeeId}|${r.date.toISOString()}`, { id: r.id, source: r.source });
+  }
+
+  const punchesByKey = new Map<string, Date[]>();
+  for (const p of allPunches) {
+    if (!p.employeeId) continue;
+    const key = `${p.employeeId}|${localDateOnly(p.punchedAt).toISOString()}`;
+    const arr = punchesByKey.get(key);
+    if (arr) arr.push(p.punchedAt);
+    else punchesByKey.set(key, [p.punchedAt]);
+  }
+
+  // Step 4: compute in-memory, then batch writes.
+  const toCreate: Array<{
+    employeeId: string; date: Date;
+    clockInTime: Date; clockOutTime: Date | null;
+    totalWorkedMinutes: number; overtimeMinutes: number;
+    status: 'PRESENT'; source: 'BIOMETRIC';
+  }> = [];
+  const toUpdate: Array<{
+    id: string;
+    clockInTime: Date; clockOutTime: Date | null;
+    totalWorkedMinutes: number; overtimeMinutes: number;
+  }> = [];
+
   for (const { employeeId, date } of dayMap.values()) {
-    await rebuildAttendanceDay(employeeId, date, null, BIOMETRIC_TZ, false);
+    const key = `${employeeId}|${date.toISOString()}`;
+    const dayPunches = punchesByKey.get(key);
+    if (!dayPunches || dayPunches.length === 0) continue;
+
+    const existing = existingByKey.get(key);
+    if (existing && existing.source === 'MANUAL') continue;
+
+    const earliest = dayPunches[0];
+    const latest   = dayPunches[dayPunches.length - 1];
+    const clockIn  = earliest;
+    const clockOut = latest.getTime() === earliest.getTime() ? null : latest;
+
+    const totalWorkedMinutes = clockIn && clockOut
+      ? Math.max(0, Math.round((clockOut.getTime() - clockIn.getTime()) / 60_000))
+      : 0;
+
+    const workEndUtc = localTimeOnDayToUtc(date.toISOString().slice(0, 10), settings.workEndTime);
+    const overtimeMinutes = clockOut && clockOut > workEndUtc
+      ? Math.round((clockOut.getTime() - workEndUtc.getTime()) / 60_000)
+      : 0;
+
+    if (existing) {
+      toUpdate.push({ id: existing.id, clockInTime: clockIn, clockOutTime: clockOut, totalWorkedMinutes, overtimeMinutes });
+    } else {
+      toCreate.push({
+        employeeId, date, clockInTime: clockIn, clockOutTime: clockOut,
+        totalWorkedMinutes, overtimeMinutes, status: 'PRESENT', source: 'BIOMETRIC',
+      });
+    }
+  }
+
+  if (toCreate.length > 0) {
+    await prisma.attendanceRecord.createMany({ data: toCreate });
+  }
+  for (const u of toUpdate) {
+    await prisma.attendanceRecord.update({
+      where: { id: u.id },
+      data: {
+        clockInTime: u.clockInTime,
+        clockOutTime: u.clockOutTime,
+        totalWorkedMinutes: u.totalWorkedMinutes,
+        overtimeMinutes: u.overtimeMinutes,
+        status: 'PRESENT',
+        source: 'BIOMETRIC',
+      },
+    });
   }
 
   return {
-    rebuilt: dayMap.size,
-    employees: new Set([...dayMap.values()].map((v) => v.employeeId)).size,
+    rebuilt: toCreate.length + toUpdate.length,
+    employees: allEmployeeIds.length,
+    remapped,
   };
 }

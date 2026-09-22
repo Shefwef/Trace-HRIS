@@ -39,6 +39,11 @@ export async function POST(req: Request) {
 
   if (toExclusive <= fromDay) return err(400, 'BAD_RANGE', '`to` must be on or after `from`.');
 
-  const summary = await rebuildAttendanceRange(fromDay, toExclusive);
-  return NextResponse.json(summary);
+  try {
+    const summary = await rebuildAttendanceRange(fromDay, toExclusive);
+    return NextResponse.json(summary);
+  } catch (e) {
+    console.error('[rebuild] error:', e);
+    return err(500, 'REBUILD_ERROR', e instanceof Error ? e.message : String(e));
+  }
 }

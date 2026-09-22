@@ -406,7 +406,7 @@ function PunchesTab() {
 
   const rebuild = useMutation({
     mutationFn: () =>
-      api<{ rebuilt: number; employees: number }>('/api/biometric/rebuild', {
+      api<{ rebuilt: number; employees: number; remapped: number }>('/api/biometric/rebuild', {
         method: 'POST',
         body: JSON.stringify({ from, to }),
       }),
@@ -516,6 +516,7 @@ function PunchesTab() {
       {rebuild.data && (
         <div style={{ padding: '8px 20px', background: 'var(--color-bg-subtle)', fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>
           Recomputed {rebuild.data.rebuilt} attendance record{rebuild.data.rebuilt === 1 ? '' : 's'} across {rebuild.data.employees} employee{rebuild.data.employees === 1 ? '' : 's'}.
+          {rebuild.data.remapped > 0 && ` Also linked ${rebuild.data.remapped} previously-unmapped punch${rebuild.data.remapped === 1 ? '' : 'es'} to employees.`}
         </div>
       )}
       {rebuild.error && (
