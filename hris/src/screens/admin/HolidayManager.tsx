@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Plus, Send, Trash2, Pencil, CalendarCheck2 } from 'lucide-react';
+import { Plus, Send, Trash2, Pencil, CalendarCheck2, Download } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
   useHolidays,
@@ -8,8 +8,10 @@ import {
   useUpdateHoliday,
   useDeleteHoliday,
   useSendHolidayNotice,
+  useSyncBdHolidays,
   type HolidayItem,
 } from '@/lib/hooks';
+import { useStore } from '@/lib/store';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Field, TextInput, TextArea } from '../../components/ui/Field';
@@ -38,6 +40,8 @@ export function HolidayManager() {
   const update = useUpdateHoliday();
   const del = useDeleteHoliday();
   const send = useSendHolidayNotice();
+  const syncBd = useSyncBdHolidays();
+  const addToast = useStore((s) => s.addToast);
 
   const [editing, setEditing] = useState<HolidayItem | 'new' | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -94,9 +98,30 @@ export function HolidayManager() {
           <h1>Holiday manager</h1>
           <p className="muted">Plan holidays and send notices before they arrive.</p>
         </div>
-        <Button variant="primary" leadingIcon={<Plus size={16} />} onClick={() => openEdit('new')}>
-          New holiday
-        </Button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button
+            variant="secondary"
+            leadingIcon={<Download size={16} />}
+            loading={syncBd.isPending}
+            onClick={() => {
+              const year = new Date().getUTCFullYear();
+              syncBd.mutate(year, {
+                onSuccess: (r) => addToast({
+                  kind: r.created > 0 ? 'success' : 'info',
+                  title: r.created > 0 ? `Added ${r.created} BD holidays for ${year}` : `BD holidays already synced for ${year}`,
+                  body: r.message,
+                }),
+                onError: (e: Error) => addToast({ kind: 'error', title: 'Sync failed', body: e.message }),
+              });
+            }}
+            title="Add Bangladesh government fixed-date holidays for the current year (Independence Day, Victory Day, Pahela Baishakh, etc.). Lunar-calendar holidays still need to be added manually."
+          >
+            Sync BD holidays
+          </Button>
+          <Button variant="primary" leadingIcon={<Plus size={16} />} onClick={() => openEdit('new')}>
+            New holiday
+          </Button>
+        </div>
       </div>
 
       {isLoading && <div className="muted">Loading holidays…</div>}
