@@ -4,18 +4,27 @@
 .stg-head-actions { display: flex; gap: 12px; align-items: center; }
 .stg-saved { color: var(--color-success); font-size: var(--text-sm); font-weight: var(--weight-semibold); }
 @media (max-width: 640px) { .stg-head h1 { font-size: var(--text-2xl); } }
+/* 3 equal columns for the main cards. `align-items: stretch` (the default)
+   makes every card in a row match the tallest one, so all three frames
+   line up top and bottom without staggered gaps. Wide cards span the full
+   row. */
 .stg-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-4);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-5);
 }
-@media (max-width: 900px) { .stg-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1100px) { .stg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px)  { .stg-grid { grid-template-columns: 1fr; } }
 .stg-card {
-  padding: var(--space-5);
+  padding: var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-4);
 }
+.stg-card-wide { grid-column: 1 / -1; }
+.stg-card-icon + h3 { margin-top: 2px; }
+.stg-card > p + div,
+.stg-card > p + .stg-row { margin-top: 2px; }
 .stg-card-wide { grid-column: 1 / -1; }
 .stg-card-icon {
   width: 40px;

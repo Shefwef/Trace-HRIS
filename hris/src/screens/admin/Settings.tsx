@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Save, Clock, Mail, Users, Fingerprint, Info } from 'lucide-react';
+import { Save, Clock, Mail, Fingerprint, Info } from 'lucide-react';
 import { useSettings, useUpdateSettings, type SystemSettings } from '@/lib/hooks';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -115,7 +115,11 @@ export function AdminSettings() {
               <Clock size={18} />
             </div>
             <h3>Working hours</h3>
-            <p>Used for the attendance widget and overtime calculation.</p>
+            <p>
+              The office window. Standard hours per day are derived from
+              End − Start; anything worked beyond that counts as overtime,
+              anything short counts as deficit.
+            </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Field label="Start time">
                 <TextInput
@@ -132,37 +136,6 @@ export function AdminSettings() {
                 />
               </Field>
             </div>
-            <Field label="Standard hours per day" hint="Full work day length. Used for overtime and duration math.">
-              <TextInput
-                type="number"
-                min={1}
-                max={24}
-                value={value('standardHoursPerDay') ?? 8}
-                onChange={(e) => setField('standardHoursPerDay', Number(e.target.value))}
-              />
-            </Field>
-            <Field label="Overtime threshold (minutes)" hint="Minutes worked beyond this count as overtime.">
-              <TextInput
-                type="number"
-                min={0}
-                max={24 * 60}
-                value={value('overtimeThresholdMinutes') ?? 480}
-                onChange={(e) => setField('overtimeThresholdMinutes', Number(e.target.value))}
-              />
-            </Field>
-          </section>
-
-          <section className="card stg-card">
-            <div className="stg-card-icon" style={{ background: 'var(--color-leave-casual-light)', color: 'var(--color-leave-casual)' }}>
-              <Users size={18} />
-            </div>
-            <h3>Leave policy</h3>
-            <p>Baseline leave quotas for each new cycle.</p>
-            <div className="stg-row"><span>Casual leave per cycle</span><strong>12 days</strong></div>
-            <div className="stg-row"><span>Sick leave per cycle</span><strong>12 days</strong></div>
-            <div className="stg-row"><span>Replacement leave</span><strong>Earned from approved extra work</strong></div>
-            <div className="stg-row"><span>Cycle start</span><strong>Per employee (edit from Employees page)</strong></div>
-            <div className="stg-row"><span>Carry-over</span><strong>Disabled</strong></div>
           </section>
 
           <section className="card stg-card">
@@ -170,11 +143,12 @@ export function AdminSettings() {
               <Info size={18} />
             </div>
             <h3>Roles</h3>
-            <p>Who can do what across the system.</p>
-            <div className="stg-row"><span>Super Admin</span><strong>Everything · audit logs</strong></div>
-            <div className="stg-row"><span>Admin (CEO/CTO)</span><strong>Approve, manage, send notices</strong></div>
-            <div className="stg-row"><span>HR</span><strong>Approve, invite, holidays</strong></div>
-            <div className="stg-row"><span>Employee</span><strong>Apply, clock in, view own</strong></div>
+            <p>The five roles available across the system.</p>
+            <div className="stg-row"><span>Super Admin</span></div>
+            <div className="stg-row"><span>Admin</span></div>
+            <div className="stg-row"><span>Line Manager</span></div>
+            <div className="stg-row"><span>HR</span></div>
+            <div className="stg-row"><span>Employee</span></div>
           </section>
 
           <section className="card stg-card stg-card-wide">
