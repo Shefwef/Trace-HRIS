@@ -21,6 +21,7 @@ function statusClass(s?: DayInfo['status']): string {
     case 'LEAVE': return 'mcal-cell-leave';
     case 'HOLIDAY': return 'mcal-cell-holiday';
     case 'HALF_DAY': return 'mcal-cell-halfday';
+    case 'WEEKEND': return 'mcal-cell-weekend-day';
     default: return '';
   }
 }

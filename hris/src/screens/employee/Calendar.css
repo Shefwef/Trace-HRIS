@@ -108,6 +108,27 @@
 .calpg-cell-holiday:hover { background: color-mix(in srgb, var(--color-danger) 22%, transparent); }
 .calpg-cell-holiday .calpg-cell-head { color: var(--color-danger); }
 
+/* Holiday label: no separate pill background — inherit the red-tinted cell
+   so the badge blends into the box. Long names clamp to 2 lines with an
+   ellipsis so a cell never overflows. */
+.calpg-cell-holiday .badge {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-danger);
+  padding: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  line-height: 1.2;
+  min-width: 0;
+  max-width: 100%;
+  word-break: break-word;
+}
+
 /* Bangladesh weekend cells (Fri + Sat) get a subtle red tint too. */
 .calpg-cell-weekend-day {
   background: color-mix(in srgb, var(--color-danger) 6%, transparent);

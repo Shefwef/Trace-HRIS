@@ -111,6 +111,15 @@
 .mcal-cell-absent:hover {
   background: color-mix(in srgb, var(--color-danger) 22%, transparent);
 }
+/* Bangladesh weekend cells (Fri + Sat) — subtle red tint + red date number. */
+.mcal-cell-weekend-day {
+  background: color-mix(in srgb, var(--color-danger) 6%, transparent);
+  color: var(--color-danger);
+  font-weight: var(--weight-semibold);
+}
+.mcal-cell-weekend-day:hover {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
 
 .mcal-legend {
   display: flex;
