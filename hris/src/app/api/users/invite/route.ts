@@ -64,9 +64,19 @@ export async function POST(req: Request) {
     },
   });
 
-  const year = new Date().getFullYear();
-  const cycleStartDate = new Date(year, input.cycleStartMonth - 1, 1);
-  const cycleEndDate = new Date(year, input.cycleStartMonth - 1 + 12, 0);
+  // Leave cycle runs from the joining anniversary that started on or before
+  // today, ending one day before the next anniversary. Someone who joined
+  // 2026-09-22 has a cycle 2026-09-22 → 2027-09-21.
+  const joining = new Date(input.joiningDate);
+  const today = new Date();
+  const cycleAnchorYear =
+    today >= new Date(today.getFullYear(), joining.getMonth(), joining.getDate())
+      ? today.getFullYear()
+      : today.getFullYear() - 1;
+  const startY = Math.max(joining.getFullYear(), cycleAnchorYear);
+  const cycleStartDate = new Date(startY, joining.getMonth(), joining.getDate());
+  const cycleEndDate = new Date(startY + 1, joining.getMonth(), joining.getDate() - 1);
+  const cycleYear = startY;
 
   // Race-condition safety net: even after the pre-check above, a concurrent
   // invite could race the same email/employeeIdCode. If the DB insert fails,
@@ -83,11 +93,12 @@ export async function POST(req: Request) {
         department: input.department || undefined,
         designation: input.designation,
         employeeIdCode: input.employeeIdCode,
-        cycleStartMonth: input.cycleStartMonth,
+        cycleStartMonth: joining.getMonth() + 1,
+        cycleStartDay: joining.getDate(),
         lineManagerId: input.lineManagerId,
         phone: input.phone || undefined,
         dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : undefined,
-        joiningDate: input.joiningDate ? new Date(input.joiningDate) : undefined,
+        joiningDate: joining,
         avatarUrl: input.avatarUrl || undefined,
       },
     });
@@ -111,9 +122,11 @@ export async function POST(req: Request) {
   await prisma.leaveBalance.create({
     data: {
       employeeId: clerkUser.id,
-      cycleYear: year,
+      cycleYear,
       cycleStartDate,
       cycleEndDate,
+      casualTotal: 8,
+      sickTotal: 10,
     },
   });
 

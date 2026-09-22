@@ -57,7 +57,6 @@ const EMPTY_PROFILE: ProfileFormValues = {
   dateOfBirth: '', avatarUrl: '',
   employeeIdCode: '', joiningDate: '',
   designation: '', department: '',
-  cycleStartMonth: 1,
   roles: [],
 };
 
@@ -369,7 +368,6 @@ export function EmployeesPage() {
                               dateOfBirth: u.dateOfBirth ? u.dateOfBirth.slice(0, 10) : '',
                               joiningDate: u.joiningDate ? u.joiningDate.slice(0, 10) : '',
                               avatarUrl: u.avatarUrl ?? '',
-                              cycleStartMonth: 1,
                               roles: [],
                             });
                           }}

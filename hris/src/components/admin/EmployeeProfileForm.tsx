@@ -13,11 +13,6 @@ const ROLE_LABEL: Record<Role, string> = {
   EMPLOYEE: 'Employee',
 };
 
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-
 export interface ProfileFormValues {
   firstName: string;
   lastName: string;
@@ -29,7 +24,6 @@ export interface ProfileFormValues {
   joiningDate: string;
   designation: string;
   department: string;
-  cycleStartMonth: number;
   roles: Role[];
 }
 
@@ -57,8 +51,10 @@ export function EmployeeProfileForm({ mode, values, onChange, allowedRoles = [] 
   const showRoles = mode === 'invite' || mode === 'edit-admin';
   const showCycle = mode === 'invite';
 
-  // Fields employees can't change on their own profile — shown disabled.
-  const adminOnly = isSelf;
+  // On self-service edit, only joining date stays locked (HR-managed, and it
+  // drives the leave cycle). Everything else — including employee ID,
+  // designation, department — is editable by the individual.
+  const joiningLocked = isSelf;
 
   function set<K extends keyof ProfileFormValues>(key: K, value: ProfileFormValues[K]) {
     onChange({ [key]: value } as Partial<ProfileFormValues>);
@@ -137,67 +133,55 @@ export function EmployeeProfileForm({ mode, values, onChange, allowedRoles = [] 
       {/* Employment */}
       <div className="inv-section-label">Employment</div>
       <div className="inv-row">
-        <Field
-          label="Employee ID"
-          required={isInvite}
-          hint={adminOnly ? 'Managed by HR.' : undefined}
-        >
+        <Field label="Employee ID" required={isInvite}>
           <TextInput
             value={values.employeeIdCode}
             onChange={(e) => set('employeeIdCode', e.target.value)}
             placeholder="TRACE-104"
-            disabled={adminOnly}
           />
         </Field>
         <Field
           label="Joining date"
-          hint={adminOnly ? 'Managed by HR.' : undefined}
+          required={isInvite}
+          hint={joiningLocked ? 'Managed by HR — drives the annual leave cycle.' : 'Drives the annual leave cycle.'}
         >
           <input
             type="date"
             className="input"
             value={values.joiningDate}
             onChange={(e) => set('joiningDate', e.target.value)}
-            disabled={adminOnly}
+            disabled={joiningLocked}
           />
         </Field>
       </div>
       <div className="inv-row">
-        <Field
-          label="Designation"
-          required={isInvite}
-          hint={adminOnly ? 'Managed by HR.' : undefined}
-        >
+        <Field label="Designation" required={isInvite}>
           <TextInput
             value={values.designation}
             onChange={(e) => set('designation', e.target.value)}
             placeholder="Software Engineer"
-            disabled={adminOnly}
           />
         </Field>
-        <Field
-          label="Department"
-          hint={adminOnly ? 'Managed by HR.' : undefined}
-        >
+        <Field label="Department">
           <TextInput
             value={values.department}
             onChange={(e) => set('department', e.target.value)}
             placeholder="Engineering"
-            disabled={adminOnly}
           />
         </Field>
       </div>
       {showCycle && (
-        <Field label="Cycle starts in" hint="When the annual 12+12 quota resets.">
-          <select
+        <Field
+          label="Cycle starts in"
+          hint="Mirrors the joining date. The 8 casual + 10 sick quota resets on the anniversary."
+        >
+          <input
+            type="date"
             className="input"
-            value={values.cycleStartMonth}
-            onChange={(e) => set('cycleStartMonth', Number(e.target.value))}
-          >
-            {MONTHS.map((m, i) => (
-              <option key={m} value={i + 1}>{m}</option>
-            ))}
-          </select>
+            value={values.joiningDate}
+            disabled
+            readOnly
+          />
         </Field>
       )}
 

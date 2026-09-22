@@ -880,6 +880,22 @@ export function useCreateHoliday() {
   });
 }
 
+export interface SyncBdHolidaysResult {
+  ok: true;
+  year: number;
+  created: number;
+  skipped: number;
+  message: string;
+}
+export function useSyncBdHolidays() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (year: number) =>
+      api<SyncBdHolidaysResult>(`/api/holidays/sync-bd?year=${year}`, { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['holidays'] }),
+  });
+}
+
 export function useUpdateHoliday() {
   const qc = useQueryClient();
   return useMutation({
@@ -944,11 +960,11 @@ export interface InviteEmployeePayload {
   department?: string;
   designation: string;
   employeeIdCode: string;
-  cycleStartMonth: number;
   password?: string;
   phone?: string;
   dateOfBirth?: string;
-  joiningDate?: string;
+  /** Required — the leave cycle runs from this date to one day before its anniversary. */
+  joiningDate: string;
   avatarUrl?: string;
 }
 export function useInviteEmployee() {

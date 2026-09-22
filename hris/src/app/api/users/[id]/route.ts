@@ -29,11 +29,14 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (input.lineManagerId !== undefined && !canAssignLM)
     return err(403, 'FORBIDDEN', 'You do not have permission to assign line managers.');
 
-  // Anyone can edit their own personal info (name, phone, birthday, avatar).
-  // Admin-controlled fields (employeeIdCode, designation, department, joining
-  // date) require an admin permission. Reject a self-edit that tries to
-  // change any admin-only field.
-  const SELF_EDITABLE = new Set(['fullName', 'phone', 'dateOfBirth', 'avatarUrl']);
+  // Anyone can edit their own personal + employment details. The only fields
+  // an employee cannot self-edit are joiningDate (drives the leave cycle),
+  // roles, isActive, and lineManagerId — all of which have their own perm
+  // checks above.
+  const SELF_EDITABLE = new Set([
+    'fullName', 'phone', 'dateOfBirth', 'avatarUrl',
+    'employeeIdCode', 'designation', 'department',
+  ]);
   if (isSelf && !canRole && !canDeactivate && !canAssignLM) {
     for (const [key, value] of Object.entries(input)) {
       if (value === undefined) continue;

@@ -141,15 +141,17 @@ export const InviteEmployeeSchema = z.object({
   department: z.string().max(120).optional(),
   designation: z.string().min(1).max(120),
   employeeIdCode: z.string().min(1).max(50),
-  cycleStartMonth: z.int().min(1).max(12).default(1),
   password: z.string().min(8).max(100).optional(),
   /** Optional line manager assignment on invite. */
   lineManagerId: z.string().optional(),
   phone: z.string().max(30).optional(),
   /** ISO date string YYYY-MM-DD */
   dateOfBirth: z.iso.date().optional(),
-  /** ISO date string YYYY-MM-DD */
-  joiningDate: z.iso.date().optional(),
+  /**
+   * ISO date string YYYY-MM-DD. Required — the leave cycle runs from this date
+   * to one day before its anniversary each year.
+   */
+  joiningDate: z.iso.date(),
   avatarUrl: z.string().max(500).optional(),
 });
 export type InviteEmployeeInput = z.infer<typeof InviteEmployeeSchema>;

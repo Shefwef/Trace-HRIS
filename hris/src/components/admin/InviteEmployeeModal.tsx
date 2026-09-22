@@ -26,7 +26,6 @@ const EMPTY: ProfileFormValues = {
   dateOfBirth: '', avatarUrl: '',
   employeeIdCode: '', joiningDate: '',
   designation: '', department: '',
-  cycleStartMonth: 1,
   roles: ['EMPLOYEE'],
 };
 
@@ -56,6 +55,10 @@ export function InviteEmployeeModal({ open, onClose }: Props) {
 
   function submit() {
     if (!values.email || !values.firstName || !values.designation || !values.employeeIdCode) return;
+    if (!values.joiningDate) {
+      setError('Joining date is required — it drives the annual leave cycle.');
+      return;
+    }
     if (values.roles.length === 0) {
       setError('Pick at least one role for the new employee.');
       return;
@@ -70,10 +73,9 @@ export function InviteEmployeeModal({ open, onClose }: Props) {
         department: values.department.trim() || undefined,
         designation: values.designation.trim(),
         employeeIdCode: values.employeeIdCode.trim(),
-        cycleStartMonth: values.cycleStartMonth,
         phone: values.phone.trim() || undefined,
         dateOfBirth: values.dateOfBirth || undefined,
-        joiningDate: values.joiningDate || undefined,
+        joiningDate: values.joiningDate,
         avatarUrl: values.avatarUrl.trim() || undefined,
       },
       {
@@ -94,7 +96,7 @@ export function InviteEmployeeModal({ open, onClose }: Props) {
 
   const canSubmit =
     values.email && values.firstName && values.designation && values.employeeIdCode &&
-    values.roles.length > 0 && !invite.isPending;
+    values.joiningDate && values.roles.length > 0 && !invite.isPending;
 
   return (
     <Modal

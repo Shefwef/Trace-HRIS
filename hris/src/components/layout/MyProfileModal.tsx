@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { EmployeeProfileForm, type ProfileFormValues } from '../admin/EmployeeProfileForm';
@@ -17,7 +18,6 @@ const EMPTY: ProfileFormValues = {
   dateOfBirth: '', avatarUrl: '',
   employeeIdCode: '', joiningDate: '',
   designation: '', department: '',
-  cycleStartMonth: 1,
   roles: [],
 };
 
@@ -37,6 +37,7 @@ export function MyProfileModal({ open, onClose }: Props) {
   const { data: users } = useUsers();
   const update = useUpdateEmployee();
   const addToast = useStore((s) => s.addToast);
+  const router = useRouter();
   const [values, setValues] = useState<ProfileFormValues>(EMPTY);
 
   // Hydrate from the fresh user record whenever the modal opens.
@@ -60,7 +61,6 @@ export function MyProfileModal({ open, onClose }: Props) {
       joiningDate: source.joiningDate ? source.joiningDate.slice(0, 10) : '',
       designation: source.designation ?? '',
       department: source.department ?? '',
-      cycleStartMonth: 1,
       roles: [],
     });
   }, [open, me, users]);
@@ -80,12 +80,18 @@ export function MyProfileModal({ open, onClose }: Props) {
           phone: values.phone.trim() || undefined,
           dateOfBirth: values.dateOfBirth || undefined,
           avatarUrl: values.avatarUrl.trim() || undefined,
+          employeeIdCode: values.employeeIdCode.trim() || undefined,
+          designation: values.designation.trim() || undefined,
+          department: values.department.trim() || undefined,
         },
       },
       {
         onSuccess: () => {
           addToast({ kind: 'success', title: 'Profile updated' });
           onClose();
+          // Force a Server Component refresh so the top bar / any SSR'd bits
+          // (name, avatar, employee ID) pick up the new values immediately.
+          router.refresh();
         },
         onError: (e: Error) =>
           addToast({ kind: 'error', title: 'Could not update profile', body: e.message }),
