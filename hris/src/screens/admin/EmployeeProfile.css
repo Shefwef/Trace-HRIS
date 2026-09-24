@@ -1,0 +1,208 @@
+.ep {
+  display: flex; flex-direction: column;
+  gap: var(--space-5);
+}
+.ep-loading, .ep-error {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+.ep-error { color: var(--color-danger); }
+
+.ep-topbar { display: flex; align-items: center; gap: 12px; }
+.ep-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.ep-back:hover { color: var(--color-text-primary); }
+
+.ep-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+.ep-banner-warn { background: var(--color-warning-light); color: var(--color-warning); border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent); }
+.ep-banner-danger { background: var(--color-danger-light); color: var(--color-danger); border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent); }
+
+/* Header card */
+.ep-header {
+  display: flex; align-items: center; gap: 20px;
+  padding: var(--space-5) var(--space-6);
+}
+.ep-header-avatar-edit { flex-shrink: 0; }
+.ep-header-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ep-header-name {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  letter-spacing: -0.02em;
+  font-weight: var(--weight-semibold);
+  margin: 0;
+}
+.ep-header-name-input {
+  font-family: var(--font-display) !important;
+  font-size: var(--text-2xl) !important;
+  font-weight: var(--weight-semibold) !important;
+  max-width: 500px;
+}
+.ep-header-meta {
+  display: flex; align-items: center; gap: 8px;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  flex-wrap: wrap;
+}
+.ep-dot { color: var(--color-text-muted); }
+.ep-header-roles { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.ep-header-actions { display: inline-flex; gap: 8px; }
+
+/* Grid of sub-cards. Left column takes the tall Profile-details card; the
+   right column stacks Roles + Line manager so no empty space is left under
+   the primary section. Leave-balance below spans full width. */
+.ep-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: var(--space-5);
+  align-items: stretch;
+}
+.ep-right-stack {
+  display: flex; flex-direction: column;
+  gap: var(--space-5);
+  height: 100%;
+}
+/* Roles + Line manager split the right column height equally so neither
+   card looks stranded under a taller Profile details on the left. */
+.ep-right-stack > * { flex: 1; }
+.ep-section-primary { height: 100%; }
+@media (max-width: 960px) {
+  .ep-grid { grid-template-columns: 1fr; }
+  .ep-section-primary { height: auto; }
+}
+
+.ep-section {
+  padding: var(--space-5) var(--space-6);
+  display: flex; flex-direction: column;
+  gap: 14px;
+}
+.ep-section-wide { grid-column: 1 / -1; }
+.ep-section h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  margin: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+.ep-year { font-size: var(--text-sm); font-weight: var(--weight-regular); }
+
+/* Two-column field grid */
+.ep-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 20px;
+}
+@media (max-width: 640px) { .ep-fields { grid-template-columns: 1fr; } }
+.ep-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ep-field-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+}
+.ep-field-value {
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  word-break: break-word;
+}
+
+/* Roles editor */
+.ep-roles-editor { display: flex; gap: 8px; flex-wrap: wrap; }
+.ep-roles-view { display: flex; gap: 6px; flex-wrap: wrap; }
+.ep-role-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), color var(--transition-fast);
+}
+.ep-role-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.ep-role-chip:hover { border-color: var(--color-brand-secondary); }
+.ep-role-chip-on {
+  border-color: var(--color-brand-secondary);
+  color: var(--color-brand-primary);
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--shadow-sm);
+}
+.ep-role-chip-disabled { opacity: 0.4; cursor: not-allowed; }
+.ep-hint { font-size: var(--text-xs); margin: 0; }
+
+/* Line manager display */
+.ep-lm { display: inline-flex; align-items: center; gap: 10px; font-size: var(--text-sm); }
+
+/* Leave balance table.
+   Numeric columns are center-aligned in BOTH the header and cell so the
+   digits stay directly under the label (right-align made the numbers hug
+   the far edge of each column, which read as misaligned). tabular-nums
+   locks each digit to the same width so single- and double-digit values
+   line up vertically. */
+.ep-balance-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  table-layout: fixed;
+}
+.ep-balance-table th,
+.ep-balance-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+.ep-balance-table thead th {
+  text-align: left;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.ep-balance-table tbody tr:last-child td { border-bottom: none; }
+.ep-balance-table .ep-num {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.ep-balance-table .ep-num.mono { font-family: var(--font-mono); }
+
+/* Danger zone card */
+.ep-danger {
+  padding: var(--space-5) var(--space-6);
+  border-left: 3px solid var(--color-danger);
+}
+.ep-danger h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--color-danger);
+  margin: 0 0 12px;
+}
+.ep-danger-actions {
+  display: flex; flex-wrap: wrap;
+  gap: 10px;
+}
+.ep-danger-hint {
+  margin-top: 12px;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+/* Faded look for deactivated / deleted profiles */
+.ep-deactivated .card { background: color-mix(in srgb, var(--color-bg-surface) 88%, var(--color-bg-muted)); }
+.ep-deleted .card    { opacity: 0.9; background: color-mix(in srgb, var(--color-bg-surface) 82%, var(--color-danger-light)); }

@@ -8,6 +8,153 @@ import { primaryRole, validateRoleAssignment } from '@/lib/roles';
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
 
+/**
+ * GET /api/users/[id] — everything the profile page needs in one call:
+ *   • full user row (incl. lineManager + deletedAt)
+ *   • current-year leave balance
+ *
+ * Access rules:
+ *   • Self: always allowed
+ *   • Admin / HR / Super Admin: anyone
+ *   • Line Manager: only their direct reports (matches the leave/attendance
+ *     visibility we already enforce)
+ */
+export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const [actor, error] = await requireAuth(req);
+  if (error) return error;
+
+  const { id } = await ctx.params;
+  const target = await prisma.user.findUnique({
+    where: { id },
+    include: {
+      lineManager: { select: { id: true, fullName: true } },
+    },
+  });
+  if (!target) return err(404, 'NOT_FOUND', 'User not found.');
+
+  const isSelf = actor.id === target.id;
+  const actorRoles = actor.roles?.length ? actor.roles : [actor.role];
+  const isFullReviewer =
+    actorRoles.includes('ADMIN') || actorRoles.includes('HR') || actorRoles.includes('SUPER_ADMIN');
+  const isDirectLineManager =
+    actorRoles.includes('LINE_MANAGER') && target.lineManagerId === actor.id;
+  if (!isSelf && !isFullReviewer && !isDirectLineManager)
+    return err(403, 'FORBIDDEN', 'You do not have permission to view this profile.');
+
+  const year = new Date().getFullYear();
+  const balance = await prisma.leaveBalance.findUnique({
+    where: { employeeId_cycleYear: { employeeId: id, cycleYear: year } },
+  });
+
+  return NextResponse.json({
+    id: target.id,
+    fullName: target.fullName,
+    email: target.email,
+    role: target.role,
+    roles: target.roles,
+    department: target.department,
+    designation: target.designation,
+    employeeIdCode: target.employeeIdCode,
+    avatarUrl: target.avatarUrl,
+    phone: target.phone,
+    dateOfBirth: target.dateOfBirth ? target.dateOfBirth.toISOString().slice(0, 10) : null,
+    joiningDate: target.joiningDate ? target.joiningDate.toISOString().slice(0, 10) : null,
+    isActive: target.isActive,
+    lineManagerId: target.lineManagerId,
+    lineManager: target.lineManager,
+    deletedAt: target.deletedAt?.toISOString() ?? null,
+    balance: balance
+      ? {
+          cycleYear: balance.cycleYear,
+          casualTotal: Number(balance.casualTotal),
+          casualUsed: Number(balance.casualUsed),
+          casualPending: Number(balance.casualPending),
+          sickTotal: Number(balance.sickTotal),
+          sickUsed: Number(balance.sickUsed),
+          sickPending: Number(balance.sickPending),
+          replacementBalance: Number(balance.replacementBalance),
+        }
+      : null,
+  });
+}
+
+/**
+ * DELETE /api/users/[id]
+ *   ?permanent=true  — hard delete (only if already soft-deleted)
+ *   default          — soft delete (sets deletedAt, hides from most views).
+ *
+ * Requires `employee.deactivate` permission. Cannot delete yourself. A
+ * SUPER_ADMIN account can only be deleted by another SUPER_ADMIN.
+ */
+export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const [actor, error] = await requireAuth(req);
+  if (error) return error;
+
+  const { id } = await ctx.params;
+  const url = new URL(req.url);
+  const permanent = url.searchParams.get('permanent') === 'true';
+
+  const canDelete = await checkPermission(actor, 'employee.deactivate');
+  if (!canDelete) return err(403, 'FORBIDDEN', 'You do not have permission to delete employees.');
+  if (actor.id === id) return err(400, 'SELF_DELETE', 'You cannot delete yourself.');
+
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) return err(404, 'NOT_FOUND', 'User not found.');
+
+  const actorIsSA = actor.roles.includes('SUPER_ADMIN') || actor.role === 'SUPER_ADMIN';
+  const targetIsSA = target.roles.includes('SUPER_ADMIN') || target.role === 'SUPER_ADMIN';
+  if (targetIsSA && !actorIsSA)
+    return err(403, 'SUPER_ADMIN_PROTECTED', 'Only a Super Admin can delete a Super Admin account.');
+
+  if (permanent) {
+    if (!target.deletedAt)
+      return err(400, 'NOT_SOFT_DELETED', 'Soft-delete this employee first before permanent deletion.');
+    // Hard delete cascades to AttendanceRecord / LeaveBalance / LeaveRequest
+    // via each model's onDelete: Cascade. BiometricPunch keeps the reference
+    // (no relation) so historical audit is not lost — punches become orphaned
+    // and won't attach to anyone new.
+    await prisma.user.delete({ where: { id } });
+    await prisma.auditLog.create({
+      data: {
+        actorId: actor.id,
+        action: 'USER_HARD_DELETED',
+        targetType: 'user',
+        targetId: id,
+        metadata: { fullName: target.fullName, email: target.email },
+      },
+    });
+    return NextResponse.json({ ok: true, permanent: true });
+  }
+
+  if (target.deletedAt) return err(409, 'ALREADY_DELETED', 'This employee is already in the deleted list.');
+
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id },
+      data: {
+        deletedAt: now,
+        deletedById: actor.id,
+        // Also deactivate so any scheduled jobs / auth checks stop them.
+        isActive: false,
+        deactivatedAt: target.deactivatedAt ?? now,
+        deactivatedById: target.deactivatedById ?? actor.id,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorId: actor.id,
+        action: 'USER_SOFT_DELETED',
+        targetType: 'user',
+        targetId: id,
+        metadata: { fullName: target.fullName, email: target.email },
+      },
+    });
+  });
+
+  return NextResponse.json({ ok: true, deletedAt: now.toISOString() });
+}
+
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const [actor, error] = await requireAuth(req);
   if (error) return error;
