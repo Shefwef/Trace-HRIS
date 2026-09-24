@@ -27,7 +27,7 @@ export default async function LandingPage() {
       <main className="landing-hero">
         <div className="landing-hero-inner">
           <div className="landing-hero-text">
-            <div className="landing-eyebrow">Trace Consulting · Internal</div>
+            <div className="landing-eyebrow">TRACE Consulting · Internal</div>
             <h1>Every leave. Every hour. Everyone.</h1>
             <p>
               A calmer way to run your people operations — with balances that always
@@ -44,7 +44,7 @@ export default async function LandingPage() {
             </div>
             <div className="landing-note">
               <ShieldCheck size={14} />
-              This is an invite-only system for Trace Consulting staff.
+              This is an invite-only system for TRACE Consulting staff.
             </div>
           </div>
           <div className="landing-hero-cards">
@@ -74,7 +74,7 @@ export default async function LandingPage() {
       </main>
 
       <footer className="landing-footer">
-        <span>© {new Date().getFullYear()} Trace Consulting Ltd</span>
+        <span>© {new Date().getFullYear()} TRACE Consulting</span>
         <span>Powered by HRIS</span>
       </footer>
     </div>

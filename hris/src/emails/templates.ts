@@ -52,7 +52,7 @@ function shell({
           </tr>
           <tr>
             <td style="padding:20px 32px;background:#f7f9fc;border-top:1px solid #e2e8f0;color:#718096;font-size:12px;">
-              Sent by ${escape(senderName)} · Trace Consulting · This is an automated notification.
+              Sent by ${escape(senderName)} · TRACE Consulting · This is an automated notification.
             </td>
           </tr>
         </table>

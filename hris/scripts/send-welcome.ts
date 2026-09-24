@@ -94,7 +94,7 @@ function renderWelcomeHtml(u: {
 </td></tr>
 
 <tr><td style="padding:20px 32px;background:#f7f9fc;border-top:1px solid #e2e8f0;color:#718096;font-size:12px;">
-Sent by ${escape(u.senderName)} · Trace Consulting Ltd · Dhaka, Bangladesh
+Sent by ${escape(u.senderName)} · TRACE Consulting · Dhaka, Bangladesh
 </td></tr>
 
 </table></td></tr></table></body></html>`;

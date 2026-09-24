@@ -270,7 +270,7 @@ export function BrandHeader(props: {
 export function BrandFooter(props: { generatedAt: string }) {
   return (
     <View style={styles.footer} fixed>
-      <Text>Trace Consulting Ltd · Confidential · Generated {props.generatedAt}</Text>
+      <Text>TRACE Consulting · Confidential · Generated {props.generatedAt}</Text>
       <Text
         render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
       />

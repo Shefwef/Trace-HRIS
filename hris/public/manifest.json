@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Trace HRIS",
-  "short_name": "Trace HRIS",
-  "description": "Human Resource Information System for Trace Consulting Ltd",
+  "name": "TRACE HRIS",
+  "short_name": "TRACE HRIS",
+  "description": "Human Resource Information System for TRACE Consulting",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

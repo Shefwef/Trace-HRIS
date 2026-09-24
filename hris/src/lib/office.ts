@@ -22,7 +22,7 @@ function envNumber(raw: string | undefined, fallback: number): number {
 }
 
 export const OFFICE = {
-  name: 'Trace Consulting Ltd',
+  name: 'TRACE Consulting',
   address:
     process.env.NEXT_PUBLIC_OFFICE_ADDRESS ??
     'Level 2, Plot 285, Road 19/C, Mohakhali New DOHS, Dhaka-1206, Bangladesh',

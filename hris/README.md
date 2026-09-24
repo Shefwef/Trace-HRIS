@@ -1,6 +1,6 @@
 # Trace HRIS — dev quick start
 
-Next.js 16 app for Trace Consulting's HRIS. See [`../README.md`](../README.md)
+Next.js 16 app for TRACE Consulting's HRIS. See [`../README.md`](../README.md)
 for the product overview and [`SETUP.md`](./SETUP.md) for the one-time provisioning
 of external services (Clerk, Neon, Resend, Gemini).
 

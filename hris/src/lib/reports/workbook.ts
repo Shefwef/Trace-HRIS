@@ -53,8 +53,8 @@ export type Row = Record<string, CellValue>;
 
 export function createWorkbook(): Workbook {
   const wb = new Workbook();
-  wb.creator = 'Trace HRIS';
-  wb.company = 'Trace Consulting Ltd';
+  wb.creator = 'TRACE HRIS';
+  wb.company = 'TRACE Consulting';
   return wb;
 }
 
