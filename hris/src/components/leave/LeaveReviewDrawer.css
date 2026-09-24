@@ -271,3 +271,206 @@
   color: var(--color-text-secondary);
   font-style: italic;
 }
+
+/* ─── Redesigned review layout ────────────────────────────
+   Adds: employee status chip in header, facts list (mockup-style
+   Request type / Start / End / Reason table), card-boxed sections
+   (Leave calculation, Modify allocation, Balance impact),
+   and per-type balance impact chips. */
+.lrd-emp {
+  align-items: flex-start;
+  position: relative;
+}
+.lrd-emp-status {
+  margin-left: auto;
+}
+
+/* Facts table: label column + value column, subtle row dividers. */
+.lrd-facts {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-bg-surface);
+}
+.lrd-fact {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-default);
+  align-items: baseline;
+}
+.lrd-fact:last-child { border-bottom: none; }
+.lrd-fact-label {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--weight-medium);
+}
+.lrd-fact-value {
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  font-weight: var(--weight-medium);
+}
+.lrd-fact-sub {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-regular);
+  margin-left: 4px;
+}
+.lrd-fact-multiline { white-space: pre-wrap; line-height: 1.55; }
+
+/* Card blocks (Leave calculation, Modify, Balance impact) */
+.lrd-card {
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+  display: flex; flex-direction: column;
+  gap: var(--space-3);
+}
+.lrd-card-title {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+}
+.lrd-card-title-sub {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
+  margin-left: 6px;
+}
+.lrd-card-title-sub em { font-style: normal; color: var(--color-brand-primary); }
+
+/* Per-item modify block inside a bundle drawer */
+.lrd-item-modify {
+  display: flex; flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+}
+.lrd-item-modify + .lrd-item-modify { margin-top: 8px; }
+.lrd-item-modify-head {
+  display: flex; align-items: center; gap: 10px;
+  justify-content: space-between;
+}
+.lrd-item-modify-title {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: var(--text-sm);
+}
+.lrd-item-modify-days {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+.lrd-calc-was {
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
+  font-weight: var(--weight-regular);
+  font-size: var(--text-xs);
+  margin-left: 4px;
+}
+.lrd-card-title-row {
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+/* Leave calculation rows */
+.lrd-calc-rows { display: flex; flex-direction: column; gap: 8px; }
+.lrd-calc-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 0;
+}
+.lrd-calc-name { display: inline-flex; align-items: center; gap: 8px; font-size: var(--text-sm); color: var(--color-text-primary); }
+.lrd-calc-days { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--color-text-primary); }
+.lrd-calc-total {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 12px;
+  margin-top: 4px;
+  border-top: 1px solid var(--color-border-default);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+.lrd-calc-total strong {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-brand-primary);
+}
+
+.lrd-info-note {
+  display: inline-flex; align-items: flex-start; gap: 6px;
+  padding: 8px 10px;
+  background: var(--color-info-light);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  color: var(--color-brand-primary);
+  line-height: 1.5;
+}
+
+.lrd-alloc-hint {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+
+/* Balance impact chips: one card per leave type */
+.lrd-impact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.lrd-impact {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-default);
+  border-left-width: 3px;
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+.lrd-impact-casual      { border-left-color: var(--color-leave-casual); }
+.lrd-impact-sick        { border-left-color: var(--color-leave-sick); }
+.lrd-impact-replacement { border-left-color: var(--color-leave-replacement); }
+.lrd-impact-label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+}
+.lrd-impact-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+}
+.lrd-impact-side {
+  display: flex; flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+}
+.lrd-impact-side strong {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+.lrd-impact-side em {
+  font-style: normal;
+  font-size: 10px;
+  text-align: center;
+  color: var(--color-text-muted);
+  line-height: 1.2;
+}
+.lrd-impact-arrow {
+  color: var(--color-text-muted);
+  font-size: var(--text-lg);
+}
+.lrd-impact-warn { background: var(--color-danger-light); border-color: rgba(229, 62, 62, 0.35); }
+.lrd-impact-warn .lrd-impact-side strong { color: var(--color-danger); }

@@ -48,8 +48,33 @@
 .lreq-tab-active .lreq-tab-count { background: var(--color-info-light); color: var(--color-brand-primary); }
 .lreq-filters {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.lreq-filter { display: inline-flex; flex-direction: column; gap: 4px; }
+.lreq-filter-label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+}
+.lreq-filter-select {
+  width: 200px;
+  padding: 8px 32px 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  transition: border var(--transition-fast), box-shadow var(--transition-fast);
+}
+.lreq-filter-select:hover { border-color: var(--color-brand-secondary); }
+.lreq-filter-select:focus {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.15);
 }
 .lreq-search {
   display: flex;
@@ -60,6 +85,7 @@
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-md);
   color: var(--color-text-muted);
+  flex: 1;
   max-width: 420px;
   transition: border var(--transition-fast), box-shadow var(--transition-fast);
 }
@@ -111,12 +137,49 @@
 }
 .lreq-thead, .lreq-row {
   display: grid;
-  /* Fixed widths for compact columns so header and row cells always sit at
-     the same pixel position. Employee + Reason flex to fill the middle. */
-  grid-template-columns: minmax(220px, 2fr) 70px 150px 70px minmax(160px, 2fr) 110px 100px;
+  /* # · Employee · Period · Duration · Applied · Status · Details.
+     Period gets enough width to hold "24 Sep 2026 – 26 Sep 2026" on one line. */
+  grid-template-columns: 48px minmax(220px, 1.6fr) minmax(240px, 1fr) 90px 110px 110px 110px;
   gap: 16px;
   padding: 14px 20px;
   align-items: center;
+}
+.lreq-thead > *[data-label="Period"],
+.lreq-row > *[data-label="Period"] { white-space: nowrap; }
+
+/* Extra-work tab uses a different set of columns:
+   Employee · Date · Slot · Credit · Reason · Submitted · Status. */
+.lreq-table-extra .lreq-thead,
+.lreq-table-extra .lreq-row {
+  grid-template-columns: minmax(220px, 2fr) 130px 130px 70px minmax(160px, 2fr) 110px 110px;
+}
+.lreq-serial {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-semibold);
+}
+/* Elevated button — hairline gray border, no filled tint. */
+.lreq-details-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  color: var(--color-brand-primary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast), border-color var(--transition-fast);
+}
+.lreq-details-btn:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-bg-muted);
+  transform: translateY(-1px);
+}
+.lreq-details-btn:active {
+  box-shadow: var(--shadow-sm);
+  transform: translateY(0);
 }
 .lreq-thead > *,
 .lreq-row > * {
@@ -141,7 +204,6 @@
   text-align: left;
   background: none;
   transition: background var(--transition-fast);
-  cursor: pointer;
   width: 100%;
 }
 .lreq-row:last-child { border-bottom: none; }

@@ -13,7 +13,7 @@ interface Props {
   footer?: ReactNode;
 }
 
-export function Drawer({ open, onClose, title, subtitle, width = 480, children, footer }: Props) {
+export function Drawer({ open, onClose, title, subtitle, width = 620, children, footer }: Props) {
   return (
     <AnimatePresence>
       {open && (

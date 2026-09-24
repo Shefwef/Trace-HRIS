@@ -5,8 +5,6 @@ import { checkPermission } from '@/lib/permissions';
 import { RejectLeaveSchema } from '@/lib/validation';
 import { leaveTypeLabel, formatLeavePeriod } from '@/lib/leave';
 import { notifyIfPermitted } from '@/lib/notifications';
-import { sendEmail } from '@/lib/email';
-import { leaveDecisionEmail, customLeaveEmail } from '@/emails/templates';
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const [user, error] = await requireAuth(req);
@@ -24,59 +22,68 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (request.status !== 'PENDING')
     return err(409, 'ALREADY_DECIDED', `Request is already ${request.status.toLowerCase()}.`);
 
-  // Self-rejection guard (reinstated for production)
   if (user.id === request.employeeId)
     return err(403, 'SELF_REJECT', 'You cannot reject your own leave request.');
 
-  // Hierarchical authorization check
   const applicant = await prisma.user.findUnique({ where: { id: request.employeeId } });
   if (!applicant) return err(500, 'APPLICANT_MISSING', 'Applicant user not found.');
   const hierarchyError = canApproveRequest(user, applicant);
   if (hierarchyError) return err(403, 'HIERARCHY_VIOLATION', hierarchyError);
 
+  // Bundle-aware: rejecting any row rejects every pending sibling too.
+  const bundleSiblings = request.bundleId
+    ? await prisma.leaveRequest.findMany({
+        where: { bundleId: request.bundleId, status: 'PENDING', NOT: { id } },
+      })
+    : [];
+  const allTargets = [request, ...bundleSiblings];
+
   const year = new Date().getFullYear();
   const balance = await prisma.leaveBalance.findUnique({
     where: { employeeId_cycleYear: { employeeId: request.employeeId, cycleYear: year } },
   });
-  const duration = Number(request.durationDays);
   const now = new Date();
 
   const updated = await prisma.$transaction(async (tx) => {
-    const updatedRequest = await tx.leaveRequest.update({
-      where: { id },
-      data: {
-        status: 'REJECTED',
-        adminNote: input.note,
-        reviewedById: user.id,
-        reviewedAt: now,
-      },
-    });
-
-    // Release the pending reservation for CASUAL / SICK. REPLACEMENT holds no pending.
-    if (balance && request.leaveType === 'CASUAL') {
-      await tx.leaveBalance.update({
-        where: { id: balance.id },
-        data: { casualPending: { decrement: duration } },
+    for (const t of allTargets) {
+      const dur = Number(t.durationDays);
+      await tx.leaveRequest.update({
+        where: { id: t.id },
+        data: {
+          status: 'REJECTED',
+          adminNote: input.note,
+          reviewedById: user.id,
+          reviewedAt: now,
+        },
       });
-    } else if (balance && request.leaveType === 'SICK') {
-      await tx.leaveBalance.update({
-        where: { id: balance.id },
-        data: { sickPending: { decrement: duration } },
+
+      if (balance && t.leaveType === 'CASUAL') {
+        await tx.leaveBalance.update({
+          where: { id: balance.id },
+          data: { casualPending: { decrement: dur } },
+        });
+      } else if (balance && t.leaveType === 'SICK') {
+        await tx.leaveBalance.update({
+          where: { id: balance.id },
+          data: { sickPending: { decrement: dur } },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          actorId: user.id,
+          action: 'LEAVE_REJECTED',
+          targetType: 'leave_request',
+          targetId: t.id,
+          metadata: { note: input.note, duration: dur, bundleId: t.bundleId },
+        },
       });
     }
 
-    await tx.auditLog.create({
-      data: {
-        actorId: user.id,
-        action: 'LEAVE_REJECTED',
-        targetType: 'leave_request',
-        targetId: id,
-        metadata: { note: input.note, duration },
-      },
-    });
-
-    return updatedRequest;
+    return prisma.leaveRequest.findUnique({ where: { id } });
   });
+
+  if (!updated) return err(500, 'MISSING_AFTER_UPDATE', 'Update returned no row.');
 
   const period = formatLeavePeriod(
     updated.startDate.toISOString().slice(0, 10),
@@ -84,11 +91,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     updated.isHalfDay,
     updated.halfDaySlot,
     updated.timeFrom,
-    updated.timeTo
+    updated.timeTo,
   );
-  const durationLabel = `${duration} day${duration === 1 ? '' : 's'}`;
-
-  const employee = await prisma.user.findUnique({ where: { id: updated.employeeId } });
 
   await notifyIfPermitted(applicant, 'notifications.leave_decision', {
     type: 'LEAVE_REJECTED',
@@ -98,45 +102,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     referenceId: updated.id,
   });
 
-  const settings = await prisma.systemSettings.upsert({
-    where: { id: 'singleton' },
-    update: {},
-    create: { id: 'singleton' },
-  });
-  if (updated.channels.includes('EMAIL') && employee) {
-    const historyUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/leaves`;
-    const useCustom = !!(input.emailSubject && input.emailBody);
-    const { subject, html } = useCustom
-      ? customLeaveEmail(
-          {
-            subject: input.emailSubject!,
-            body: input.emailBody!,
-            decision: 'REJECTED',
-            historyUrl,
-          },
-          { senderName: settings.senderName },
-        )
-      : leaveDecisionEmail(
-          {
-            employeeName: employee.fullName,
-            leaveType: leaveTypeLabel(updated.leaveType),
-            period,
-            duration: durationLabel,
-            decision: 'REJECTED',
-            reviewerName: user.fullName,
-            note: input.note,
-            historyUrl,
-          },
-          { senderName: settings.senderName },
-        );
-    void sendEmail({
-      to: [employee.email],
-      subject,
-      html,
-      referenceType: 'leave_request',
-      referenceId: updated.id,
-    });
-  }
-
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, cascadedSiblings: bundleSiblings.length });
 }
