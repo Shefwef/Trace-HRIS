@@ -1,31 +1,29 @@
 /**
- * Next 16 renamed the `middleware` file convention to `proxy`. Clerk's
- * clerkMiddleware() is unchanged — it just runs from here now.
+ * Next 16 renamed the `middleware` file convention to `proxy`. We keep
+ * clerkMiddleware() so Clerk can attach its auth context to every request,
+ * but no path-based `auth.protect()` here — Clerk deprecated
+ * `createRouteMatcher` in favour of resource-based auth checks, which the
+ * app already does:
+ *
+ *   • /(app)/* pages: AppLayout → ensureUserInDb() → redirect('/sign-in')
+ *   • /(app)/admin/* pages: additional role check via requireUser() + role guard
+ *   • /api/*         : each route calls requireAuth() → 401 if unauth
+ *   • /api/webhooks  : validated via signed payload
+ *   • /api/biometric : bearer-token auth handled in the route
+ *   • /               : public landing
+ *   • /sign-in        : public
+ *
+ * Migration ref: https://clerk.com/docs/guides/development/upgrading/upgrade-guides/migrate-from-create-route-matcher
  */
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { clerkMiddleware } from '@clerk/nextjs/server';
 
-const isPublicRoute = createRouteMatcher([
-  '/',                        // landing
-  '/sign-in(.*)',
-  '/api/webhooks/(.*)',
-  '/api/biometric/(.*)',      // office agent uses bearer token, not Clerk
-]);
-
-export default clerkMiddleware(async (auth, req) => {
-  if (!isPublicRoute(req)) {
-    // Pass the redirect targets explicitly. Left to infer them, protect()
-    // falls through to a Next notFound(), so a signed-out visitor opening
-    // /dashboard got a bare 404 instead of the sign-in page.
-    await auth.protect({
-      unauthenticatedUrl: new URL('/sign-in', req.url).toString(),
-      unauthorizedUrl: new URL('/not-authorized', req.url).toString(),
-    });
-  }
-});
+export default clerkMiddleware();
 
 export const config = {
   matcher: [
+    // Skip Next internals and static asset extensions
     '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Always run on API + tRPC so Clerk injects auth() for those handlers.
     '/(api|trpc)(.*)',
   ],
 };
