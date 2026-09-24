@@ -40,11 +40,12 @@
 
 .atpg-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* 3 equal columns fill the whole row now that the absent-days card is gone. */
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-4);
 }
-@media (max-width: 1100px) { .atpg-stats { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 540px)  { .atpg-stats { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .atpg-stats { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 540px) { .atpg-stats { grid-template-columns: 1fr; } }
 
 .atpg-charts {
   display: grid;
@@ -76,9 +77,9 @@
 }
 .atpg-thead, .atpg-row {
   display: grid;
+  /* Date · Clock In · Clock Out · Worked · Overtime · Deficit · Location */
   grid-template-columns:
     minmax(0, 1.6fr)
-    minmax(0, 1fr)
     minmax(0, 1fr)
     minmax(0, 1fr)
     minmax(0, 1fr)
@@ -90,6 +91,54 @@
   align-items: center;
   font-size: var(--text-sm);
 }
+
+/* Filters row on the daily breakdown card. */
+.atpg-filters {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.atpg-filter {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.atpg-filter-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+}
+.atpg-filter-input {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  min-width: 150px;
+  transition: border var(--transition-fast), box-shadow var(--transition-fast);
+}
+.atpg-filter-input:hover { border-color: var(--color-brand-secondary); }
+.atpg-filter-input:focus {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.15);
+}
+.atpg-filter-clear {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.atpg-filter-clear:hover { background: var(--color-bg-subtle); color: var(--color-text-primary); }
 .atpg-row > span { min-width: 0; }
 /* Location cell centered so the compact "Office" tag / "Office +" button
    sit in the middle rather than hugging the left edge. */

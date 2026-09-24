@@ -34,6 +34,7 @@ interface RecordWithBreaks {
   id: string; employeeId: string; date: Date;
   clockInTime: Date | null; clockOutTime: Date | null;
   totalWorkedMinutes: number; totalBreakMinutes: number; overtimeMinutes: number;
+  deficitMinutes: number;
   status: string; source: string; notes: string | null;
   workLocation: string;
   breaks: { id: string; breakStart: Date; breakEnd: Date | null; durationMinutes: number | null }[];
@@ -48,6 +49,7 @@ export function serialize(r: RecordWithBreaks) {
     totalWorkedMinutes: r.totalWorkedMinutes,
     totalBreakMinutes: r.totalBreakMinutes,
     overtimeMinutes: r.overtimeMinutes,
+    deficitMinutes: r.deficitMinutes,
     status: r.status,
     source: r.source,
     notes: r.notes,

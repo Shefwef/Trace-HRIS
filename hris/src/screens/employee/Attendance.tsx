@@ -1,8 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Bar, BarChart } from 'recharts';
-import { motion } from 'framer-motion';
-import { CheckCircle2, XCircle, Coffee, Zap, Plus, Building2, MapPin, ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Coffee, Zap, Plus, Building2, MapPin, ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react';
 import { useAttendanceHistory, useBalance, type AttendanceRecordData, type LocationEventSummary } from '@/lib/hooks';
 import { AttendanceWidget } from '../../components/attendance/AttendanceWidget';
 import { StatCard } from '../../components/ui/StatCard';
@@ -59,19 +57,8 @@ export function AttendancePage() {
   }, [data, year, month, todayDate, joiningDate]);
 
   const present = attendance.filter((a) => a.status === 'PRESENT').length;
-  const absent = attendance.filter((a) => a.status === 'ABSENT').length;
   const onLeave = attendance.filter((a) => a.status === 'LEAVE').length;
   const overtimeMin = attendance.reduce((s, a) => s + a.overtimeMinutes, 0);
-
-  const dailyHours = attendance
-    .slice()
-    .reverse()
-    .filter((a) => a.totalWorkedMinutes > 0)
-    .map((a) => ({
-      day: new Date(a.date).getUTCDate(),
-      hours: +(a.totalWorkedMinutes / 60).toFixed(2),
-      overtime: +(a.overtimeMinutes / 60).toFixed(2),
-    }));
 
   return (
     <div className="atpg">
@@ -108,73 +95,104 @@ export function AttendancePage() {
 
       <div className="atpg-stats">
         <StatCard label="Present days" value={present} hint="This month" icon={<CheckCircle2 size={16} />} accent="success" />
-        <StatCard label="Absent days" value={absent} icon={<XCircle size={16} />} accent="danger" />
         <StatCard label="Leaves taken" value={onLeave} icon={<Coffee size={16} />} accent="info" />
         <StatCard label="Total overtime" value={fmtDuration(overtimeMin)} icon={<Zap size={16} />} accent="warning" />
       </div>
 
-      <motion.div
-        className="atpg-charts"
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <div className="card atpg-chart">
-          <header className="atpg-chart-head">
-            <h3>Daily hours worked</h3>
-            <span className="muted">This month</span>
-          </header>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={dailyHours} margin={{ top: 12, right: 12, bottom: 0, left: -18 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-bg-muted)" />
-              <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false} unit="h" />
-              <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--color-border-default)', fontSize: 12 }} />
-              <Line type="monotone" dataKey="hours" stroke="#3182CE" strokeWidth={2.4} dot={{ r: 3, fill: '#3182CE' }} activeDot={{ r: 5 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="card atpg-chart">
-          <header className="atpg-chart-head">
-            <h3>Daily overtime</h3>
-            <span className="muted">Beyond 8h/day</span>
-          </header>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={dailyHours} margin={{ top: 12, right: 12, bottom: 0, left: -18 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-bg-muted)" />
-              <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false} unit="h" />
-              <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--color-border-default)', fontSize: 12 }} />
-              <Bar dataKey="overtime" fill="#319795" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </motion.div>
+      <DailyBreakdown allDays={allDays} />
 
-      <div className="card atpg-table-card">
-        <header className="atpg-panel-head">
-          <h3>Daily breakdown</h3>
-          <span className="muted">All days this month</span>
-        </header>
-        <div className="atpg-table">
-          <div className="atpg-thead">
-            <span>Date</span>
-            <span>Clock In</span>
-            <span>Clock Out</span>
-            <span>Break</span>
-            <span>Worked</span>
-            <span>Overtime</span>
-            <span>Status</span>
-            <span>Location</span>
-          </div>
-          {allDays.map((entry) =>
-            entry.kind === 'record'
-              ? <AttendanceRow key={entry.record.id} record={entry.record} />
-              : <EmptyDayRow key={entry.date} date={entry.date} isWeekend={entry.isWeekend} />
-          )}
-        </div>
-      </div>
+
 
       <LogExtraWorkModal open={extraOpen} onClose={() => setExtraOpen(false)} />
+    </div>
+  );
+}
+
+/**
+ * Daily breakdown card with date + location filters.
+ * Filter values are `''` (any) or a specific date / location. When both are
+ * `''`, every row for the month renders (existing behavior).
+ */
+function DailyBreakdown({ allDays }: { allDays: DayEntry[] }) {
+  const [dateFilter, setDateFilter] = useState('');
+  const [locFilter, setLocFilter] = useState<'ALL' | 'OFFICE' | 'OFFSITE'>('ALL');
+
+  const filtered = useMemo(() => {
+    return allDays.filter((entry) => {
+      if (dateFilter) {
+        const d = entry.kind === 'record' ? entry.record.date : entry.date;
+        if (d !== dateFilter) return false;
+      }
+      if (locFilter !== 'ALL') {
+        if (entry.kind !== 'record') return false;
+        const evs = entry.record.locationEvents ?? [];
+        const hasOffsite = evs.some((e) => e.eventType === 'OFFSITE_STARTED');
+        if (locFilter === 'OFFSITE' && !hasOffsite) return false;
+        if (locFilter === 'OFFICE' && hasOffsite) return false;
+      }
+      return true;
+    });
+  }, [allDays, dateFilter, locFilter]);
+
+  return (
+    <div className="card atpg-table-card">
+      <header className="atpg-panel-head">
+        <h3>Daily breakdown</h3>
+        <div className="atpg-filters">
+          <label className="atpg-filter">
+            <span className="atpg-filter-label">Date</span>
+            <input
+              type="date"
+              className="atpg-filter-input"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+            />
+          </label>
+          <label className="atpg-filter">
+            <span className="atpg-filter-label">Location</span>
+            <select
+              className="atpg-filter-input"
+              value={locFilter}
+              onChange={(e) => setLocFilter(e.target.value as 'ALL' | 'OFFICE' | 'OFFSITE')}
+            >
+              <option value="ALL">All</option>
+              <option value="OFFICE">Office only</option>
+              <option value="OFFSITE">Off-site</option>
+            </select>
+          </label>
+          {(dateFilter || locFilter !== 'ALL') && (
+            <button
+              type="button"
+              className="atpg-filter-clear"
+              onClick={() => { setDateFilter(''); setLocFilter('ALL'); }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </header>
+      <div className="atpg-table">
+        <div className="atpg-thead">
+          <span>Date</span>
+          <span>Clock In</span>
+          <span>Clock Out</span>
+          <span>Worked</span>
+          <span>Overtime</span>
+          <span>Deficit</span>
+          <span>Location</span>
+        </div>
+        {filtered.length === 0 ? (
+          <div className="atpg-row atpg-row-empty">
+            <span style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--color-text-muted)', padding: '20px 0' }}>
+              No days match these filters.
+            </span>
+          </div>
+        ) : filtered.map((entry) =>
+          entry.kind === 'record'
+            ? <AttendanceRow key={entry.record.id} record={entry.record} />
+            : <EmptyDayRow key={entry.date} date={entry.date} isWeekend={entry.isWeekend} />
+        )}
+      </div>
     </div>
   );
 }
@@ -196,13 +214,16 @@ function AttendanceRow({ record: a }: { record: AttendanceRecordData }) {
   return (
     <>
       <div className="atpg-row">
-        <span data-label="Date">{fmtDate(a.date, 'EEE, d MMM')}</span>
+        <span data-label="Date">{fmtDate(a.date, 'd MMM yyyy')} <span className="muted">({fmtDate(a.date, 'EEE')})</span></span>
         <span className="mono" data-label="Clock in">{a.clockInTime ? fmtTime(a.clockInTime) : '—'}</span>
         <span className="mono" data-label="Clock out">{a.clockOutTime ? fmtTime(a.clockOutTime) : '—'}</span>
-        <span className="mono" data-label="Break">{a.totalBreakMinutes ? fmtDuration(a.totalBreakMinutes) : '—'}</span>
         <span className="mono" data-label="Worked">{a.totalWorkedMinutes ? fmtDuration(a.totalWorkedMinutes) : '—'}</span>
-        <span className="mono" data-label="Overtime">{a.overtimeMinutes ? fmtDuration(a.overtimeMinutes) : '—'}</span>
-        <span data-label="Status"><StatusDot status={a.status} /></span>
+        <span className="mono" data-label="Overtime" style={{ color: a.overtimeMinutes ? 'var(--color-success)' : undefined }}>
+          {a.overtimeMinutes ? fmtDuration(a.overtimeMinutes) : '—'}
+        </span>
+        <span className="mono" data-label="Deficit" style={{ color: a.deficitMinutes ? 'var(--color-danger)' : undefined }}>
+          {a.deficitMinutes ? fmtDuration(a.deficitMinutes) : '—'}
+        </span>
         <span data-label="Location">
           {canExpand ? (
             <button
@@ -272,15 +293,12 @@ function LocEventRow({ event: e }: { event: LocationEventSummary }) {
 function EmptyDayRow({ date, isWeekend }: { date: string; isWeekend: boolean }) {
   return (
     <div className="atpg-row" style={{ opacity: isWeekend ? 0.45 : 0.65 }}>
-      <span data-label="Date">{fmtDate(date, 'EEE, d MMM')}</span>
+      <span data-label="Date">{fmtDate(date, 'd MMM yyyy')} <span className="muted">({fmtDate(date, 'EEE')})</span>{isWeekend && <em style={{ marginLeft: 6, fontStyle: 'normal', color: 'var(--color-text-muted)', fontSize: 12 }}>· weekend</em>}</span>
       <span className="mono" data-label="Clock in" style={{ color: 'var(--color-text-muted)' }}>—</span>
       <span className="mono" data-label="Clock out" style={{ color: 'var(--color-text-muted)' }}>—</span>
-      <span className="mono" data-label="Break" style={{ color: 'var(--color-text-muted)' }}>—</span>
       <span className="mono" data-label="Worked" style={{ color: 'var(--color-text-muted)' }}>—</span>
       <span className="mono" data-label="Overtime" style={{ color: 'var(--color-text-muted)' }}>—</span>
-      <span data-label="Status">
-        <StatusDot status={isWeekend ? 'WEEKEND' : 'ABSENT'} />
-      </span>
+      <span className="mono" data-label="Deficit" style={{ color: 'var(--color-text-muted)' }}>—</span>
       <span data-label="Location" style={{ color: 'var(--color-text-muted)', justifyContent: 'center', display: 'flex' }}>—</span>
     </div>
   );

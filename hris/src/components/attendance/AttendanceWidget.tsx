@@ -1,12 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Play, Coffee, Square, Timer } from 'lucide-react';
+import { Play, Coffee, Square, Timer, RotateCcw } from 'lucide-react';
 import {
   useToday,
   useClockIn,
   useClockOut,
   useStartBreak,
   useEndBreak,
+  useResumeSession,
 } from '@/lib/hooks';
 import { useStore } from '@/lib/store';
 import { Button } from '../ui/Button';
@@ -28,6 +29,7 @@ export function AttendanceWidget() {
   const clockOut = useClockOut();
   const startBreak = useStartBreak();
   const endBreak = useEndBreak();
+  const resumeSession = useResumeSession();
   const addToast = useStore((s) => s.addToast);
 
   const onError = (kind: string) => (e: Error) => {
@@ -65,7 +67,7 @@ export function AttendanceWidget() {
   });
 
   const busy =
-    clockIn.isPending || clockOut.isPending || startBreak.isPending || endBreak.isPending;
+    clockIn.isPending || clockOut.isPending || startBreak.isPending || endBreak.isPending || resumeSession.isPending;
 
   return (
     <div className="atw">
@@ -158,9 +160,24 @@ export function AttendanceWidget() {
           </Button>
         )}
         {isClockedOut && (
-          <Button variant="secondary" size="lg" disabled>
-            See you tomorrow!
-          </Button>
+          <>
+            <Button
+              variant="secondary"
+              size="lg"
+              leadingIcon={<RotateCcw size={16} />}
+              loading={resumeSession.isPending}
+              disabled={busy}
+              title="Clocked out by mistake? Reopen today's session so you can clock out again later."
+              onClick={() =>
+                resumeSession.mutate(undefined, { onError: onError('resume session') })
+              }
+            >
+              Resume Work
+            </Button>
+            <Button variant="ghost" size="lg" disabled>
+              See you tomorrow!
+            </Button>
+          </>
         )}
       </div>
     </div>

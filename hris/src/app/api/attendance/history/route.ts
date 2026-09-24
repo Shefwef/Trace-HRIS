@@ -26,8 +26,24 @@ export async function GET(req: Request) {
 
   let targetId = user.id;
   if (otherId && otherId !== user.id) {
-    if (!['ADMIN', 'HR', 'SUPER_ADMIN'].includes(user.role))
-      return err(403, 'FORBIDDEN', 'Only admins can view another user\'s attendance.');
+    // Multi-role safe: prefer roles[] over the denormalized scalar role.
+    const roles = user.roles?.length ? user.roles : [user.role];
+    const isFullReviewer =
+      roles.includes('ADMIN') ||
+      roles.includes('HR') ||
+      roles.includes('SUPER_ADMIN');
+    if (!isFullReviewer) {
+      // Line Managers see attendance for their DIRECT reports only —
+      // non-transitive, matching how leave/extra-work approvals are scoped.
+      if (!roles.includes('LINE_MANAGER'))
+        return err(403, 'FORBIDDEN', 'You do not have permission to view another user\'s attendance.');
+      const target = await prisma.user.findUnique({
+        where: { id: otherId },
+        select: { lineManagerId: true },
+      });
+      if (!target || target.lineManagerId !== user.id)
+        return err(403, 'FORBIDDEN', 'You can only view attendance for your direct reports.');
+    }
     targetId = otherId;
   }
 

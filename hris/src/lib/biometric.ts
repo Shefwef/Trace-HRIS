@@ -10,7 +10,7 @@
  * We parse it in that zone and convert to UTC before any DB write.
  */
 import { prisma } from './db';
-import { localDateOnly, localDayBounds } from './workday';
+import { localDateOnly, localDayBounds, localDayKey } from './workday';
 
 /**
  * Minutes in a scheduled workday derived from the office window.
@@ -25,6 +25,45 @@ function standardMinutesFromWindow(workStartTime: string, workEndTime: string): 
   const endMin = eh * 60 + em;
   const diff = endMin - startMin;
   return diff > 0 ? diff : 0;
+}
+
+/**
+ * When only ONE punch is recorded for a day, we can't tell "did they come in
+ * late and forget to tap out" from "did they forget to tap in and only tap
+ * out on the way home". Use the hour of the punch as a tiebreaker: at or
+ * after 14:00 office-local, treat the lone punch as clock-OUT (they clearly
+ * worked most of the day and only remembered to tap on exit). Before 14:00,
+ * treat it as clock-IN (they probably arrived and forgot to tap on exit).
+ */
+const SINGLE_PUNCH_CLOCKOUT_HOUR = 14;
+
+/** Hour of day (0-23) for a UTC instant in office-local time. */
+function localHour(at: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Dhaka',
+    hour: '2-digit',
+    hour12: false,
+  }).formatToParts(at);
+  const h = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
+  return h % 24;
+}
+
+/**
+ * Decide clock-in / clock-out from a sorted list of punches for one day.
+ * - 0 punches → both null
+ * - 1 punch, before 14:00 → clock-in only
+ * - 1 punch, at/after 14:00 → clock-out only
+ * - 2+ punches → earliest is clock-in, latest is clock-out
+ */
+function resolveInOut(punches: Date[]): { clockIn: Date | null; clockOut: Date | null } {
+  if (punches.length === 0) return { clockIn: null, clockOut: null };
+  if (punches.length === 1) {
+    const single = punches[0];
+    return localHour(single) >= SINGLE_PUNCH_CLOCKOUT_HOUR
+      ? { clockIn: null, clockOut: single }
+      : { clockIn: single, clockOut: null };
+  }
+  return { clockIn: punches[0], clockOut: punches[punches.length - 1] };
 }
 
 export interface RawPunch {
@@ -258,12 +297,7 @@ async function rebuildAttendanceDay(
 
   if (allPunches.length === 0) return;
 
-  const earliest = allPunches[0].punchedAt;
-  const latest   = allPunches[allPunches.length - 1].punchedAt;
-
-  const clockIn  = earliest;
-  // Single tap of the day → only a clock-in, no clock-out.
-  const clockOut = latest.getTime() === earliest.getTime() ? null : latest;
+  const { clockIn, clockOut } = resolveInOut(allPunches.map((p) => p.punchedAt));
 
   const totalWorkedMinutes = clockIn && clockOut
     ? Math.max(0, Math.round((clockOut.getTime() - clockIn.getTime()) / 60_000))
@@ -383,7 +417,13 @@ async function doRebuildAttendanceRange(
       const employeeId = deviceToEmployee.get(punch.deviceUserId);
       if (!employeeId) continue;
       const date = localDateOnly(punch.punchedAt);
-      remappedDays.set(`${employeeId}|${date.toISOString()}`, { employeeId, date });
+      // Key on Dhaka calendar day, not date.toISOString(). Prisma can return
+      // @db.Date columns as a Date whose UTC-instant is at Dhaka-midnight
+      // instead of UTC-midnight — depending on the Node TZ and driver — so an
+      // ISO-string key would mismatch between the write side (always UTC-mid)
+      // and the read side, causing a P2002 unique-constraint violation when
+      // the rebuild thought the row didn't exist and tried to createMany.
+      remappedDays.set(`${employeeId}|${localDayKey(date)}`, { employeeId, date });
     }
   }
 
@@ -397,7 +437,7 @@ async function doRebuildAttendanceRange(
   for (const p of rangePunches) {
     if (!p.employeeId) continue;
     const date = localDateOnly(p.punchedAt);
-    const key = `${p.employeeId}|${date.toISOString()}`;
+    const key = `${p.employeeId}|${localDayKey(date)}`;
     if (!dayMap.has(key)) dayMap.set(key, { employeeId: p.employeeId, date });
   }
 
@@ -441,13 +481,13 @@ async function doRebuildAttendanceRange(
 
   const existingByKey = new Map<string, { id: string; source: string }>();
   for (const r of existingRecords) {
-    existingByKey.set(`${r.employeeId}|${r.date.toISOString()}`, { id: r.id, source: r.source });
+    existingByKey.set(`${r.employeeId}|${localDayKey(r.date)}`, { id: r.id, source: r.source });
   }
 
   const punchesByKey = new Map<string, Date[]>();
   for (const p of allPunches) {
     if (!p.employeeId) continue;
-    const key = `${p.employeeId}|${localDateOnly(p.punchedAt).toISOString()}`;
+    const key = `${p.employeeId}|${localDayKey(p.punchedAt)}`;
     const arr = punchesByKey.get(key);
     if (arr) arr.push(p.punchedAt);
     else punchesByKey.set(key, [p.punchedAt]);
@@ -462,22 +502,19 @@ async function doRebuildAttendanceRange(
   }> = [];
   const toUpdate: Array<{
     id: string;
-    clockInTime: Date; clockOutTime: Date | null;
+    clockInTime: Date | null; clockOutTime: Date | null;
     totalWorkedMinutes: number; overtimeMinutes: number; deficitMinutes: number;
   }> = [];
 
   for (const { employeeId, date } of dayMap.values()) {
-    const key = `${employeeId}|${date.toISOString()}`;
+    const key = `${employeeId}|${localDayKey(date)}`;
     const dayPunches = punchesByKey.get(key);
     if (!dayPunches || dayPunches.length === 0) continue;
 
     const existing = existingByKey.get(key);
     if (existing && existing.source === 'MANUAL') continue;
 
-    const earliest = dayPunches[0];
-    const latest   = dayPunches[dayPunches.length - 1];
-    const clockIn  = earliest;
-    const clockOut = latest.getTime() === earliest.getTime() ? null : latest;
+    const { clockIn, clockOut } = resolveInOut(dayPunches);
 
     const totalWorkedMinutes = clockIn && clockOut
       ? Math.max(0, Math.round((clockOut.getTime() - clockIn.getTime()) / 60_000))
@@ -486,9 +523,15 @@ async function doRebuildAttendanceRange(
     const overtimeMinutes = clockOut ? Math.max(0, totalWorkedMinutes - standardMinutes) : 0;
     const deficitMinutes  = clockOut ? Math.max(0, standardMinutes - totalWorkedMinutes) : 0;
 
+    // A day with only a lone late-afternoon punch has no clock-in — that row
+    // is effectively a stand-alone clock-out. Prisma requires both `create`
+    // and `update` payloads to include the resolved values.
     if (existing) {
       toUpdate.push({ id: existing.id, clockInTime: clockIn, clockOutTime: clockOut, totalWorkedMinutes, overtimeMinutes, deficitMinutes });
-    } else {
+    } else if (clockIn) {
+      // Skip creating a brand-new row when the resolver couldn't assign a
+      // clock-in — the schema treats clockInTime as the anchor of a session,
+      // and a solo clock-out with no in doesn't warrant a fresh record.
       toCreate.push({
         employeeId, date, clockInTime: clockIn, clockOutTime: clockOut,
         totalWorkedMinutes, overtimeMinutes, deficitMinutes, status: 'PRESENT', source: 'BIOMETRIC',
