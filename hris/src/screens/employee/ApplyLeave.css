@@ -1,0 +1,338 @@
+.aply { display: flex; flex-direction: column; gap: var(--space-5); }
+
+.aply-head { display: flex; flex-direction: column; gap: 6px; }
+.aply-head h1 { font-size: var(--text-3xl); letter-spacing: -0.02em; }
+.aply-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--color-text-secondary); font-size: var(--text-sm);
+  align-self: flex-start;
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.aply-back:hover { color: var(--color-text-primary); }
+
+.aply-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--space-5);
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .aply-grid { grid-template-columns: 1fr; }
+}
+
+.aply-main { display: flex; flex-direction: column; gap: var(--space-5); }
+
+/* ─── Type card ─── */
+.aply-type {
+  padding: var(--space-5);
+  display: flex; flex-direction: column;
+  gap: var(--space-4);
+  border-left: 3px solid transparent;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+.aply-type-active                       { background: var(--color-bg-surface); }
+.aply-type.aply-type-casual.aply-type-active      { border-left-color: var(--color-leave-casual); }
+.aply-type.aply-type-sick.aply-type-active        { border-left-color: var(--color-leave-sick); }
+.aply-type.aply-type-replacement.aply-type-active { border-left-color: var(--color-leave-replacement); }
+
+.aply-type-head {
+  display: flex; gap: 12px; align-items: flex-start; cursor: pointer;
+}
+.aply-type-head input[type="checkbox"] {
+  margin-top: 4px; width: 18px; height: 18px; accent-color: var(--color-brand-primary);
+}
+.aply-type-title {
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-lg);
+  color: var(--color-text-primary);
+}
+.aply-type-sub {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+.aply-remaining { color: var(--color-success); font-weight: var(--weight-medium); }
+.aply-remaining-over { color: var(--color-danger); }
+
+.aply-daterow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.aply-skip-hint {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.aply-days {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.aply-day {
+  display: flex; flex-direction: column;
+  border-bottom: 1px solid var(--color-border-default);
+  transition: background var(--transition-fast);
+}
+.aply-day:last-child { border-bottom: none; }
+.aply-day-expanded { background: var(--color-bg-subtle); }
+.aply-day-main {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 12px;
+  align-items: center;
+}
+.aply-day-label { font-size: var(--text-sm); color: var(--color-text-primary); }
+.aply-day-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* Expanded morning/afternoon picker — sits below the main row when Half day is on. */
+.aply-half-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 0 12px 12px;
+  animation: aply-half-in 180ms ease-out;
+}
+@keyframes aply-half-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.aply-half-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.aply-half-option input { accent-color: var(--color-brand-secondary); }
+.aply-half-option div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.aply-half-option strong {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+}
+.aply-half-option span {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.aply-half-option:hover {
+  border-color: var(--color-brand-secondary);
+}
+.aply-half-option-on {
+  border-color: var(--color-brand-secondary);
+  box-shadow: var(--shadow-sm);
+}
+.aply-half-option-on strong { color: var(--color-brand-primary); }
+@media (max-width: 640px) {
+  .aply-half-panel { grid-template-columns: 1fr; }
+}
+
+/* Chips (Full day / Half day). Minimal: just a border. Selected adds a soft
+   blue border + a small elevation shadow — no filled tint. */
+.aply-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), color var(--transition-fast);
+}
+.aply-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.aply-chip:hover { border-color: var(--color-brand-secondary); }
+.aply-chip-on {
+  border-color: var(--color-brand-secondary);
+  color: var(--color-brand-primary);
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--shadow-sm);
+}
+.aply-half-slots {
+  display: inline-flex; gap: 6px;
+  padding-left: 8px;
+  border-left: 1px solid var(--color-border-default);
+  margin-left: 4px;
+}
+
+/* ─── Details card ─── */
+.aply-details {
+  padding: var(--space-6);
+  display: flex; flex-direction: column;
+  gap: var(--space-5);
+}
+.aply-details h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border-default);
+}
+/* Retain aply-label only for the type-card date row (uses aply-label-inline). */
+.aply-label {
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  font-weight: var(--weight-medium);
+}
+.aply-label-inline { flex-direction: column; }
+
+/* Upload drop-target button */
+.aply-drop {
+  width: 100%;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 20px 16px;
+  border: 1.5px dashed var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-canvas);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+.aply-drop:hover:not(:disabled) {
+  border-color: var(--color-brand-secondary);
+  background: var(--color-info-light);
+  color: var(--color-brand-primary);
+}
+.aply-drop:disabled { opacity: 0.7; cursor: default; }
+.aply-drop strong { color: var(--color-brand-primary); font-weight: var(--weight-semibold); }
+
+/* Uploaded file chip */
+.aply-file-chip {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-info-light);
+  color: var(--color-brand-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  max-width: 100%;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.aply-file-chip:hover {
+  border-color: var(--color-brand-secondary);
+  background: color-mix(in srgb, var(--color-brand-secondary) 15%, var(--color-info-light));
+}
+.aply-file-chip-icon { flex-shrink: 0; }
+.aply-file-chip-name {
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.aply-file-chip-remove {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px;
+  border: none; border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.aply-file-chip-remove:hover {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+/* ─── Summary card ─── */
+.aply-summary {
+  padding: var(--space-5);
+  display: flex; flex-direction: column;
+  gap: var(--space-4);
+  /* Topbar is 72px (60px on ≤1440px) + a small breathing gap keeps the
+     whole card visible under the sticky header when scrolling. */
+  position: sticky;
+  top: calc(72px + var(--space-4));
+  max-height: calc(100vh - 72px - var(--space-6));
+  overflow-y: auto;
+}
+@media (max-width: 1440px) {
+  .aply-summary {
+    top: calc(60px + var(--space-4));
+    max-height: calc(100vh - 60px - var(--space-6));
+  }
+}
+.aply-summary h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+.aply-empty {
+  font-size: var(--text-sm);
+  padding: var(--space-4) 0;
+  text-align: center;
+}
+.aply-summary-row {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  border-left: 3px solid transparent;
+  display: flex; flex-direction: column;
+  gap: 4px;
+}
+.aply-summary-row.aply-type-casual      { border-left-color: var(--color-leave-casual); }
+.aply-summary-row.aply-type-sick        { border-left-color: var(--color-leave-sick); }
+.aply-summary-row.aply-type-replacement { border-left-color: var(--color-leave-replacement); }
+.aply-summary-row-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: var(--text-sm);
+}
+.aply-summary-badge {
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--color-bg-canvas);
+  color: var(--color-text-secondary);
+  letter-spacing: 0.06em;
+}
+.aply-summary-name { flex: 1; font-weight: var(--weight-medium); }
+.aply-summary-days { font-family: var(--font-mono); font-weight: var(--weight-semibold); }
+.aply-summary-days-over { color: var(--color-danger); }
+.aply-summary-row-meta {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+.aply-summary-total {
+  display: flex; justify-content: space-between; align-items: center;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-default);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+.aply-summary-total strong {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  color: var(--color-brand-primary);
+  font-weight: var(--weight-semibold);
+}
+.aply-warn {
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
+  color: var(--color-danger);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+.aply-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-default);
+}
+.aply-spin { animation: aply-spin 0.8s linear infinite; }
+@keyframes aply-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }

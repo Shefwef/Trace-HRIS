@@ -41,6 +41,9 @@ export interface Balance {
 export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 export type LeaveType = 'CASUAL' | 'SICK' | 'REPLACEMENT';
 
+export type LeaveSlot = 'FULL' | 'HALF_MORNING' | 'HALF_AFTERNOON';
+export interface LeaveDayAllocation { date: string; slot: LeaveSlot }
+
 export interface LeaveRequestSummary {
   id: string;
   employeeId: string;
@@ -59,9 +62,11 @@ export interface LeaveRequestSummary {
   customMessage: string | null;
   status: LeaveStatus;
   adminNote: string | null;
-  approvedAllocation:
-    | { date: string; slot: 'FULL' | 'HALF_MORNING' | 'HALF_AFTERNOON' }[]
-    | null;
+  approvedAllocation: LeaveDayAllocation[] | null;
+  /** Present on rows submitted via the multi-type Apply-for-leave page. */
+  bundleId: string | null;
+  /** Per-day full/half breakdown captured at submit time. Null for legacy rows. */
+  perDayAllocation: LeaveDayAllocation[] | null;
   reviewedById: string | null;
   reviewedAt: string | null;
   createdAt: string;
@@ -73,12 +78,26 @@ export interface LeaveRequestSummary {
   reviewer?: { id: string; fullName: string } | null;
 }
 
+export interface LeaveBundleItemSummary {
+  id: string;
+  leaveType: LeaveType;
+  startDate: string;
+  endDate: string;
+  isHalfDay: boolean;
+  halfDaySlot: 'MORNING' | 'AFTERNOON' | null;
+  durationDays: number;
+  status: LeaveStatus;
+  perDayAllocation: LeaveDayAllocation[] | null;
+}
+
 export interface LeaveDetail extends LeaveRequestSummary {
   balancePreview: {
     casualLeft: number;
     sickLeft: number;
     replacementLeft: number;
   } | null;
+  /** Sibling items when this request was submitted as part of a multi-type bundle. */
+  bundleItems: LeaveBundleItemSummary[] | null;
 }
 
 export interface ExtraWorkSummary {
@@ -104,6 +123,8 @@ export interface UserSummary {
   isActive: boolean;
   lineManagerId: string | null;
   lineManager?: { id: string; fullName: string } | null;
+  /** ISO timestamp when the user was soft-deleted; null otherwise. */
+  deletedAt?: string | null;
 }
 
 export interface NotificationItem {
@@ -186,12 +207,53 @@ export function useAllExtraWork() {
   });
 }
 
-export function useUsers(options?: { includeDeactivated?: boolean }) {
-  const qs = options?.includeDeactivated ? '?includeDeactivated=true' : '';
+export function useUsers(options?: { includeDeactivated?: boolean; deleted?: boolean }) {
+  const params = new URLSearchParams();
+  if (options?.includeDeactivated) params.set('includeDeactivated', 'true');
+  if (options?.deleted) params.set('deleted', 'true');
+  const qs = params.toString() ? `?${params.toString()}` : '';
   return useQuery({
     queryKey: ['users', options],
     queryFn: () => api<UserSummary[]>(`/api/users${qs}`),
     staleTime: 5 * 60_000,
+  });
+}
+
+export interface EmployeeProfile extends UserSummary {
+  balance: {
+    cycleYear: number;
+    casualTotal: number; casualUsed: number; casualPending: number;
+    sickTotal: number;   sickUsed: number;   sickPending: number;
+    replacementBalance: number;
+  } | null;
+}
+export function useEmployeeProfile(id: string | null) {
+  return useQuery({
+    queryKey: ['users', id, 'profile'],
+    queryFn: () => api<EmployeeProfile>(`/api/users/${id}`),
+    enabled: !!id,
+  });
+}
+
+export function useSoftDeleteEmployee() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api(`/api/users/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+}
+export function useRestoreEmployee() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api(`/api/users/${id}/restore`, { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+}
+export function usePermanentDeleteEmployee() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api(`/api/users/${id}?permanent=true`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   });
 }
 
@@ -279,6 +341,31 @@ export function useSubmitLeave() {
   });
 }
 
+/** Payload for the multi-type Apply-for-leave submit. */
+export interface LeaveBundleInput {
+  items: { leaveType: LeaveType; perDayAllocation: LeaveDayAllocation[] }[];
+  reason: string;
+  description?: string;
+  attachmentUrl?: string;
+  channels: ('EMAIL' | 'IN_APP')[];
+  customMessage?: string;
+}
+
+export function useSubmitLeaveBundle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: LeaveBundleInput) =>
+      api<{ bundleId: string; items: LeaveRequestSummary[] }>('/api/leaves/requests', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leaves'] });
+      qc.invalidateQueries({ queryKey: ['balance'] });
+    },
+  });
+}
+
 export function useCancelLeave() {
   const qc = useQueryClient();
   return useMutation({
@@ -295,17 +382,16 @@ export interface ApproveLeavePayload {
   id: string;
   note?: string;
   allocation?: Array<{ date: string; slot: 'FULL' | 'HALF_MORNING' | 'HALF_AFTERNOON' }>;
-  /** Optional custom email overriding the auto-template. */
-  emailSubject?: string;
-  emailBody?: string;
+  /** For bundles: itemId → per-day allocation for that item. */
+  bundleAllocations?: Record<string, Array<{ date: string; slot: 'FULL' | 'HALF_MORNING' | 'HALF_AFTERNOON' }>>;
 }
 export function useApproveLeave() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, note, allocation, emailSubject, emailBody }: ApproveLeavePayload) =>
+    mutationFn: ({ id, note, allocation, bundleAllocations }: ApproveLeavePayload) =>
       api(`/api/leaves/requests/${id}/approve`, {
         method: 'POST',
-        body: JSON.stringify({ note, allocation, emailSubject, emailBody }),
+        body: JSON.stringify({ note, allocation, bundleAllocations }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leaves'] });
@@ -318,16 +404,14 @@ export function useApproveLeave() {
 export interface RejectLeavePayload {
   id: string;
   note: string;
-  emailSubject?: string;
-  emailBody?: string;
 }
 export function useRejectLeave() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, note, emailSubject, emailBody }: RejectLeavePayload) =>
+    mutationFn: ({ id, note }: RejectLeavePayload) =>
       api(`/api/leaves/requests/${id}/reject`, {
         method: 'POST',
-        body: JSON.stringify({ note, emailSubject, emailBody }),
+        body: JSON.stringify({ note }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leaves'] });
@@ -485,6 +569,7 @@ export interface AttendanceRecordData {
   totalWorkedMinutes: number;
   totalBreakMinutes: number;
   overtimeMinutes: number;
+  deficitMinutes: number;
   status: string;
   source: string;
   notes: string | null;
@@ -558,6 +643,7 @@ export function useClockIn() {
                 totalWorkedMinutes: 0,
                 totalBreakMinutes: 0,
                 overtimeMinutes: 0,
+                deficitMinutes: 0,
                 status: 'PRESENT',
                 source: 'MANUAL',
                 notes: null,
@@ -586,6 +672,39 @@ export function useClockOut() {
       qc.setQueryData<TodayResponse>(TODAY_KEY, (old) => {
         if (!old?.record) return old;
         return { ...old, record: { ...old.record, clockOutTime: now } };
+      });
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(TODAY_KEY, ctx.prev);
+    },
+    onSettled: () => invalidateAttendance(qc),
+  });
+}
+
+/**
+ * Undo an accidental clock-out on today's session. Optimistically clears
+ * clockOutTime so the widget snaps back to the working state before the
+ * server round-trip completes.
+ */
+export function useResumeSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api('/api/attendance/resume', { method: 'POST' }),
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: TODAY_KEY });
+      const prev = qc.getQueryData<TodayResponse>(TODAY_KEY);
+      qc.setQueryData<TodayResponse>(TODAY_KEY, (old) => {
+        if (!old?.record) return old;
+        return {
+          ...old,
+          record: {
+            ...old.record,
+            clockOutTime: null,
+            totalWorkedMinutes: 0,
+            overtimeMinutes: 0,
+          },
+        };
       });
       return { prev };
     },

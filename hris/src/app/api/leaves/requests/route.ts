@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/db';
-import { requireAuth, parseBody, err } from '@/lib/api';
-import { CreateLeaveSchema } from '@/lib/validation';
+import { requireAuth, err } from '@/lib/api';
+import { CreateLeaveSchema, CreateLeaveBundleSchema, type AllocationEntryInput } from '@/lib/validation';
 import { computeDurationDays, leaveTypeLabel, formatLeavePeriod } from '@/lib/leave';
 import { approvalRecipients } from '@/lib/routing';
 import { notifyMany } from '@/lib/notifications';
 import { sendEmail } from '@/lib/email';
 import { leaveSubmittedEmail } from '@/emails/templates';
+import type { LeaveType, User } from '@prisma/client';
 
 /**
  * GET /api/leaves/requests
@@ -62,7 +64,14 @@ export async function GET(req: Request) {
 }
 
 /**
- * POST /api/leaves/requests — submit a new leave request.
+ * POST /api/leaves/requests — submit one leave request or a multi-type bundle.
+ *
+ * Payload shape is detected at parse time:
+ *   • Legacy: { leaveType, startDate, endDate, isHalfDay, ..., reason, channels }
+ *     Creates a single request. Existing entry points keep working unchanged.
+ *   • Bundle: { items: [{ leaveType, perDayAllocation }...], reason, channels }
+ *     Creates N requests sharing a bundleId. Used by the new Apply-for-leave page.
+ *
  * Available to any authenticated user (including HR / Admin / Super Admin).
  * Approval routing depends on the applicant's role (see lib/routing.ts).
  */
@@ -70,8 +79,21 @@ export async function POST(req: Request) {
   const [user, error] = await requireAuth(req);
   if (error) return error;
 
-  const [input, badReq] = await parseBody(req, CreateLeaveSchema);
-  if (badReq) return badReq;
+  // Peek at the body once so we can route to the right schema; parseBody would
+  // consume the stream. This mirrors how other endpoints handle union payloads.
+  const raw = await req.json().catch(() => null);
+  if (!raw || typeof raw !== 'object')
+    return err(400, 'BAD_REQUEST', 'Request body must be a JSON object.');
+
+  if (Array.isArray((raw as { items?: unknown }).items)) {
+    return handleBundle(user, raw);
+  }
+
+  const parsed = CreateLeaveSchema.safeParse(raw);
+  if (!parsed.success) {
+    return err(400, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid payload.');
+  }
+  const input = parsed.data;
 
   const duration = computeDurationDays(input);
   if (duration <= 0)
@@ -211,6 +233,243 @@ export async function POST(req: Request) {
   return NextResponse.json(serialize(created), { status: 201 });
 }
 
+// ─── Bundle handler ─────────────────────────────────
+
+/**
+ * Multi-type submit path. Each enabled leave type becomes its own LeaveRequest
+ * row; all rows share a bundleId so approve/reject/cancel can cascade
+ * atomically (see [id]/approve, [id]/reject routes).
+ *
+ * Balance is checked against the SUM of same-typed items in the payload — a
+ * user cannot request 3 casual days across two items when only 2 are left.
+ * Overlap is checked against the union of the days across all items in the
+ * bundle: no single day may already sit on an active leave.
+ */
+async function handleBundle(
+  user: User,
+  raw: unknown,
+) {
+  const parsed = CreateLeaveBundleSchema.safeParse(raw);
+  if (!parsed.success) {
+    return err(400, 'VALIDATION_ERROR', parsed.error.issues[0]?.message ?? 'Invalid bundle payload.');
+  }
+  const input = parsed.data;
+
+  // Every day must be unique across the whole bundle. Same-day-different-type
+  // isn't meaningful (you can't be on casual AND sick the same morning).
+  const seenDays = new Set<string>();
+  for (const item of input.items) {
+    for (const entry of item.perDayAllocation) {
+      if (seenDays.has(entry.date))
+        return err(409, 'DAY_COLLISION', `${entry.date} is used more than once in this submission.`);
+      seenDays.add(entry.date);
+    }
+  }
+
+  // Reject any day that falls on the BD weekend (Fri/Sat) or on a
+  // public holiday — leave can only be spent on days the employee would
+  // otherwise be working.
+  const bundleDaysList = [...seenDays];
+  const dow = (iso: string) => new Date(iso + 'T00:00:00Z').getUTCDay();
+  const wknd = bundleDaysList.find((d) => dow(d) === 5 || dow(d) === 6);
+  if (wknd)
+    return err(400, 'NON_WORKING_DAY', `${wknd} is a weekend — leave can't be requested on non-working days.`);
+  const holidayRows = await prisma.holiday.findMany({
+    where: { date: { in: bundleDaysList.map((d) => new Date(d + 'T00:00:00Z')) } },
+    select: { date: true, name: true },
+  });
+  if (holidayRows.length > 0) {
+    const h = holidayRows[0];
+    return err(400, 'HOLIDAY_CLASH', `${h.date.toISOString().slice(0, 10)} is a public holiday (${h.name}) — already off.`);
+  }
+
+  // Validate against existing pending/approved requests. Any day in the
+  // bundle that overlaps an existing active leave request is rejected.
+  const bundleDays = [...seenDays].sort();
+  const bundleMin = new Date(bundleDays[0] + 'T00:00:00Z');
+  const bundleMax = new Date(bundleDays[bundleDays.length - 1] + 'T00:00:00Z');
+  const overlappingRequests = await prisma.leaveRequest.findMany({
+    where: {
+      employeeId: user.id,
+      status: { in: ['PENDING', 'APPROVED'] },
+      NOT: [
+        { endDate: { lt: bundleMin } },
+        { startDate: { gt: bundleMax } },
+      ],
+    },
+    select: { startDate: true, endDate: true, status: true },
+  });
+  for (const other of overlappingRequests) {
+    for (const day of bundleDays) {
+      const d = new Date(day + 'T00:00:00Z');
+      if (d >= other.startDate && d <= other.endDate)
+        return err(409, 'OVERLAP', `${day} overlaps another ${other.status.toLowerCase()} leave request.`);
+    }
+  }
+
+  // Balance check per type — duration = count(FULL) + 0.5 * count(HALF_*)
+  const year = new Date().getFullYear();
+  const balance = await prisma.leaveBalance.findUnique({
+    where: { employeeId_cycleYear: { employeeId: user.id, cycleYear: year } },
+  });
+  if (!balance)
+    return err(500, 'NO_BALANCE', 'No leave balance found for this cycle.');
+
+  const perTypeDuration = new Map<LeaveType, number>();
+  for (const item of input.items) {
+    const d = durationFromAllocation(item.perDayAllocation);
+    if (d <= 0)
+      return err(400, 'ZERO_DURATION', `${item.leaveType.toLowerCase()} leave in this submission comes out to zero days.`);
+    perTypeDuration.set(item.leaveType, d);
+    const avail = availableFor(balance, item.leaveType);
+    if (d > avail)
+      return err(
+        400,
+        'INSUFFICIENT_BALANCE',
+        `Only ${avail} day(s) of ${item.leaveType.toLowerCase()} leave available; requested ${d}.`,
+      );
+  }
+
+  const bundleId = randomUUID();
+
+  const created = await prisma.$transaction(async (tx) => {
+    const rows = [];
+    for (const item of input.items) {
+      const duration = perTypeDuration.get(item.leaveType)!;
+      const sorted = [...item.perDayAllocation].sort((a, b) => a.date.localeCompare(b.date));
+      const startDate = new Date(sorted[0].date + 'T00:00:00Z');
+      const endDate   = new Date(sorted[sorted.length - 1].date + 'T00:00:00Z');
+      // Derive the legacy isHalfDay/halfDaySlot columns from the allocation
+      // so old consumers (list, detail, admin queue) still read something
+      // sensible while they migrate to perDayAllocation.
+      const isHalfDay = sorted.length === 1 && sorted[0].slot !== 'FULL';
+      const halfDaySlot: 'MORNING' | 'AFTERNOON' | null = isHalfDay
+        ? sorted[0].slot === 'HALF_MORNING'
+          ? 'MORNING'
+          : 'AFTERNOON'
+        : null;
+
+      const row = await tx.leaveRequest.create({
+        data: {
+          employeeId: user.id,
+          leaveType: item.leaveType,
+          startDate,
+          endDate,
+          isHalfDay,
+          halfDaySlot,
+          durationDays: duration,
+          reason: input.reason,
+          description: input.description,
+          attachmentUrl: input.attachmentUrl,
+          channels: input.channels,
+          customMessage: input.customMessage,
+          bundleId,
+          perDayAllocation: sorted as unknown as import('@prisma/client').Prisma.InputJsonValue,
+        },
+      });
+
+      if (item.leaveType === 'CASUAL') {
+        await tx.leaveBalance.update({
+          where: { id: balance.id },
+          data: { casualPending: { increment: duration } },
+        });
+      } else if (item.leaveType === 'SICK') {
+        await tx.leaveBalance.update({
+          where: { id: balance.id },
+          data: { sickPending: { increment: duration } },
+        });
+      }
+      rows.push(row);
+    }
+    return rows;
+  });
+
+  // Notifications + email — one per created row, matching the legacy path.
+  // Admin review UI is untouched this iteration; bundling for the reviewer's
+  // inbox is a follow-up.
+  const allUsers = await prisma.user.findMany({ where: { isActive: true } });
+  const { to, cc } = await approvalRecipients(user, allUsers, 'notifications.leave_pending');
+  const settings = await prisma.systemSettings.upsert({
+    where: { id: 'singleton' },
+    update: {},
+    create: { id: 'singleton' },
+  });
+  const reviewUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/admin/requests`;
+
+  for (const row of created) {
+    const alloc = row.perDayAllocation as AllocationEntryInput[] | null;
+    const period = alloc
+      ? formatAllocationPeriod(alloc)
+      : formatLeavePeriod(
+          row.startDate.toISOString().slice(0, 10),
+          row.endDate.toISOString().slice(0, 10),
+          row.isHalfDay,
+          row.halfDaySlot,
+          row.timeFrom,
+          row.timeTo,
+        );
+    const durationLabel = `${Number(row.durationDays)} day${Number(row.durationDays) === 1 ? '' : 's'}`;
+
+    await notifyMany(
+      [...to, ...cc].map((rid) => ({
+        recipientId: rid.id,
+        type: 'LEAVE_PENDING' as const,
+        title: `Leave request from ${user.fullName}`,
+        body: `${leaveTypeLabel(row.leaveType)} · ${period} · ${durationLabel}`,
+        referenceType: 'leave_request',
+        referenceId: row.id,
+      })),
+    );
+
+    if (input.channels.includes('EMAIL') && to.length > 0) {
+      const reviewerName = to.length === 1 ? to[0].fullName : 'team';
+      const { subject, html } = leaveSubmittedEmail(
+        {
+          senderName: settings.senderName,
+          employeeName: user.fullName,
+          reviewerName,
+          leaveType: leaveTypeLabel(row.leaveType),
+          period,
+          duration: durationLabel,
+          reason: input.reason,
+          description: input.description,
+          reviewUrl,
+        },
+        { senderName: settings.senderName },
+      );
+      void sendEmail({
+        to: to.map((u) => u.email),
+        cc: cc.map((u) => u.email),
+        subject,
+        html,
+        referenceType: 'leave_request',
+        referenceId: row.id,
+      });
+    }
+  }
+
+  return NextResponse.json({ bundleId, items: created.map(serialize) }, { status: 201 });
+}
+
+function durationFromAllocation(alloc: AllocationEntryInput[]): number {
+  let d = 0;
+  for (const e of alloc) d += e.slot === 'FULL' ? 1 : 0.5;
+  return d;
+}
+
+function formatAllocationPeriod(alloc: AllocationEntryInput[]): string {
+  const sorted = [...alloc].sort((a, b) => a.date.localeCompare(b.date));
+  if (sorted.length === 1) {
+    const e = sorted[0];
+    const suffix =
+      e.slot === 'HALF_MORNING' ? ' (morning half)'
+      : e.slot === 'HALF_AFTERNOON' ? ' (afternoon half)'
+      : '';
+    return e.date + suffix;
+  }
+  return `${sorted[0].date} → ${sorted[sorted.length - 1].date}`;
+}
+
 // ─── helpers ─────────────────────────────────
 
 function availableFor(b: {
@@ -243,6 +502,8 @@ interface RawRequest {
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
   adminNote: string | null;
   approvedAllocation: unknown;
+  bundleId?: string | null;
+  perDayAllocation?: unknown;
   reviewedById: string | null;
   reviewedAt: Date | null;
   createdAt: Date;
@@ -274,6 +535,8 @@ function serialize(r: RawRequest) {
     status: r.status,
     adminNote: r.adminNote,
     approvedAllocation: r.approvedAllocation,
+    bundleId: r.bundleId ?? null,
+    perDayAllocation: r.perDayAllocation ?? null,
     reviewedById: r.reviewedById,
     reviewedAt: r.reviewedAt?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),

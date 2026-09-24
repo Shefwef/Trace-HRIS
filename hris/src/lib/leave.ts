@@ -55,10 +55,10 @@ export function computeDurationFromAllocation(entries: AllocationEntry[]): numbe
 }
 export function slotLabel(slot: AllocationSlot): string {
   return slot === 'FULL'
-    ? 'Full day (9 AM – 5 PM)'
+    ? 'Full'
     : slot === 'HALF_MORNING'
-    ? 'Half day, morning (9 AM – 1 PM)'
-    : 'Half day, afternoon (1 PM – 5 PM)';
+    ? 'Morning half'
+    : 'Afternoon half';
 }
 export function slotShort(slot: AllocationSlot): string {
   return slot === 'FULL' ? 'Full' : slot === 'HALF_MORNING' ? '½ AM' : '½ PM';

@@ -18,7 +18,10 @@ export const CreateLeaveSchema = z
       .optional(),
     reason: z.string().min(2).max(100),
     description: z.string().max(500).optional(),
-    attachmentUrl: z.string().url().optional(),
+    // Accepts either a relative path returned by /api/upload/leave-attachment
+    // ("/attachments/...") or a full https URL from an external doc host.
+    // `.url()` alone would reject the relative path our own uploader returns.
+    attachmentUrl: z.string().min(1).max(500).optional(),
     channels: z.array(z.enum(['EMAIL', 'IN_APP'])).min(1),
     customMessage: z.string().max(4000).optional(),
   })
@@ -45,24 +48,58 @@ export type CreateLeaveInput = z.infer<typeof CreateLeaveSchema>;
 
 export const RejectLeaveSchema = z.object({
   note: z.string().min(4).max(500),
-  /** Optional custom email fields. If provided, override the default template. */
-  emailSubject: z.string().min(3).max(200).optional(),
-  emailBody: z.string().min(10).max(4000).optional(),
 });
 
 export const AllocationEntrySchema = z.object({
   date: z.iso.date(),
   slot: z.enum(['FULL', 'HALF_MORNING', 'HALF_AFTERNOON']),
 });
+export type AllocationEntryInput = z.infer<typeof AllocationEntrySchema>;
+
+/**
+ * Payload for the new multi-type apply flow. One submit produces N leave
+ * requests (one per enabled type), all sharing a bundleId. Shared fields
+ * (reason/description/attachment/channels) apply to every row in the bundle.
+ *
+ * Legacy `CreateLeaveSchema` above stays valid for single-type requests
+ * (existing entry points, admin grant flow, etc.).
+ */
+export const CreateLeaveBundleSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        leaveType: z.enum(['CASUAL', 'SICK', 'REPLACEMENT']),
+        /** Sorted list of day slots covered by this leave type. */
+        perDayAllocation: z.array(AllocationEntrySchema).min(1).max(60),
+      }),
+    )
+    .min(1)
+    .max(3)
+    .refine(
+      (items) => new Set(items.map((i) => i.leaveType)).size === items.length,
+      { message: 'A bundle cannot include the same leave type twice.' },
+    ),
+  reason: z.string().min(2).max(100),
+  description: z.string().max(500).optional(),
+  // Same rule as CreateLeaveSchema — allow relative paths from our uploader.
+  attachmentUrl: z.string().min(1).max(500).optional(),
+  channels: z.array(z.enum(['EMAIL', 'IN_APP'])).min(1),
+  customMessage: z.string().max(4000).optional(),
+});
+export type CreateLeaveBundleInput = z.infer<typeof CreateLeaveBundleSchema>;
 
 export const ApproveLeaveSchema = z.object({
   note: z.string().max(500).optional(),
-  /** Optional per-day allocation. If provided, replaces the request's original
-   *  duration with the sum of these entries. */
+  /** Optional per-day allocation for the targeted (representative) row.
+   *  Kept for backward compat with the single-request approve flow. */
   allocation: z.array(AllocationEntrySchema).min(1).max(60).optional(),
-  /** Optional custom email fields. If provided, override the default template. */
-  emailSubject: z.string().min(3).max(200).optional(),
-  emailBody: z.string().min(10).max(4000).optional(),
+  /** For bundle approvals: map of itemId → per-day allocation. Rows in this
+   *  map get approved with their custom allocation; rows omitted are
+   *  approved with their as-submitted allocation. */
+  bundleAllocations: z.record(
+    z.string().min(1),
+    z.array(AllocationEntrySchema).min(1).max(60),
+  ).optional(),
 });
 export type AllocationEntry = z.infer<typeof AllocationEntrySchema>;
 

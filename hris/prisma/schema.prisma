@@ -151,6 +151,11 @@ model User {
   /// Soft-deactivation tracking. Set when isActive flips to false.
   deactivatedAt    DateTime?
   deactivatedById  String?
+  /// Soft-delete tracking. When set, the user is hidden from most views and
+  /// scheduled for permanent removal 60 days later (cron/auto-clean).
+  /// Restore = set to null. Permanent delete = actual DELETE.
+  deletedAt        DateTime?
+  deletedById      String?
   /// Team assignment: LINE_MANAGER self-relation.
   lineManagerId    String?
   lineManager      User?    @relation("TeamReports", fields: [lineManagerId], references: [id], onDelete: SetNull)
@@ -243,6 +248,16 @@ model LeaveRequest {
   /// balance is not adjusted since the leave IS the credit).
   overtimeWorkDate      DateTime?             @db.Date
 
+  /// Groups multi-type submissions from the Apply-for-leave page. All rows
+  /// in a bundle share reason/description/attachment/channels + move through
+  /// PENDING → APPROVED/REJECTED/CANCELLED together (approve/reject/cancel
+  /// endpoints cascade on bundleId). Null for legacy single-type requests.
+  bundleId              String?
+  /// Per-day full/half breakdown at submit time, source of truth for the
+  /// row's durationDays. Shape: [{ date: "YYYY-MM-DD", slot: "FULL" | "HALF_MORNING" | "HALF_AFTERNOON" }, ...]
+  /// Null for legacy requests that only stored isHalfDay/halfDaySlot at the range level.
+  perDayAllocation      Json?
+
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
 
@@ -252,6 +267,7 @@ model LeaveRequest {
 
   @@index([employeeId, status])
   @@index([status, createdAt(sort: Desc)])
+  @@index([bundleId])
   @@map("leave_requests")
 }
 

@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { ArrowRight, CalendarClock, ClipboardList, Plus, TrendingUp, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCurrentUser } from '@/lib/session';
 import { useBalance, useMyLeaves, useHolidays, useAttendanceHistory } from '@/lib/hooks';
 import { AttendanceWidget } from '../../components/attendance/AttendanceWidget';
@@ -11,7 +12,6 @@ import { LeaveBalanceCards } from '../../components/leave/LeaveBalanceCards';
 import { MiniCalendar } from '../../components/attendance/MiniCalendar';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { LeaveApplicationFlow } from '../../components/leave/LeaveApplicationFlow';
 import { fmtDateShort, fmtRelative, leaveTypeLabel, leaveTypeShort, todayISO } from '../../lib/utils';
 import type { LeaveStatus, LeaveType } from '../../lib/types';
 import './Dashboard.css';
@@ -56,7 +56,7 @@ function workDaysSoFar(year: number, month: number): number {
 
 export function EmployeeDashboard() {
   const user = useCurrentUser();
-  const [applyOpen, setApplyOpen] = useState(false);
+  const router = useRouter();
   const { data: balance } = useBalance();
   const { data: myLeaves } = useMyLeaves();
   const { data: holidays = [] } = useHolidays();
@@ -112,7 +112,7 @@ export function EmployeeDashboard() {
           variant="primary"
           size="lg"
           leadingIcon={<Plus size={16} />}
-          onClick={() => setApplyOpen(true)}
+          onClick={() => router.push('/leaves/apply')}
         >
           Apply for Leave
         </Button>
@@ -255,8 +255,6 @@ export function EmployeeDashboard() {
       </div>
 
       <DashboardLocationMap />
-
-      <LeaveApplicationFlow open={applyOpen} onClose={() => setApplyOpen(false)} />
     </div>
   );
 }
