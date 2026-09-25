@@ -646,7 +646,7 @@ function StepSend({
           onClick={() => toggle('IN_APP')}
           icon={<MessageSquare size={20} />}
           label="In-app message"
-          desc="Delivered inside HRIS instantly"
+          desc="Delivered inside HRMS instantly"
         />
       </div>
       {channels.length === 0 && (

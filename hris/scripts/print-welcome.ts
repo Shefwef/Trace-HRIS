@@ -34,10 +34,10 @@ const roleTour: Record<string, string> = {
   SUPER_ADMIN: "do everything, plus view the audit log and system health page.",
 };
 
-const subject = `Welcome to Trace HRIS, ${u.firstName}`;
+const subject = `Welcome to TRACE HRMS, ${u.firstName}`;
 const body = `Hi ${u.firstName},
 
-You've been added to Trace HRIS, our internal HR portal. It's where you'll manage leave, log attendance, and see the office calendar — no more spreadsheets or WhatsApp threads.
+You've been added to TRACE HRMS, our internal HR portal. It's where you'll manage leave, log attendance, and see the office calendar — no more spreadsheets or WhatsApp threads.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 YOUR LOGIN CREDENTIALS
@@ -51,7 +51,7 @@ YOUR LOGIN CREDENTIALS
 Please change your password on first sign-in — click your avatar in the top right → Account settings → Security.
 
 What you can do here:
-In Trace HRIS you can ${roleTour[primary] ?? 'use the app.'}
+In TRACE HRMS you can ${roleTour[primary] ?? 'use the app.'}
 
 First things to try:
   1. Sign in and click the little bot icon in the bottom-right — it can answer any question about the app.

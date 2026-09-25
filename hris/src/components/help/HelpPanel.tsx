@@ -40,7 +40,7 @@ const SUGGESTED_PROMPTS = [
 const GREETING: ChatMsg = {
   role: 'assistant',
   content:
-    "Hi! I'm the Trace HRIS assistant. Ask me anything about this app — how to apply for a leave, approve one, log extra work, invite employees, or general HR-information-system concepts.",
+    "Hi! I'm the TRACE HRMS assistant. Ask me anything about this app — how to apply for a leave, approve one, log extra work, invite employees, or general HR-information-system concepts.",
 };
 
 export function HelpPanel() {
@@ -122,7 +122,7 @@ export function HelpPanel() {
           aria-label="Open assistant"
         >
           <MessageCircle size={18} />
-          <span>Ask HRIS</span>
+          <span>Ask HRMS</span>
         </button>
       )}
 
@@ -135,14 +135,14 @@ export function HelpPanel() {
               exit={{ opacity: 0, y: 20, scale: 0.96 }}
               transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
               role="dialog"
-              aria-label="HRIS assistant"
+              aria-label="HRMS assistant"
             >
               <header className="help-header">
                 <div className="help-title">
                   <div className="help-title-icon"><Bot size={18} /></div>
                   <div>
                     <div className="help-eyebrow">ASSISTANT</div>
-                    <h2>Ask HRIS</h2>
+                    <h2>Ask HRMS</h2>
                   </div>
                 </div>
                 <div className="help-header-actions">
@@ -214,7 +214,7 @@ export function HelpPanel() {
                 <textarea
                   ref={inputRef}
                   className="help-input"
-                  placeholder="Ask about Trace HRIS…"
+                  placeholder="Ask about TRACE HRMS…"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -231,7 +231,7 @@ export function HelpPanel() {
               </form>
 
               <footer className="help-footer">
-                Only answers about Trace HRIS or HR-information-system concepts.
+                Only answers about TRACE HRMS or HR-information-system concepts.
               </footer>
             </motion.aside>
         )}

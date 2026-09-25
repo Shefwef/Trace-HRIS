@@ -93,7 +93,7 @@ export function Sidebar() {
         <div className="sidebar-logo">
           <img
             src="/Trace%20Consulting%20Logo%20Dark.png"
-            alt="Trace HRIS"
+            alt="TRACE HRMS"
           />
         </div>
         <button className="sidebar-close" onClick={closeMobile} aria-label="Close menu">

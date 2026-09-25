@@ -292,7 +292,7 @@ function reportMeta(title: string, period: Period): [string, CellValue][] {
     ['Report', title],
     ['Period', period.label],
     ['Generated on', generatedOn()],
-    ['Source', 'Trace HRIS'],
+    ['Source', 'TRACE HRMS'],
   ];
 }
 

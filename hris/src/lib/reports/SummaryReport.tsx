@@ -54,7 +54,7 @@ export function SummaryReport(input: SummaryReportInput) {
   return (
     <Document
       title={`Performance Summary — ${input.employeeName} — Cycle ${input.cycleYear}`}
-      author="Trace HRIS"
+      author="TRACE HRMS"
       subject={`Cycle performance summary for ${input.employeeName}`}
     >
       <Page size="A4" style={styles.page}>

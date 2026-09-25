@@ -4,7 +4,7 @@ import { QueryProvider } from './query-provider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'HRIS — People, simplified.',
+  title: 'HRMS — People, simplified.',
   description: 'A clean, calm HR Information System.',
   icons: {
     icon: [
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Trace HRIS',
+    title: 'TRACE HRMS',
   },
 };
 

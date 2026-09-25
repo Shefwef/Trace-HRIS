@@ -14,7 +14,7 @@ export default async function LandingPage() {
         <div className="landing-brand">
           <img
             src="/Trace%20Consulting%20Logo%20Dark.png"
-            alt="Trace HRIS"
+            alt="TRACE HRMS"
             className="landing-brand-logo"
           />
         </div>
@@ -75,7 +75,7 @@ export default async function LandingPage() {
 
       <footer className="landing-footer">
         <span>© {new Date().getFullYear()} TRACE Consulting</span>
-        <span>Powered by HRIS</span>
+        <span>Powered by HRMS</span>
       </footer>
     </div>
   );

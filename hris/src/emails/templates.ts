@@ -38,7 +38,7 @@ function shell({
         <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.06);">
           <tr>
             <td style="background:linear-gradient(135deg,${BRAND_PRIMARY},${BRAND_SECONDARY});padding:24px 32px;color:white;">
-              <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.85;">Trace HRIS</div>
+              <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.85;">TRACE HRMS</div>
               <div style="font-size:20px;font-weight:700;margin-top:4px;">${escape(title)}</div>
             </td>
           </tr>
@@ -233,7 +233,7 @@ export function holidayNoticeEmail(input: {
       title: `Holiday notice - ${input.holidayName}`,
       senderName: s.senderName,
       content,
-      ctaLabel: 'Open HRIS calendar',
+      ctaLabel: 'Open HRMS calendar',
       ctaHref: input.ctaUrl,
     }),
   };
@@ -301,7 +301,7 @@ export function welcomeInviteEmail(input: {
 
   const content = `
     ${p(`Hi ${input.employeeName},`)}
-    ${p(`Welcome to Trace! ${input.inviterName} has created an account for you on the Trace HRIS${input.designation ? ` as ${input.designation}` : ''}. You can now sign in and access your leaves, attendance, and profile.`)}
+    ${p(`Welcome to Trace! ${input.inviterName} has created an account for you on the TRACE HRMS${input.designation ? ` as ${input.designation}` : ''}. You can now sign in and access your leaves, attendance, and profile.`)}
     ${credsBlock}
     ${p(`For your security, please change this password the first time you sign in — head to your profile from the top-right avatar menu after logging in.`)}
     ${p(`If you weren't expecting this invitation, please let us know by replying to this email.`)}
@@ -310,7 +310,7 @@ export function welcomeInviteEmail(input: {
   const text = [
     `Hi ${input.employeeName},`,
     ``,
-    `Welcome to Trace! ${input.inviterName} has created an account for you on the Trace HRIS${input.designation ? ` as ${input.designation}` : ''}.`,
+    `Welcome to Trace! ${input.inviterName} has created an account for you on the TRACE HRMS${input.designation ? ` as ${input.designation}` : ''}.`,
     ``,
     `Your sign-in credentials:`,
     `  Email:    ${input.loginEmail}`,
@@ -324,12 +324,12 @@ export function welcomeInviteEmail(input: {
   ].join('\n');
 
   return {
-    subject: `Welcome to Trace HRIS — your account is ready`,
+    subject: `Welcome to TRACE HRMS — your account is ready`,
     html: shell({
-      title: 'Welcome to Trace HRIS',
+      title: 'Welcome to TRACE HRMS',
       senderName: s.senderName,
       content,
-      ctaLabel: 'Sign in to Trace HRIS',
+      ctaLabel: 'Sign in to TRACE HRMS',
       ctaHref: input.signInUrl,
     }),
     text,

@@ -81,7 +81,7 @@ export function LeavesReport(input: LeavesReportInput) {
   return (
     <Document
       title={`Leave History — ${input.employeeName} — Cycle ${input.cycleYear}`}
-      author="Trace HRIS"
+      author="TRACE HRMS"
       subject={`Cycle leave history for ${input.employeeName}`}
     >
       <Page size="A4" style={styles.page}>

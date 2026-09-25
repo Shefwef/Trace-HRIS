@@ -4,7 +4,7 @@ import { checkPermission } from '@/lib/permissions';
 import { WorkLocations } from '@/screens/admin/WorkLocations';
 
 export const metadata = {
-  title: 'Work Locations | Trace HRIS',
+  title: 'Work Locations | TRACE HRMS',
 };
 
 export default async function Page() {

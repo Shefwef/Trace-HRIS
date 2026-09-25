@@ -48,7 +48,7 @@ export function AdminSettings() {
       <div className="stg-head">
         <div>
           <h1>Settings</h1>
-          <p className="muted">Company-wide configuration for HRIS.</p>
+          <p className="muted">Company-wide configuration for HRMS.</p>
         </div>
         <div className="stg-head-actions">
           {saved && !isDirty && <span className="stg-saved">✓ Saved</span>}
@@ -82,14 +82,14 @@ export function AdminSettings() {
               Email addresses <Badge variant="info">HR + Admin</Badge>
             </h3>
             <p>
-              HR, Admin, and Super Admin can update the addresses HRIS uses for every outgoing
+              HR, Admin, and Super Admin can update the addresses HRMS uses for every outgoing
               notification. Changes take effect immediately for new emails.
             </p>
             <Field label="Sender name" hint="Shown as the from-name in the recipient's inbox.">
               <TextInput
                 value={value('senderName') ?? ''}
                 onChange={(e) => setField('senderName', e.target.value)}
-                placeholder="Trace HRIS"
+                placeholder="TRACE HRMS"
               />
             </Field>
             <Field label="Reply-to address" hint="Where employee replies land. Should be a monitored inbox (e.g. HR).">

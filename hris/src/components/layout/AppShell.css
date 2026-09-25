@@ -11,7 +11,7 @@
 }
 .shell-content {
   flex: 1;
-  /* Extra bottom padding leaves permanent clearance for the fixed 'Ask HRIS'
+  /* Extra bottom padding leaves permanent clearance for the fixed 'Ask HRMS'
      chatbot FAB (~56px tall) at the bottom-right so it never masks the last
      card on any page. */
   padding: var(--space-8) var(--space-8) 96px;

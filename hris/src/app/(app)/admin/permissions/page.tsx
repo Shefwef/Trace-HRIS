@@ -4,7 +4,7 @@ import { checkPermission } from '@/lib/permissions';
 import { PermissionsMatrix } from '@/screens/admin/PermissionsMatrix';
 
 export const metadata = {
-  title: 'Permissions | Trace HRIS',
+  title: 'Permissions | TRACE HRMS',
 };
 
 export default async function Page() {

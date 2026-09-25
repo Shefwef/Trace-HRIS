@@ -52,7 +52,7 @@ export function AllEmployeesReport(input: AllEmployeesReportInput) {
   return (
     <Document
       title={`All Employees — Cycle ${input.cycleYear}`}
-      author="Trace HRIS"
+      author="TRACE HRMS"
       subject={`Company-wide cycle report`}
     >
       <Page size="A4" orientation="landscape" style={styles.page}>

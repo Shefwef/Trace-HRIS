@@ -66,7 +66,7 @@ export function AttendanceReport(input: AttendanceReportInput) {
   return (
     <Document
       title={`Attendance Report — ${input.employeeName} — ${period}`}
-      author="Trace HRIS"
+      author="TRACE HRMS"
       subject={`Monthly attendance for ${input.employeeName}`}
     >
       <Page size="A4" style={styles.page}>

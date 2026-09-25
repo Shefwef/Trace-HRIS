@@ -29,7 +29,7 @@ The office will remain closed on this day. Please plan your work accordingly.
 We wish you a wonderful ${name}! 🎉
 
 Warm regards,
-Trace HRIS`;
+TRACE HRMS`;
 }
 
 type Recipients = 'ALL' | 'HR_ONLY' | 'STAFF_ONLY' | 'CUSTOM';

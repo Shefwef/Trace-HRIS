@@ -5,7 +5,7 @@
  * OSM tile usage policy: max 2 parallel requests per user, cache enabled by
  * default in MapLibre, attribution required (included in OSM_MAP_STYLE).
  * Nominatim usage policy: max 1 req/sec — the 350 ms debounce in the picker
- * keeps us well within that limit for a single-company HRIS.
+ * keeps us well within that limit for a single-company HRMS.
  */
 
 /** Maps are always available — neither tiles nor geocoding require a paid key. */

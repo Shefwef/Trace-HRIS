@@ -187,7 +187,7 @@ export async function POST(req: Request) {
 
 /** Generate a memorable but strong password. */
 function generatePassword(): string {
-  const words = ['Trace', 'HRIS', 'Welcome', 'Access', 'Secure', 'Login'];
+  const words = ['Trace', 'HRMS', 'Welcome', 'Access', 'Secure', 'Login'];
   const w1 = words[Math.floor(Math.random() * words.length)];
   const num = Math.floor(1000 + Math.random() * 9000);
   const suffix = '!';

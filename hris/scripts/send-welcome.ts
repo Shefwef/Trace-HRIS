@@ -1,6 +1,6 @@
 /**
  * Send a welcome email to a seeded employee with their credentials and a
- * quick tour of what they can do in Trace HRIS. Uses Resend + the app's
+ * quick tour of what they can do in TRACE HRMS. Uses Resend + the app's
  * brand template.
  *
  * Usage:
@@ -48,20 +48,20 @@ function renderWelcomeHtml(u: {
 
   return `<!doctype html>
 <html>
-<head><meta charset="utf-8" /><title>Welcome to Trace HRIS</title></head>
+<head><meta charset="utf-8" /><title>Welcome to TRACE HRMS</title></head>
 <body style="margin:0;padding:0;background:#f7f9fc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a202c;">
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f7f9fc;padding:32px 16px;"><tr><td align="center">
 <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.06);">
 
 <tr><td style="background:linear-gradient(135deg,${BRAND_PRIMARY},${BRAND_SECONDARY});padding:32px;color:white;">
-  <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;opacity:0.85;">Trace HRIS</div>
+  <div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;opacity:0.85;">TRACE HRMS</div>
   <div style="font-size:24px;font-weight:700;margin-top:6px;">Welcome, ${escape(u.firstName)} 👋</div>
   <div style="font-size:14px;opacity:0.9;margin-top:4px;">Your account is ready.</div>
 </td></tr>
 
 <tr><td style="padding:32px;font-size:15px;line-height:1.6;color:#1a202c;">
 <p style="margin:0 0 16px;">Hi ${escape(u.firstName)},</p>
-<p style="margin:0 0 16px;">You've been added to <strong>Trace HRIS</strong>, our internal HR portal. It's where you'll manage your leave, log your attendance, and see the office calendar — no more spreadsheets or WhatsApp threads.</p>
+<p style="margin:0 0 16px;">You've been added to <strong>TRACE HRMS</strong>, our internal HR portal. It's where you'll manage your leave, log your attendance, and see the office calendar — no more spreadsheets or WhatsApp threads.</p>
 
 <div style="margin:24px 0;padding:20px;background:#f7f9fc;border-radius:8px;border-left:4px solid ${BRAND_PRIMARY};">
   <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:#4a5568;margin-bottom:12px;font-weight:600;">Your login credentials</div>
@@ -88,7 +88,7 @@ function renderWelcomeHtml(u: {
   <strong>Trouble signing in?</strong> Use the "Forgot password?" link on the sign-in page — it emails a reset link. If that doesn't work, message ${escape(u.senderName)}.
 </div>
 
-<div style="margin-top:28px;"><a href="${escape(u.appUrl)}" style="display:inline-block;background:${BRAND_PRIMARY};color:white;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;font-size:14px;">Sign in to Trace HRIS</a></div>
+<div style="margin-top:28px;"><a href="${escape(u.appUrl)}" style="display:inline-block;background:${BRAND_PRIMARY};color:white;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;font-size:14px;">Sign in to TRACE HRMS</a></div>
 
 <p style="margin:24px 0 0;color:#718096;font-size:13px;">Welcome aboard.</p>
 </td></tr>
@@ -116,7 +116,7 @@ async function main() {
   await prisma.$disconnect();
 
   const from = settings?.fromEmail ?? 'onboarding@resend.dev';
-  const senderName = settings?.senderName ?? 'Trace HRIS';
+  const senderName = settings?.senderName ?? 'TRACE HRMS';
   const replyTo = settings?.senderEmail ?? undefined;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://trace-hris.vercel.app';
 
@@ -138,7 +138,7 @@ async function main() {
     from: `${senderName} <${from}>`,
     to: u.email,
     replyTo: replyTo,
-    subject: `Welcome to Trace HRIS, ${u.firstName}`,
+    subject: `Welcome to TRACE HRMS, ${u.firstName}`,
     html,
   });
 

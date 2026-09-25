@@ -3,7 +3,7 @@ import { SignIn } from '@clerk/nextjs';
 export default function SignInPage() {
   return (
     <SignIn
-      // No sign-up link — HRIS is invite-only.
+      // No sign-up link — HRMS is invite-only.
       // signUpUrl is intentionally omitted; footerAction hides the "Sign up" link.
       appearance={{
         elements: {

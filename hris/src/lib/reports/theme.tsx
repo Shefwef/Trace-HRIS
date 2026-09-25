@@ -253,7 +253,7 @@ export function BrandHeader(props: {
         <View style={styles.headerLeft}>
           {props.logoDataUrl ? <Image src={props.logoDataUrl} style={styles.logo} /> : null}
           <View>
-            <Text style={styles.headerWordmark}>TRACE HRIS</Text>
+            <Text style={styles.headerWordmark}>TRACE HRMS</Text>
             <Text style={styles.headerTitle}>{props.title}</Text>
           </View>
         </View>
