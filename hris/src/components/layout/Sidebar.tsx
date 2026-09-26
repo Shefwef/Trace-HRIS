@@ -8,7 +8,6 @@ import {
   ClipboardList,
   Clock,
   Calendar,
-  BarChart3,
   FileText,
   Users,
   Inbox,
@@ -33,7 +32,6 @@ const employeeNav = [
   { to: '/leaves/replacement', label: 'Replacement Leave', icon: <Gift size={18} /> },
   { to: '/attendance', label: 'Attendance', icon: <Clock size={18} /> },
   { to: '/calendar', label: 'Calendar', icon: <Calendar size={18} /> },
-  { to: '/analytics', label: 'Analytics', icon: <BarChart3 size={18} /> },
   { to: '/reports', label: 'Reports', icon: <FileText size={18} /> },
 ];
 

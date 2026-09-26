@@ -180,9 +180,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   // an employee cannot self-edit are joiningDate (drives the leave cycle),
   // roles, isActive, and lineManagerId — all of which have their own perm
   // checks above.
+  // Fields an employee may edit on their OWN profile. Deliberately excludes
+  // employeeIdCode / joiningDate / lineManagerId — those are HR-managed and
+  // drive downstream logic (leave cycle, org chart) that shouldn't be
+  // rewritable by the individual.
   const SELF_EDITABLE = new Set([
     'fullName', 'phone', 'dateOfBirth', 'avatarUrl',
-    'employeeIdCode', 'designation', 'department',
+    'designation', 'department',
   ]);
   if (isSelf && !canRole && !canDeactivate && !canAssignLM) {
     for (const [key, value] of Object.entries(input)) {

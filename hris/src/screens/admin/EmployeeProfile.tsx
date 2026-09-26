@@ -9,7 +9,9 @@ import {
   useSoftDeleteEmployee,
   useRestoreEmployee,
   usePermanentDeleteEmployee,
+  useUsers,
 } from '@/lib/hooks';
+import { checkPermissionSync } from '@/lib/permissionsMeta';
 import { avatarColorFor, initials, useCurrentUser } from '@/lib/session';
 import { useStore } from '@/lib/store';
 import { Avatar } from '../../components/ui/Avatar';
@@ -47,6 +49,7 @@ interface DraftProfile {
   dateOfBirth: string;
   joiningDate: string;
   avatarUrl: string;
+  lineManagerId: string | null;
   roles: AppRole[];
 }
 
@@ -54,6 +57,7 @@ export function EmployeeProfilePage({ id }: { id: string }) {
   const router = useRouter();
   const currentUser = useCurrentUser();
   const { data: profile, isLoading, error } = useEmployeeProfile(id);
+  const { data: allUsers = [] } = useUsers({ includeDeactivated: false });
   const update = useUpdateEmployee();
   const softDelete = useSoftDeleteEmployee();
   const restore = useRestoreEmployee();
@@ -80,6 +84,7 @@ export function EmployeeProfilePage({ id }: { id: string }) {
       dateOfBirth: profile.dateOfBirth ?? '',
       joiningDate: profile.joiningDate ?? '',
       avatarUrl: profile.avatarUrl ?? '',
+      lineManagerId: profile.lineManagerId ?? null,
       roles: (profile.roles as AppRole[]) ?? [],
     });
   }, [profile]);
@@ -103,6 +108,21 @@ export function EmployeeProfilePage({ id }: { id: string }) {
   const canPermaDelete = isFullReviewer;
   const canEdit = isFullReviewer || isSelf;
   const canEditRoles = assignableRoles(currentUser ?? { role: 'EMPLOYEE' }).length > 0 && !isSelf;
+  const canEditLineManager = currentUser
+    ? checkPermissionSync(
+        { role: currentUser.role, roles: currentUser.roles ?? null },
+        'employee.assign_line_manager',
+      )
+    : false;
+
+  // Line-manager candidates: active LM-role users, excluding self.
+  const lmCandidates = useMemo(
+    () => allUsers.filter(
+      (u) => u.isActive && u.id !== id &&
+        (u.roles?.length ? u.roles : [u.role]).includes('LINE_MANAGER'),
+    ),
+    [allUsers, id],
+  );
   if (isLoading) return <div className="ep-loading">Loading profile…</div>;
   if (error) return <div className="ep-error">Failed to load profile: {(error as Error).message}</div>;
   if (!profile || !draft) return null;
@@ -129,6 +149,7 @@ export function EmployeeProfilePage({ id }: { id: string }) {
       avatarUrl: draft.avatarUrl || undefined,
     };
     if (canEditRoles && draft.roles.length > 0) patch.roles = draft.roles;
+    if (canEditLineManager) patch.lineManagerId = draft.lineManagerId;
 
     update.mutate(
       { id, patch: patch as never },
@@ -239,9 +260,10 @@ export function EmployeeProfilePage({ id }: { id: string }) {
             <ProfileField label="Email" value={profile.email} readOnly />
             <ProfileField
               label="Employee ID"
-              editing={editing}
-              value={editing ? draft.employeeIdCode : (profile.employeeIdCode ?? '—')}
+              editing={editing && isFullReviewer}
+              value={editing && isFullReviewer ? draft.employeeIdCode : (profile.employeeIdCode ?? '—')}
               onChange={(v) => setDraft({ ...draft, employeeIdCode: v })}
+              readOnly={!isFullReviewer}
             />
             <ProfileField
               label="Designation"
@@ -285,7 +307,10 @@ export function EmployeeProfilePage({ id }: { id: string }) {
             <h2>Roles</h2>
           {editing && canEditRoles ? (
             <div className="ep-roles-editor">
-              {(['SUPER_ADMIN', 'ADMIN', 'HR', 'LINE_MANAGER', 'EMPLOYEE'] as AppRole[]).map((r) => {
+              {/* SUPER_ADMIN is intentionally omitted from the picker — that role
+                  is provisioned through infrastructure only, never granted from
+                  the UI. */}
+              {(['ADMIN', 'HR', 'LINE_MANAGER', 'EMPLOYEE'] as AppRole[]).map((r) => {
                 const allowed = assignableRoles(currentUser ?? { role: 'EMPLOYEE' }).includes(r);
                 const on = draft.roles.includes(r);
                 return (
@@ -300,7 +325,9 @@ export function EmployeeProfilePage({ id }: { id: string }) {
                   </label>
                 );
               })}
-              <p className="muted ep-hint">You can grant: {assignableRoles(currentUser ?? { role: 'EMPLOYEE' }).map((r) => ROLE_LABEL[r]).join(', ') || '—'}.</p>
+              <p className="muted ep-hint">
+                You can grant: {assignableRoles(currentUser ?? { role: 'EMPLOYEE' }).filter((r) => r !== 'SUPER_ADMIN').map((r) => ROLE_LABEL[r]).join(', ') || '—'}.
+              </p>
             </div>
           ) : (
             <div className="ep-roles-view">
@@ -315,11 +342,24 @@ export function EmployeeProfilePage({ id }: { id: string }) {
           )}
         </section>
 
-          {/* Line manager — read-only on the profile page. Changing team
-              assignment is done from the Team management view. */}
+          {/* Line manager — editable by HR/Admin only, read-only for
+              everyone else including the employee themselves. */}
           <section className="card ep-section">
             <h2>Line manager</h2>
-            {profile.lineManager ? (
+            {editing && canEditLineManager ? (
+              <select
+                className="input"
+                value={draft.lineManagerId ?? ''}
+                onChange={(e) => setDraft({ ...draft, lineManagerId: e.target.value || null })}
+              >
+                <option value="">— None —</option>
+                {lmCandidates.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.fullName}{u.designation ? ` (${u.designation})` : ''}
+                  </option>
+                ))}
+              </select>
+            ) : profile.lineManager ? (
               <div className="ep-lm">
                 <Avatar
                   initials={initials(profile.lineManager.fullName)}
@@ -393,7 +433,7 @@ export function EmployeeProfilePage({ id }: { id: string }) {
       {/* Danger zone (deactivate / delete / restore) */}
       {(canDeactivate || canDelete || canRestore || canPermaDelete) && (
         <div className="card ep-danger">
-          <h2>Account actions</h2>
+          <h2>Action</h2>
           <div className="ep-danger-actions">
             {status === 'ACTIVE' && canDeactivate && (
               <Button variant="secondary" leadingIcon={<UserX size={14} />} onClick={() => setConfirmDeactivate(true)}>

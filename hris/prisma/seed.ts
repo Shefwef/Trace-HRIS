@@ -134,7 +134,7 @@ async function seedSystemSettings() {
     create: {
       id: 'singleton',
       senderEmail: 'shefadib@gmail.com',
-      senderName: 'Trace HRIS',
+      senderName: 'TRACE HRMS',
       fromEmail: 'onboarding@resend.dev',
     },
     update: {},
@@ -143,7 +143,7 @@ async function seedSystemSettings() {
 }
 
 async function main() {
-  console.log('\n🌱 Seeding Trace HRIS...\n');
+  console.log('\n🌱 Seeding TRACE HRMS...\n');
 
   console.log('System settings:');
   await seedSystemSettings();
