@@ -145,7 +145,7 @@ export function LeaveRequestsPage() {
           className={cx('lreq-tab', tab === 'EXTRA' && 'lreq-tab-active')}
           onClick={() => setTab('EXTRA')}
         >
-          Extra work logs
+          Replacement Leave
           <span className="lreq-tab-count">{pendingExtras}</span>
         </button>
       </div>

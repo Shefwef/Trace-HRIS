@@ -1,5 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { CheckCircle2, Coffee, Zap, Plus, Building2, MapPin, ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react';
 import { useAttendanceHistory, useBalance, type AttendanceRecordData, type LocationEventSummary } from '@/lib/hooks';
 import { AttendanceWidget } from '../../components/attendance/AttendanceWidget';
@@ -83,13 +84,18 @@ export function AttendancePage() {
             Worked on a weekend or holiday? Log it here to earn replacement leave — a full day = +1,
             a half day (9–1 or 1–5) = +0.5. HR or Admin approves.
           </p>
-          <Button
-            variant="primary"
-            leadingIcon={<Plus size={16} />}
-            onClick={() => setExtraOpen(true)}
-          >
-            Log extra work day
-          </Button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Button
+              variant="primary"
+              leadingIcon={<Plus size={16} />}
+              onClick={() => setExtraOpen(true)}
+            >
+              Log extra work day
+            </Button>
+            <Link href="/leaves/replacement" style={{ textDecoration: 'none' }}>
+              <Button variant="secondary">View history</Button>
+            </Link>
+          </div>
         </div>
       </div>
 

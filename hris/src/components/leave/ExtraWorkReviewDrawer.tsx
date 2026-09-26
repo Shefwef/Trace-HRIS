@@ -48,7 +48,7 @@ export function ExtraWorkReviewDrawer({ logId, onClose }: Props) {
       <Drawer
         open={!!logId}
         onClose={onClose}
-        title="Extra work log"
+        title="Replacement leave review"
         subtitle={`Submitted ${fmtDate(log.createdAt, 'd MMM yyyy · h:mm a')}`}
       >
         <div className="lrd">
@@ -67,27 +67,41 @@ export function ExtraWorkReviewDrawer({ logId, onClose }: Props) {
             </div>
           </div>
 
-          <div className="lrd-section">
-            <div className="lrd-section-title">Work day</div>
-            <div className="lrd-period">
-              <div className="lrd-period-item">
-                <div className="lrd-period-label">Date</div>
-                <div className="lrd-period-value">{fmtDate(log.workDate)}</div>
-              </div>
-              <div className="lrd-period-item">
-                <div className="lrd-period-label">Slot</div>
-                <div className="lrd-period-value">{extraWorkTypeLabel(log.workType)}</div>
-              </div>
-              <div className="lrd-period-count">
-                <Badge variant="replacement">+{credit} day{credit === 1 ? '' : 's'}</Badge>
-              </div>
+          <div className="lrd-facts">
+            <div className="lrd-fact">
+              <span className="lrd-fact-label">Work day</span>
+              <span className="lrd-fact-value">{fmtDate(log.workDate, 'd MMM yyyy')} ({fmtDate(log.workDate, 'EEE')})</span>
             </div>
+            <div className="lrd-fact">
+              <span className="lrd-fact-label">Slot</span>
+              <span className="lrd-fact-value">{extraWorkTypeLabel(log.workType)}</span>
+            </div>
+            <div className="lrd-fact">
+              <span className="lrd-fact-label">Reason</span>
+              <span className="lrd-fact-value">{log.reason}</span>
+            </div>
+            {log.description && (
+              <div className="lrd-fact">
+                <span className="lrd-fact-label">Description</span>
+                <span className="lrd-fact-value lrd-fact-multiline">{log.description}</span>
+              </div>
+            )}
           </div>
 
-          <div className="lrd-section">
-            <div className="lrd-section-title">Reason</div>
-            <div className="lrd-reason">{log.reason}</div>
-            {log.description && <div className="lrd-desc">{log.description}</div>}
+          <div className="lrd-card">
+            <div className="lrd-card-title">Leave calculation</div>
+            <div className="lrd-calc-rows">
+              <div className="lrd-calc-row">
+                <span className="lrd-calc-name">
+                  {log.workType === 'FULL_DAY' ? 'Full day worked' : log.workType === 'HALF_DAY_MORNING' ? 'Morning half worked' : 'Afternoon half worked'}
+                </span>
+                <span className="lrd-calc-days">= {credit} {credit === 1 ? 'day' : 'days'}</span>
+              </div>
+            </div>
+            <div className="lrd-calc-total">
+              <span>Credit if approved</span>
+              <strong>+{credit} {credit === 1 ? 'day' : 'days'}</strong>
+            </div>
           </div>
 
           {log.status === 'PENDING' && (
