@@ -6,7 +6,11 @@ const securityHeaders = [
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   {
     key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+    // `microphone=(self)` allows our own pages to use the mic (needed for
+    // Tracy's voice input) while still blocking any embedded third-party
+    // iframe from requesting it. Camera + geolocation stay fully denied
+    // because no feature in the app uses them.
+    value: 'camera=(), microphone=(self), geolocation=(), interest-cohort=()',
   },
   {
     key: 'Strict-Transport-Security',
