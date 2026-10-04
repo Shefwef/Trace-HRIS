@@ -15,7 +15,7 @@ import {
   useUsers,
   type Balance,
 } from '@/lib/hooks';
-import { computeDurationDays, standardMinutesFromWindow, workWindowSlots } from '@/lib/leave';
+import { computeDurationDays, standardMinutesFromWindow, workWindowSlotsForRoles, workWindowForRoles } from '@/lib/leave';
 import { Button } from '../ui/Button';
 import { Field, TextArea, TextInput } from '../ui/Field';
 import { cx, fmtDate, leaveTypeLabel } from '../../lib/utils';
@@ -41,13 +41,18 @@ export function LeaveApplicationFlow({ open, onClose }: Props) {
     ? standardMinutesFromWindow(settings.workStartTime, settings.workEndTime)
     : 480;
   // Office window and its midpoint drive the default timeFrom/timeTo and the
-  // "specific time slot" sub-range so a 09:00-17:00 configuration splits at
-  // 13:00 while a 08:30-17:30 configuration splits at 13:00 as well — but a
-  // 10:00-18:00 window correctly splits at 14:00. Keeps every leave-flow
-  // default aligned with Settings instead of a hardcoded 13:00.
+  // "specific time slot" sub-range. Role-aware: STAFF sees their shifted
+  // window (base ±30 min) and the midpoint recalculates against the shifted
+  // window, so a 09:00-17:00 office shows STAFF the 08:30-17:30 window and
+  // splits at 13:00; Employees see 09:00-17:00 and the same 13:00 midpoint.
   const windows = useMemo(
-    () => workWindowSlots(settings?.workStartTime ?? '09:00', settings?.workEndTime ?? '17:00'),
-    [settings?.workStartTime, settings?.workEndTime],
+    () => workWindowSlotsForRoles(user?.roles, settings?.workStartTime ?? '09:00', settings?.workEndTime ?? '17:00'),
+    [user?.roles, settings?.workStartTime, settings?.workEndTime],
+  );
+  // Same shifted window as a plain start/end pair, used for the picker defaults.
+  const shiftedWindow = useMemo(
+    () => workWindowForRoles(user?.roles, settings?.workStartTime ?? '09:00', settings?.workEndTime ?? '17:00'),
+    [user?.roles, settings?.workStartTime, settings?.workEndTime],
   );
 
   const admins = useMemo(
@@ -67,9 +72,9 @@ export function LeaveApplicationFlow({ open, onClose }: Props) {
   const [isHalfDay, setIsHalfDay] = useState(false);
   const [halfDaySlot, setHalfDaySlot] = useState<HalfDaySlot>('MORNING');
   const [useTimeRange, setUseTimeRange] = useState(false);
-  // Picker defaults track Settings so a 09:00-17:00 office splits at 13:00,
-  // a 08:30-17:30 office at 13:00, and a 10:00-18:00 office at 14:00.
-  const [timeFrom, setTimeFrom] = useState(windows.fullDay ? (settings?.workStartTime ?? '09:00') : '09:00');
+  // Picker defaults track the user's (role-shifted) window so STAFF starts
+  // at 08:30 and Employees at 09:00 for a 9-5 configured office.
+  const [timeFrom, setTimeFrom] = useState(shiftedWindow.startTime);
   const [timeTo, setTimeTo] = useState(windows.midpoint);
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
@@ -121,7 +126,7 @@ export function LeaveApplicationFlow({ open, onClose }: Props) {
     setIsHalfDay(false);
     setHalfDaySlot('MORNING');
     setUseTimeRange(false);
-    setTimeFrom(settings?.workStartTime ?? '09:00');
+    setTimeFrom(shiftedWindow.startTime);
     setTimeTo(windows.midpoint);
     setReason('');
     setDescription('');

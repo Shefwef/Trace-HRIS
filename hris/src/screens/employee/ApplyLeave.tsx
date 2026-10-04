@@ -16,7 +16,8 @@ import { useStore } from '@/lib/store';
 import { Button } from '../../components/ui/Button';
 import { Field, TextInput, TextArea } from '../../components/ui/Field';
 import { cx, fmtDate } from '../../lib/utils';
-import { workWindowSlots, type WorkWindowSlots } from '@/lib/leave';
+import { workWindowSlotsForRoles, type WorkWindowSlots } from '@/lib/leave';
+import { useCurrentUser } from '@/lib/session';
 import './ApplyLeave.css';
 
 // ─── Types ─────────────────────────────────────────────────
@@ -80,6 +81,7 @@ function durationOf(alloc: LeaveDayAllocation[]): number {
 
 export function ApplyLeavePage() {
   const router = useRouter();
+  const user = useCurrentUser();
   const { data: balance, isLoading: balanceLoading } = useBalance();
   const { data: holidayList = [] } = useHolidays();
   const { data: settings } = useSettings();
@@ -89,11 +91,12 @@ export function ApplyLeavePage() {
   // Fast lookup for weekend + public-holiday exclusion.
   const holidays = useMemo(() => new Set(holidayList.map((h) => h.date)), [holidayList]);
 
-  // Half-day slot labels follow the admin's office window from Settings so
-  // "Morning" / "Afternoon" always display real-time times (e.g. 09:00-13:00).
+  // Half-day slot labels follow the admin's office window from Settings AND
+  // the user's role: STAFF see their shifted window (base ±30 min) so a
+  // 09:00-17:00 office shows 08:30-13:00 / 13:00-17:30 for them.
   const windows = useMemo<WorkWindowSlots>(
-    () => workWindowSlots(settings?.workStartTime ?? '09:00', settings?.workEndTime ?? '17:00'),
-    [settings?.workStartTime, settings?.workEndTime],
+    () => workWindowSlotsForRoles(user?.roles, settings?.workStartTime ?? '09:00', settings?.workEndTime ?? '17:00'),
+    [user?.roles, settings?.workStartTime, settings?.workEndTime],
   );
 
   const [casual, setCasual]           = useState<TypeState>({ ...emptyState });

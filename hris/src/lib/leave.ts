@@ -173,6 +173,49 @@ export function workWindowSlots(workStartTime: string, workEndTime: string): Wor
   };
 }
 
+/** How many minutes earlier STAFF start and later they end on each side of
+ *  the office window. 30 min + 30 min = 60 extra minutes, matching
+ *  STAFF_EXTRA_MINUTES used in the attendance math (lib/biometric.ts). */
+export const STAFF_OFFSET_MINUTES = 30;
+
+function shiftHHmm(hhmm: string, deltaMin: number): string {
+  const [h = 0, m = 0] = hhmm.split(':').map(Number);
+  const total = Math.max(0, Math.min(24 * 60, h * 60 + m + deltaMin));
+  const nh = Math.floor(total / 60) % 24;
+  const nm = total % 60;
+  return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
+}
+
+/**
+ * Returns the office window shifted for the given role set. STAFF starts
+ * STAFF_OFFSET_MINUTES earlier and ends STAFF_OFFSET_MINUTES later than the
+ * base window; everyone else gets the base window as-is. Call this before
+ * anything that labels or displays "your shift" so STAFF users see 08:30-17:30
+ * instead of 09:00-17:00 for a 9-5 configured office.
+ */
+export function workWindowForRoles(
+  roles: readonly string[] | null | undefined,
+  workStartTime: string,
+  workEndTime: string,
+): { startTime: string; endTime: string } {
+  const isStaff = roles?.includes('STAFF') ?? false;
+  if (!isStaff) return { startTime: workStartTime, endTime: workEndTime };
+  return {
+    startTime: shiftHHmm(workStartTime, -STAFF_OFFSET_MINUTES),
+    endTime:   shiftHHmm(workEndTime,   +STAFF_OFFSET_MINUTES),
+  };
+}
+
+/** Convenience: same as workWindowSlots() but applies the STAFF shift first. */
+export function workWindowSlotsForRoles(
+  roles: readonly string[] | null | undefined,
+  workStartTime: string,
+  workEndTime: string,
+): WorkWindowSlots {
+  const w = workWindowForRoles(roles, workStartTime, workEndTime);
+  return workWindowSlots(w.startTime, w.endTime);
+}
+
 /**
  * Human-readable label for an extra-work slot. When `windows` is provided
  * (e.g. from SystemSettings.workStartTime/workEndTime) the label reflects

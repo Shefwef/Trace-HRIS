@@ -11,6 +11,7 @@ import { useBalance, useMyLeaves, useAttendanceHistory, useSettings } from '@/li
 import { StatCard } from '../../components/ui/StatCard';
 import { fmtDuration } from '../../lib/utils';
 import { AttendanceHeatmap } from './AttendanceHeatmap';
+import { workWindowForRoles } from '@/lib/leave';
 import './Analytics.css';
 
 export function AnalyticsPage() {
@@ -23,6 +24,17 @@ export function AnalyticsPage() {
     now.getMonth() + 1,
   );
   const { data: settings } = useSettings();
+
+  // Role-shifted office window: STAFF see their own 8:30-17:30 (for a 9-5
+  // configured office), everyone else sees the base window. Used by the
+  // heatmap axis + the overtime hint text so STAFF see "beyond your 9-hour
+  // standard" instead of the generic 8-hour message.
+  const shifted = useMemo(
+    () => workWindowForRoles(user?.roles, settings?.workStartTime ?? '09:00', settings?.workEndTime ?? '17:00'),
+    [user?.roles, settings?.workStartTime, settings?.workEndTime],
+  );
+  const isStaff = user?.roles?.includes('STAFF') ?? false;
+  const standardHoursLabel = isStaff ? '9-hour' : '8-hour';
 
   const approved = useMemo(
     () => (myLeaves ?? []).filter((r) => r.status === 'APPROVED'),
@@ -124,7 +136,7 @@ export function AnalyticsPage() {
         <StatCard
           label="Overtime this month"
           value={fmtDuration(overtimeMinutes)}
-          hint="Beyond your standard hours"
+          hint={`Beyond your ${standardHoursLabel} standard day`}
           icon={<Award size={16} />}
           accent="warning"
         />
@@ -141,8 +153,8 @@ export function AnalyticsPage() {
         records={records}
         leaves={myLeaves ?? []}
         workDaysBitmask={settings?.workDaysBitmask ?? 62}
-        startHour={settings?.workStartTime ? Number(settings.workStartTime.split(':')[0]) : 9}
-        endHour={settings?.workEndTime ? Number(settings.workEndTime.split(':')[0]) : 17}
+        startHour={Number(shifted.startTime.split(':')[0])}
+        endHour={Number(shifted.endTime.split(':')[0]) + (Number(shifted.endTime.split(':')[1]) > 0 ? 1 : 0)}
       />
 
       {!hasAnyData ? (

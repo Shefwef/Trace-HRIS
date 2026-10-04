@@ -1,4 +1,4 @@
-import { workWindowSlots } from './leave';
+import { workWindowSlots, workWindowForRoles } from './leave';
 
 /** Live-settings snapshot passed to buildChatbotSystemPrompt() at request time. */
 export interface ChatKbSettings {
@@ -218,18 +218,26 @@ No public sign-up - HRMS is invite-only. Anyone signed into Clerk who isn't in o
  * without any redeploy.
  */
 export function buildChatbotSystemPrompt(settings: ChatKbSettings): string {
-  const slots = workWindowSlots(settings.workStartTime, settings.workEndTime);
+  // Base window (Employee / HR / Line Manager / Super Admin).
+  const employeeSlots = workWindowSlots(settings.workStartTime, settings.workEndTime);
   const [sh, sm] = settings.workStartTime.split(':').map(Number);
   const [eh, em] = settings.workEndTime.split(':').map(Number);
   const standardMinutes = Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
   const standardHours = (standardMinutes / 60).toFixed(standardMinutes % 60 === 0 ? 0 : 1);
+  // STAFF window: 30 min earlier start, 30 min later end.
+  const staffWindow = workWindowForRoles(['STAFF'], settings.workStartTime, settings.workEndTime);
+  const staffSlots = workWindowSlots(staffWindow.startTime, staffWindow.endTime);
+  const staffHours = ((standardMinutes + 60) / 60).toFixed((standardMinutes + 60) % 60 === 0 ? 0 : 1);
   const liveBlock = `
 ## LIVE CONFIG (authoritative - overrides anything in the knowledge base)
-- Office window: **${settings.workStartTime} - ${settings.workEndTime}** (${standardHours} hours standard day for Employees).
-- STAFF role: standard day is **${((standardMinutes + 60) / 60).toFixed((standardMinutes + 60) % 60 === 0 ? 0 : 1)} hours** (base + 60 min, +30 min shift on each side).
-- Half-day morning: **${slots.morningHalf}** · Half-day afternoon: **${slots.afternoonHalf}**
-- Overtime: anything worked beyond the standard day · Deficit: anything short of it.
-- Leave defaults for a new hire: **${settings.casualTotalDefault ?? 8} casual days**, **${settings.sickTotalDefault ?? 10} sick days** per cycle.
+- **Employee / HR / Line Manager / Super Admin window**: ${settings.workStartTime} - ${settings.workEndTime} (${standardHours}-hour standard day)
+  - Half-day morning: ${employeeSlots.morningHalf}
+  - Half-day afternoon: ${employeeSlots.afternoonHalf}
+- **STAFF window**: ${staffWindow.startTime} - ${staffWindow.endTime} (${staffHours}-hour standard day — 30 min earlier start + 30 min later end than the base window)
+  - Half-day morning: ${staffSlots.morningHalf}
+  - Half-day afternoon: ${staffSlots.afternoonHalf}
+- Overtime: anything worked beyond the standard day for the user's role · Deficit: anything short of it.
+- Leave defaults for a new hire: ${settings.casualTotalDefault ?? 8} casual days, ${settings.sickTotalDefault ?? 10} sick days per cycle.
 `.trim();
   return `You are TRACY, the TRACE HRMS AI Assistant - the in-app chatbot users open by clicking the "Ask TRACY" button.
 

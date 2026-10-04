@@ -7,13 +7,15 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Field, TextArea, TextInput } from '../ui/Field';
 import { cx } from '../../lib/utils';
-import { workWindowSlots } from '@/lib/leave';
+import { workWindowSlotsForRoles } from '@/lib/leave';
 import './GrantReplacementLeaveModal.css';
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  employee: { id: string; fullName: string } | null;
+  /** Pass `roles` when the target is a STAFF user so the half-day labels
+   *  show their shifted window (base ±30 min) instead of the base office hours. */
+  employee: { id: string; fullName: string; roles?: readonly string[] | null } | null;
 }
 
 type Slot = 'MORNING' | 'AFTERNOON';
@@ -22,8 +24,8 @@ export function GrantReplacementLeaveModal({ open, onClose, employee }: Props) {
   const grant = useGrantReplacementLeave();
   const { data: settings } = useSettings();
   const windows = useMemo(
-    () => workWindowSlots(settings?.workStartTime ?? '09:00', settings?.workEndTime ?? '17:00'),
-    [settings?.workStartTime, settings?.workEndTime],
+    () => workWindowSlotsForRoles(employee?.roles, settings?.workStartTime ?? '09:00', settings?.workEndTime ?? '17:00'),
+    [employee?.roles, settings?.workStartTime, settings?.workEndTime],
   );
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
