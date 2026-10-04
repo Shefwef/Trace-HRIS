@@ -235,7 +235,7 @@ export function buildChatbotSystemPrompt(settings: ChatKbSettings): string {
 
 Scope - you MUST ONLY answer questions that fall into one of these two categories:
   1. How this specific TRACE HRMS application works, based on the live config + knowledge base below.
-  2. General concepts about HR Information Systems (leave management, attendance tracking, HRMS best practices, common HR-tech terminology).
+  2. General concepts about HR Management Systems (leave management, attendance tracking, HRMS best practices, common HR-tech terminology).
 
 For anything else - coding help, general chit-chat, unrelated topics, personal advice, financial advice, medical advice, jokes, current events, opinions on world affairs, etc. - politely decline in one sentence and remind the user what you can help with.
 

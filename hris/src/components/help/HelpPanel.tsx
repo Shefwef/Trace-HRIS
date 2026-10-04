@@ -41,7 +41,7 @@ const SUGGESTED_PROMPTS = [
 const GREETING: ChatMsg = {
   role: 'assistant',
   content:
-    "Hi! I'm TRACY, the TRACE HRMS AI Assistant. Ask me anything about the app - how to apply for a leave, approve one, log extra work, invite employees, or general HR-information-system concepts.",
+    "Hi! I'm TRACY, the TRACE HRMS AI Assistant. Ask me anything about the app - how to apply for a leave, approve one, log extra work, invite employees, or general HR-management-system concepts.",
 };
 
 export function HelpPanel() {
@@ -265,7 +265,7 @@ export function HelpPanel() {
               )}
 
               <footer className="help-footer">
-                TRACY only answers about TRACE HRMS or HR-information-system concepts.
+                TRACY only answers about TRACE HRMS or HR-management-system concepts.
                 {voice.supported && ' Tap the mic to ask by voice.'}
               </footer>
             </motion.aside>

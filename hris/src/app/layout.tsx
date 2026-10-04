@@ -5,7 +5,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'HRMS - People, simplified.',
-  description: 'A clean, calm HR Information System.',
+  description: 'A clean, calm HR Management System.',
   icons: {
     icon: [
       { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
